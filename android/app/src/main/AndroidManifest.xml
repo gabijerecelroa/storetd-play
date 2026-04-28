@@ -10,6 +10,8 @@
         android:required="false" />
 
     <application
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:name=".StoreTdPlayApplication"
         android:allowBackup="false"
         android:banner="@drawable/ic_banner"
