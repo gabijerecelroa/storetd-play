@@ -37,6 +37,7 @@ object PlaylistDiskCache {
 
             channels.forEach { channel ->
                 val item = JSONObject()
+                    .put("id", channel.id)
                     .put("name", channel.name)
                     .put("streamUrl", channel.streamUrl)
                     .put("group", channel.group)
@@ -64,6 +65,7 @@ object PlaylistDiskCache {
 
                 channels.add(
                     Channel(
+                        id = item.optString("id").ifBlank { item.optString("streamUrl") },
                         name = item.optString("name"),
                         streamUrl = item.optString("streamUrl"),
                         group = item.optString("group"),
