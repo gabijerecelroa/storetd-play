@@ -1,5 +1,6 @@
 package com.storetd.play.core.epg
 
+import java.io.BufferedInputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.text.SimpleDateFormat
@@ -7,28 +8,54 @@ import java.util.Locale
 import java.util.TimeZone
 
 object EpgApi {
+    private const val MAX_XML_BYTES = 4 * 1024 * 1024
+
     fun downloadXml(epgUrl: String): String {
         val connection = URL(epgUrl).openConnection() as HttpURLConnection
 
         connection.requestMethod = "GET"
         connection.connectTimeout = 15000
-        connection.readTimeout = 25000
+        connection.readTimeout = 35000
         connection.setRequestProperty("Accept", "application/xml,text/xml,*/*")
         connection.setRequestProperty("User-Agent", "StoreTD-Play-EPG")
 
         val code = connection.responseCode
 
-        val text = if (code in 200..299) {
-            connection.inputStream.bufferedReader().use { it.readText() }
-        } else {
-            connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+        if (code !in 200..299) {
+            val errorText = connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+            connection.disconnect()
+            throw IllegalStateException("No se pudo descargar EPG. HTTP $code $errorText")
+        }
+
+        val contentLength = connection.contentLengthLong
+        if (contentLength > MAX_XML_BYTES) {
+            connection.disconnect()
+            throw IllegalStateException("La EPG es muy pesada para esta version. Usa una EPG mas chica o por pais.")
+        }
+
+        val bytes = ByteArray(8192)
+        var total = 0
+        val output = StringBuilder()
+
+        BufferedInputStream(connection.inputStream).use { input ->
+            while (true) {
+                val read = input.read(bytes)
+                if (read <= 0) break
+
+                total += read
+
+                if (total > MAX_XML_BYTES) {
+                    connection.disconnect()
+                    throw IllegalStateException("La EPG supera 4 MB. Usa una EPG mas liviana.")
+                }
+
+                output.append(String(bytes, 0, read, Charsets.UTF_8))
+            }
         }
 
         connection.disconnect()
 
-        if (code !in 200..299) {
-            throw IllegalStateException("No se pudo descargar EPG. HTTP $code")
-        }
+        val text = output.toString()
 
         if (!text.contains("<tv", ignoreCase = true)) {
             throw IllegalStateException("El archivo EPG no parece XMLTV valido.")
@@ -42,7 +69,7 @@ object XmlTvParser {
     fun parse(xml: String): List<EpgProgram> {
         val channels = parseChannels(xml)
         val now = System.currentTimeMillis()
-        val maxFuture = now + 1000L * 60L * 60L * 24L
+        val maxFuture = now + 1000L * 60L * 60L * 12L
 
         val programmes = mutableListOf<EpgProgram>()
 
@@ -79,7 +106,7 @@ object XmlTvParser {
                 )
             )
 
-            if (programmes.size >= 2500) break
+            if (programmes.size >= 800) break
         }
 
         return programmes.sortedWith(
