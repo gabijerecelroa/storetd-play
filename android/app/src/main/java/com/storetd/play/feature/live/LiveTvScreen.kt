@@ -391,7 +391,7 @@ private fun StatusBlock(
             style = MaterialTheme.typography.titleLarge
         )
 
-        if (!state.isLoading && state.totalVisibleCount == 0 && state.errorMessage == null) {
+        if (!state.isLoading && !state.isFiltering && state.totalVisibleCount == 0 && state.errorMessage == null) {
             Spacer(Modifier.height(8.dp))
             Text(
                 text = mode.emptyMessage,

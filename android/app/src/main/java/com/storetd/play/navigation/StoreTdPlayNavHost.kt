@@ -9,6 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -28,6 +29,7 @@ import com.storetd.play.feature.history.HistoryScreen
 import com.storetd.play.feature.home.HomeScreen
 import com.storetd.play.feature.live.ContentMode
 import com.storetd.play.feature.live.LiveTvScreen
+import com.storetd.play.feature.live.LiveTvViewModel
 import com.storetd.play.feature.maintenance.MaintenanceScreen
 import com.storetd.play.feature.player.PlayerScreen
 import com.storetd.play.feature.settings.SettingsScreen
@@ -41,6 +43,7 @@ fun StoreTdPlayNavHost() {
     val navController = rememberNavController()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val liveTvViewModel: LiveTvViewModel = viewModel()
 
     var appConfig by remember {
         mutableStateOf(LocalAppConfig.get(context))
@@ -149,6 +152,7 @@ fun StoreTdPlayNavHost() {
 
         composable(Routes.LiveTv) {
             LiveTvScreen(
+                viewModel = liveTvViewModel,
                 contentMode = ContentMode.LiveTv,
                 onBack = { navController.popBackStack() },
                 onPlay = { channel, visibleChannels ->
@@ -165,6 +169,7 @@ fun StoreTdPlayNavHost() {
 
         composable(Routes.Movies) {
             LiveTvScreen(
+                viewModel = liveTvViewModel,
                 contentMode = ContentMode.Movies,
                 onBack = { navController.popBackStack() },
                 onPlay = { channel, visibleChannels ->
@@ -181,6 +186,7 @@ fun StoreTdPlayNavHost() {
 
         composable(Routes.Series) {
             LiveTvScreen(
+                viewModel = liveTvViewModel,
                 contentMode = ContentMode.Series,
                 onBack = { navController.popBackStack() },
                 onPlay = { channel, visibleChannels ->
