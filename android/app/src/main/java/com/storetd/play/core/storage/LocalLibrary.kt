@@ -53,6 +53,10 @@ object LocalLibrary {
         return readList(context, FAVORITES)
     }
 
+    fun clearFavorites(context: Context) {
+        writeList(context, FAVORITES, emptyList())
+    }
+
     fun addHistory(context: Context, channel: Channel) {
         addHistory(context, SavedChannel.from(channel))
     }
