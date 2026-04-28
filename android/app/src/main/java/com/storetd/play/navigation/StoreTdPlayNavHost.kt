@@ -2,11 +2,14 @@ package com.storetd.play.navigation
 
 import android.net.Uri
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.storetd.play.core.storage.LocalLibrary
+import com.storetd.play.core.storage.SavedChannel
 import com.storetd.play.feature.account.AccountScreen
 import com.storetd.play.feature.favorites.FavoritesScreen
 import com.storetd.play.feature.history.HistoryScreen
@@ -19,6 +22,17 @@ import com.storetd.play.feature.support.SupportScreen
 @Composable
 fun StoreTdPlayNavHost() {
     val navController = rememberNavController()
+    val context = LocalContext.current
+
+    fun openPlayer(channel: SavedChannel) {
+        navController.navigate(
+            "${Routes.Player}/" +
+                "${Uri.encode(channel.name)}/" +
+                "${Uri.encode(channel.streamUrl)}/" +
+                "${Uri.encode(channel.group)}/" +
+                "${Uri.encode(channel.logoUrl ?: "-")}"
+        )
+    }
 
     NavHost(navController = navController, startDestination = Routes.Home) {
         composable(Routes.Home) {
@@ -36,29 +50,52 @@ fun StoreTdPlayNavHost() {
             LiveTvScreen(
                 onBack = { navController.popBackStack() },
                 onPlay = { channel ->
-                    navController.navigate(
-                        "${Routes.Player}/${Uri.encode(channel.name)}/${Uri.encode(channel.streamUrl)}"
-                    )
+                    LocalLibrary.addHistory(context, channel)
+                    openPlayer(SavedChannel.from(channel))
                 }
             )
         }
 
         composable(
-            route = "${Routes.Player}/{name}/{url}",
+            route = "${Routes.Player}/{name}/{url}/{group}/{logo}",
             arguments = listOf(
                 navArgument("name") { type = NavType.StringType },
-                navArgument("url") { type = NavType.StringType }
+                navArgument("url") { type = NavType.StringType },
+                navArgument("group") { type = NavType.StringType },
+                navArgument("logo") { type = NavType.StringType }
             )
         ) { entry ->
+            val logo = entry.arguments?.getString("logo").orEmpty()
+
             PlayerScreen(
                 channelName = entry.arguments?.getString("name").orEmpty(),
                 streamUrl = entry.arguments?.getString("url").orEmpty(),
+                groupName = entry.arguments?.getString("group").orEmpty(),
+                logoUrl = logo.takeIf { it != "-" },
                 onBack = { navController.popBackStack() }
             )
         }
 
-        composable(Routes.Favorites) { FavoritesScreen(onBack = { navController.popBackStack() }) }
-        composable(Routes.History) { HistoryScreen(onBack = { navController.popBackStack() }) }
+        composable(Routes.Favorites) {
+            FavoritesScreen(
+                onBack = { navController.popBackStack() },
+                onPlay = { channel ->
+                    LocalLibrary.addHistory(context, channel)
+                    openPlayer(channel)
+                }
+            )
+        }
+
+        composable(Routes.History) {
+            HistoryScreen(
+                onBack = { navController.popBackStack() },
+                onPlay = { channel ->
+                    LocalLibrary.addHistory(context, channel)
+                    openPlayer(channel)
+                }
+            )
+        }
+
         composable(Routes.Account) { AccountScreen(onBack = { navController.popBackStack() }) }
         composable(Routes.Support) { SupportScreen(onBack = { navController.popBackStack() }) }
         composable(Routes.Settings) { SettingsScreen(onBack = { navController.popBackStack() }) }

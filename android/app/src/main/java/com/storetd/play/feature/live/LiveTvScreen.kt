@@ -13,8 +13,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -26,15 +26,16 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.rememberAsyncImagePainter
-import com.storetd.play.core.model.Channel
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import coil.compose.rememberAsyncImagePainter
+import com.storetd.play.core.model.Channel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,8 +61,10 @@ fun LiveTvScreen(
             ) {
                 item {
                     PlaylistControls(
-                        playlistUrl = state.playlistUrl,
+                        state = state,
                         onPlaylistUrlChange = viewModel::setPlaylistUrl,
+                        onSearchChange = viewModel::setSearchQuery,
+                        onHideAdultChange = viewModel::setHideAdultContent,
                         onLoadPlaylist = viewModel::loadPlaylist,
                         onBack = onBack
                     )
@@ -76,11 +79,7 @@ fun LiveTvScreen(
                 }
 
                 item {
-                    StatusBlock(
-                        isLoading = state.isLoading,
-                        errorMessage = state.errorMessage,
-                        count = state.visibleChannels.size
-                    )
+                    StatusBlock(state = state)
                 }
 
                 items(state.visibleChannels) { channel ->
@@ -89,10 +88,12 @@ fun LiveTvScreen(
             }
         } else {
             Row(modifier = Modifier.fillMaxSize()) {
-                Column(modifier = Modifier.width(320.dp).fillMaxHeight()) {
+                Column(modifier = Modifier.width(340.dp).fillMaxHeight()) {
                     PlaylistControls(
-                        playlistUrl = state.playlistUrl,
+                        state = state,
                         onPlaylistUrlChange = viewModel::setPlaylistUrl,
+                        onSearchChange = viewModel::setSearchQuery,
+                        onHideAdultChange = viewModel::setHideAdultContent,
                         onLoadPlaylist = viewModel::loadPlaylist,
                         onBack = onBack
                     )
@@ -116,12 +117,7 @@ fun LiveTvScreen(
                 Spacer(Modifier.width(24.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
-                    StatusBlock(
-                        isLoading = state.isLoading,
-                        errorMessage = state.errorMessage,
-                        count = state.visibleChannels.size
-                    )
-
+                    StatusBlock(state = state)
                     Spacer(Modifier.height(16.dp))
 
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -137,8 +133,10 @@ fun LiveTvScreen(
 
 @Composable
 private fun PlaylistControls(
-    playlistUrl: String,
+    state: LiveTvUiState,
     onPlaylistUrlChange: (String) -> Unit,
+    onSearchChange: (String) -> Unit,
+    onHideAdultChange: (Boolean) -> Unit,
     onLoadPlaylist: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -147,7 +145,7 @@ private fun PlaylistControls(
         Spacer(Modifier.height(16.dp))
 
         OutlinedTextField(
-            value = playlistUrl,
+            value = state.playlistUrl,
             onValueChange = onPlaylistUrlChange,
             label = { Text("URL M3U/M3U8 autorizada") },
             singleLine = true,
@@ -161,6 +159,29 @@ private fun PlaylistControls(
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Cargar lista")
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        OutlinedTextField(
+            value = state.searchQuery,
+            onValueChange = onSearchChange,
+            label = { Text("Buscar canal o categoria") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Ocultar adultos", style = MaterialTheme.typography.titleSmall)
+                Text("Proteccion basica", style = MaterialTheme.typography.bodySmall)
+            }
+            Switch(
+                checked = state.hideAdultContent,
+                onCheckedChange = onHideAdultChange
+            )
         }
 
         Spacer(Modifier.height(12.dp))
@@ -194,18 +215,14 @@ private fun CategoryRow(
 }
 
 @Composable
-private fun StatusBlock(
-    isLoading: Boolean,
-    errorMessage: String?,
-    count: Int
-) {
+private fun StatusBlock(state: LiveTvUiState) {
     Column {
-        if (isLoading) {
+        if (state.isLoading) {
             CircularProgressIndicator()
             Spacer(Modifier.height(16.dp))
         }
 
-        errorMessage?.let {
+        state.errorMessage?.let {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Text(
                     text = it,
@@ -217,7 +234,7 @@ private fun StatusBlock(
         }
 
         Text(
-            text = "$count canales",
+            text = "${state.totalVisibleCount} canales visibles",
             style = MaterialTheme.typography.titleLarge
         )
     }
@@ -246,7 +263,7 @@ private fun ChannelRow(channel: Channel, onPlay: () -> Unit) {
                 Spacer(Modifier.height(4.dp))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     item { AssistChip(onClick = {}, label = { Text(channel.group) }) }
-                    item { AssistChip(onClick = {}, label = { Text("Estado: sin verificar") }) }
+                    item { AssistChip(onClick = {}, label = { Text("Listo para reproducir") }) }
                 }
             }
 

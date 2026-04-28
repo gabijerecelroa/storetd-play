@@ -14,12 +14,60 @@ data class LiveTvUiState(
     val playlistUrl: String = "",
     val channels: List<Channel> = emptyList(),
     val selectedGroup: String = "Todos",
+    val searchQuery: String = "",
+    val hideAdultContent: Boolean = true,
     val isLoading: Boolean = false,
     val errorMessage: String? = null
 ) {
-    val groups: List<String> = listOf("Todos") + channels.map { it.group }.distinct().sorted()
-    val visibleChannels: List<Channel> =
-        if (selectedGroup == "Todos") channels else channels.filter { it.group == selectedGroup }
+    private val filteredByAdult: List<Channel>
+        get() = if (hideAdultContent) channels.filterNot { isAdult(it) } else channels
+
+    val groups: List<String>
+        get() = listOf("Todos") + filteredByAdult.map { it.group }.distinct().sorted()
+
+    val visibleChannels: List<Channel>
+        get() {
+            val byGroup = if (selectedGroup == "Todos") {
+                filteredByAdult
+            } else {
+                filteredByAdult.filter { it.group == selectedGroup }
+            }
+
+            val query = searchQuery.trim().lowercase()
+
+            return if (query.isBlank()) {
+                byGroup
+            } else {
+                byGroup.filter {
+                    it.name.lowercase().contains(query) ||
+                        it.group.lowercase().contains(query) ||
+                        it.tvgId.orEmpty().lowercase().contains(query)
+                }
+            }
+        }
+
+    val totalVisibleCount: Int
+        get() = visibleChannels.size
+
+    companion object {
+        private val adultWords = listOf(
+            "adult",
+            "adulto",
+            "xxx",
+            "+18",
+            "18+",
+            "hot",
+            "erotic",
+            "erotico",
+            "erótico",
+            "porn"
+        )
+
+        fun isAdult(channel: Channel): Boolean {
+            val text = "${channel.name} ${channel.group}".lowercase()
+            return adultWords.any { text.contains(it) }
+        }
+    }
 }
 
 class LiveTvViewModel(
@@ -31,6 +79,17 @@ class LiveTvViewModel(
 
     fun setPlaylistUrl(value: String) {
         _uiState.value = _uiState.value.copy(playlistUrl = value, errorMessage = null)
+    }
+
+    fun setSearchQuery(value: String) {
+        _uiState.value = _uiState.value.copy(searchQuery = value)
+    }
+
+    fun setHideAdultContent(value: Boolean) {
+        _uiState.value = _uiState.value.copy(
+            hideAdultContent = value,
+            selectedGroup = "Todos"
+        )
     }
 
     fun selectGroup(group: String) {
