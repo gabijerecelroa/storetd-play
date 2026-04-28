@@ -60,6 +60,7 @@ import com.storetd.play.core.storage.LocalLibrary
 import com.storetd.play.core.storage.SavedChannel
 import kotlinx.coroutines.delay
 
+@OptIn(UnstableApi::class)
 private enum class VideoResizeMode(
     val label: String,
     val media3Mode: Int
