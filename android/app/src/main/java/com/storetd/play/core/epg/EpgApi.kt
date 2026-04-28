@@ -27,7 +27,7 @@ object EpgApi {
             throw IllegalStateException("No se pudo descargar EPG. HTTP $code $errorText")
         }
 
-        val contentLength = connection.contentLengthLong
+        val contentLength = connection.getHeaderField("Content-Length")?.toLongOrNull() ?: -1L
         if (contentLength > MAX_XML_BYTES) {
             connection.disconnect()
             throw IllegalStateException("La EPG es muy pesada para esta version. Usa una EPG mas chica o por pais.")
