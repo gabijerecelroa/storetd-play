@@ -10,6 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import java.text.Normalizer
 import java.util.Locale
 
@@ -58,6 +59,7 @@ class LiveTvViewModel(
     val uiState: StateFlow<LiveTvUiState> = _uiState
 
     private var filterVersion = 0
+    private var loadInProgress = false
 
     fun setContentMode(mode: ContentMode) {
         val current = _uiState.value
@@ -115,6 +117,10 @@ class LiveTvViewModel(
             return
         }
 
+        if (loadInProgress) {
+            return
+        }
+
         val cached = PlaylistMemoryCache.get(cleanUrl)
 
         if (cached != null) {
@@ -150,6 +156,10 @@ class LiveTvViewModel(
             return
         }
 
+        if (loadInProgress) {
+            return
+        }
+
         if (!forceRefresh) {
             val cached = PlaylistMemoryCache.get(url)
             if (cached != null) {
@@ -166,10 +176,12 @@ class LiveTvViewModel(
             }
         }
 
+        loadInProgress = true
+
         _uiState.value = _uiState.value.copy(
             playlistUrl = url,
             isLoading = true,
-            isFiltering = true,
+            isFiltering = false,
             loadedFromCache = false,
             errorMessage = null,
             visibleChannels = emptyList(),
@@ -178,8 +190,12 @@ class LiveTvViewModel(
 
         viewModelScope.launch(Dispatchers.IO) {
             runCatching {
-                repository.loadPlaylistFromUrl(url)
+                withTimeout(60000L) {
+                    repository.loadPlaylistFromUrl(url)
+                }
             }.onSuccess { channels ->
+                loadInProgress = false
+
                 PlaylistMemoryCache.save(url, channels)
 
                 _uiState.value = _uiState.value.copy(
@@ -195,13 +211,15 @@ class LiveTvViewModel(
 
                 refreshVisibleContent()
             }.onFailure { throwable ->
+                loadInProgress = false
+
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     isFiltering = false,
                     channels = emptyList(),
                     visibleChannels = emptyList(),
                     totalVisibleCount = 0,
-                    errorMessage = throwable.message ?: "No se pudo cargar el contenido asignado."
+                    errorMessage = "No se pudo sincronizar la lista. Toca Actualizar contenido o revisa la lista asignada."
                 )
             }
         }
@@ -210,6 +228,18 @@ class LiveTvViewModel(
     private fun refreshVisibleContent() {
         val snapshot = _uiState.value
         val version = ++filterVersion
+
+        if (snapshot.channels.isEmpty()) {
+            _uiState.value = snapshot.copy(
+                visibleChannels = emptyList(),
+                groups = listOf("Todos"),
+                totalVisibleCount = 0,
+                isFiltering = false
+            )
+            return
+        }
+
+        _uiState.value = snapshot.copy(isFiltering = true)
 
         viewModelScope.launch(Dispatchers.Default) {
             val adultFiltered = if (snapshot.hideAdultContent) {

@@ -222,9 +222,9 @@ private fun ContentControls(
             Button(
                 onClick = onRefresh,
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !state.isLoading && !state.isFiltering
+                enabled = !state.isLoading
             ) {
-                Text(if (state.isLoading || state.isFiltering) "Sincronizando..." else "Actualizar contenido")
+                Text(if (state.isLoading) "Sincronizando..." else "Actualizar contenido")
             }
 
             Spacer(Modifier.height(12.dp))
