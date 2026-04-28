@@ -964,7 +964,32 @@ function isAdultEntry(entry) {
 }
 
 function getPlaylistEntryType(entry) {
+  const nameText = normalizePlaylistText(entry.name);
+  const groupText = normalizePlaylistText(entry.group);
   const text = normalizePlaylistText(entry.name + " " + entry.group);
+
+  if (
+    groupText.startsWith("tv ") ||
+    groupText.startsWith("tv |") ||
+    groupText.startsWith("tv 0") ||
+    groupText.includes("canales") ||
+    groupText.includes("en vivo")
+  ) {
+    return "live";
+  }
+
+  const liveChannelWords = [
+    "canal", "tv", "hd", "fhd", "uhd", "24/7", "noticias", "deportes",
+    "cine y peliculas", "series tv", "tnt", "hbo", "amc", "axn", "fx",
+    "warner", "universal", "studio universal", "space", "cinemax",
+    "cinecanal", "golden", "paramount", "sony", "telefe", "el trece",
+    "america", "a24", "c5n", "tn", "cronica", "espn", "fox sports",
+    "tyc", "cartoon", "disney", "nick", "history", "discovery"
+  ];
+
+  const looksLikeLiveChannel = liveChannelWords.some((word) =>
+    text.includes(normalizePlaylistText(word))
+  );
 
   const seriesWords = [
     "serie", "series", "temporada", "season", "episode", "episodio",
@@ -978,14 +1003,18 @@ function getPlaylistEntryType(entry) {
   ];
 
   const looksLikeEpisode =
-    /\bs[0-9]{1,2}\s*e[0-9]{1,3}\b/i.test(text) ||
-    /\b[0-9]{1,2}x[0-9]{1,3}\b/i.test(text);
+    /\bs[0-9]{1,2}\s*e[0-9]{1,3}\b/i.test(nameText) ||
+    /\b[0-9]{1,2}x[0-9]{1,3}\b/i.test(nameText);
 
-  if (looksLikeEpisode || seriesWords.some((word) => text.includes(normalizePlaylistText(word)))) {
+  if (looksLikeLiveChannel && !looksLikeEpisode) {
+    return "live";
+  }
+
+  if (looksLikeEpisode || seriesWords.some((word) => groupText.includes(normalizePlaylistText(word)))) {
     return "series";
   }
 
-  if (movieWords.some((word) => text.includes(normalizePlaylistText(word)))) {
+  if (movieWords.some((word) => groupText.includes(normalizePlaylistText(word)))) {
     return "movies";
   }
 

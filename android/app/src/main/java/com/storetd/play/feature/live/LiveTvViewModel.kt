@@ -328,13 +328,41 @@ class LiveTvViewModel(
         }
 
         fun matchesContentMode(channel: Channel, mode: ContentMode): Boolean {
+            val nameText = normalize(channel.name)
+            val groupText = normalize(channel.group)
             val text = normalize("${channel.name} ${channel.group}")
 
-            val isSeries = seriesWords.any { text.contains(normalize(it)) }
-            val isMovie = movieWords.any { text.contains(normalize(it)) } && !isSeries
+            val isLinearTvGroup =
+                groupText.startsWith("tv ") ||
+                    groupText.startsWith("tv |") ||
+                    groupText.startsWith("tv 0") ||
+                    groupText.contains("canales") ||
+                    groupText.contains("en vivo")
+
+            val liveChannelWords = listOf(
+                "canal", "tv", "hd", "fhd", "uhd", "24/7", "noticias", "deportes",
+                "cine y peliculas", "series tv", "tnt", "hbo", "amc", "axn", "fx",
+                "warner", "universal", "studio universal", "space", "cinemax",
+                "cinecanal", "golden", "paramount", "sony", "telefe", "el trece",
+                "america", "a24", "c5n", "tn", "cronica", "espn", "fox sports",
+                "tyc", "cartoon", "disney", "nick", "history", "discovery"
+            )
+
+            val looksLikeLiveChannel = liveChannelWords.any { text.contains(normalize(it)) }
+
+            val looksLikeEpisode =
+                Regex("\\bs[0-9]{1,2}\\s*e[0-9]{1,3}\\b").containsMatchIn(nameText) ||
+                    Regex("\\b[0-9]{1,2}x[0-9]{1,3}\\b").containsMatchIn(nameText)
+
+            val isSeries = !looksLikeLiveChannel &&
+                (looksLikeEpisode || seriesWords.any { groupText.contains(normalize(it)) })
+
+            val isMovie = !looksLikeLiveChannel &&
+                !isSeries &&
+                movieWords.any { groupText.contains(normalize(it)) }
 
             return when (mode) {
-                ContentMode.LiveTv -> !isMovie && !isSeries
+                ContentMode.LiveTv -> isLinearTvGroup || looksLikeLiveChannel || (!isMovie && !isSeries)
                 ContentMode.Movies -> isMovie
                 ContentMode.Series -> isSeries
             }
