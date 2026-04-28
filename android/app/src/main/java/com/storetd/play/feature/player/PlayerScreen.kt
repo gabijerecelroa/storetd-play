@@ -8,6 +8,7 @@ import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -85,15 +86,17 @@ fun PlayerScreen(
 
     var errorMessage by remember(currentChannel.streamUrl) { mutableStateOf<String?>(null) }
     var isBuffering by remember(currentChannel.streamUrl) { mutableStateOf(false) }
-    var showTopOverlay by remember(currentChannel.streamUrl) { mutableStateOf(true) }
+    var isPlaying by remember(currentChannel.streamUrl) { mutableStateOf(true) }
+    var showControls by remember(currentChannel.streamUrl) { mutableStateOf(true) }
     var isFavorite by remember(currentChannel.streamUrl) {
         mutableStateOf(LocalLibrary.isFavorite(context, currentChannel.streamUrl))
     }
 
-    LaunchedEffect(currentChannel.streamUrl) {
-        showTopOverlay = true
-        delay(2200)
-        showTopOverlay = false
+    LaunchedEffect(showControls, currentChannel.streamUrl) {
+        if (showControls) {
+            delay(4500)
+            showControls = false
+        }
     }
 
     val player = remember(currentChannel.streamUrl) {
@@ -110,8 +113,13 @@ fun PlayerScreen(
                 isBuffering = playbackState == Player.STATE_BUFFERING
             }
 
+            override fun onIsPlayingChanged(playing: Boolean) {
+                isPlaying = playing
+            }
+
             override fun onPlayerError(error: PlaybackException) {
                 errorMessage = error.message ?: "No se pudo reproducir este canal."
+                showControls = true
             }
         }
 
@@ -125,6 +133,7 @@ fun PlayerScreen(
 
     fun retryPlayback() {
         errorMessage = null
+        showControls = true
         player.stop()
         player.clearMediaItems()
         player.setMediaItem(MediaItem.fromUri(currentChannel.streamUrl))
@@ -132,7 +141,18 @@ fun PlayerScreen(
         player.playWhenReady = true
     }
 
+    fun togglePlayPause() {
+        showControls = true
+        if (player.isPlaying) {
+            player.pause()
+        } else {
+            player.play()
+        }
+    }
+
     fun reportChannel() {
+        showControls = true
+
         val body = """
             Reporte de canal
 
@@ -158,6 +178,8 @@ fun PlayerScreen(
     }
 
     fun toggleFavorite() {
+        showControls = true
+
         if (isFavorite) {
             LocalLibrary.removeFavorite(context, currentChannel.streamUrl)
             isFavorite = false
@@ -171,12 +193,14 @@ fun PlayerScreen(
         val previous = PlayerSession.previous() ?: return
         currentChannel = previous
         LocalLibrary.addHistory(context, previous)
+        showControls = true
     }
 
     fun zapNext() {
         val next = PlayerSession.next() ?: return
         currentChannel = next
         LocalLibrary.addHistory(context, next)
+        showControls = true
     }
 
     BackHandler { onBack() }
@@ -185,18 +209,17 @@ fun PlayerScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            .clickable {
+                showControls = !showControls
+            }
     ) {
         key(currentChannel.streamUrl) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
                 factory = {
                     PlayerView(it).apply {
-                        useController = true
-                        resizeMode = if (isLandscape) {
-                            AspectRatioFrameLayout.RESIZE_MODE_FIT
-                        } else {
-                            AspectRatioFrameLayout.RESIZE_MODE_FIT
-                        }
+                        useController = false
+                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                         layoutParams = ViewGroup.LayoutParams(
                             ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.MATCH_PARENT
@@ -205,33 +228,29 @@ fun PlayerScreen(
                 },
                 update = {
                     it.player = player
-                    it.resizeMode = if (isLandscape) {
-                        AspectRatioFrameLayout.RESIZE_MODE_FIT
-                    } else {
-                        AspectRatioFrameLayout.RESIZE_MODE_FIT
-                    }
+                    it.useController = false
+                    it.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                 }
             )
         }
 
-        if (showTopOverlay) {
+        if (showControls) {
             Card(
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .statusBarsPadding()
-                    .padding(16.dp)
+                    .padding(14.dp)
             ) {
-                Column(modifier = Modifier.padding(14.dp)) {
+                Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
                     Text(
                         text = currentChannel.name,
-                        style = MaterialTheme.typography.titleLarge,
+                        style = MaterialTheme.typography.titleMedium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = currentChannel.group,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodySmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -239,15 +258,26 @@ fun PlayerScreen(
             }
         }
 
+        if (showControls) {
+            Button(
+                modifier = Modifier.align(Alignment.Center),
+                onClick = {
+                    togglePlayPause()
+                }
+            ) {
+                Text(if (isPlaying) "Pausa" else "Play")
+            }
+        }
+
         if (isBuffering) {
             Card(
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .padding(16.dp)
+                    .padding(top = 96.dp)
             ) {
                 Text(
-                    text = "Cargando stream...",
-                    modifier = Modifier.padding(16.dp),
+                    text = "Cargando...",
+                    modifier = Modifier.padding(14.dp),
                     color = MaterialTheme.colorScheme.primary
                 )
             }
@@ -258,38 +288,44 @@ fun PlayerScreen(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
-                    .padding(start = 16.dp, end = 16.dp, bottom = if (isLandscape) 92.dp else 132.dp)
+                    .padding(
+                        start = 14.dp,
+                        end = 14.dp,
+                        bottom = if (isLandscape) 82.dp else 118.dp
+                    )
             ) {
                 Text(
-                    text = "Error de reproducción: $message",
+                    text = "Error: $message",
                     color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(16.dp)
+                    modifier = Modifier.padding(14.dp)
                 )
             }
         }
 
-        Surface(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .navigationBarsPadding(),
-            tonalElevation = 6.dp,
-            shadowElevation = 10.dp,
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
-        ) {
-            PlayerBottomOverlay(
-                channel = currentChannel,
-                isFavorite = isFavorite,
-                canPrevious = PlayerSession.hasPrevious(),
-                canNext = PlayerSession.hasNext(),
-                isLandscape = isLandscape,
-                onPrevious = ::zapPrevious,
-                onNext = ::zapNext,
-                onFavorite = ::toggleFavorite,
-                onReport = ::reportChannel,
-                onRetry = ::retryPlayback,
-                onBack = onBack
-            )
+        if (showControls) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .navigationBarsPadding(),
+                tonalElevation = 6.dp,
+                shadowElevation = 8.dp,
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f)
+            ) {
+                PlayerBottomOverlay(
+                    channel = currentChannel,
+                    isFavorite = isFavorite,
+                    canPrevious = PlayerSession.hasPrevious(),
+                    canNext = PlayerSession.hasNext(),
+                    isLandscape = isLandscape,
+                    onPrevious = ::zapPrevious,
+                    onNext = ::zapNext,
+                    onFavorite = ::toggleFavorite,
+                    onReport = ::reportChannel,
+                    onRetry = ::retryPlayback,
+                    onBack = onBack
+                )
+            }
         }
     }
 }
@@ -311,20 +347,18 @@ private fun PlayerBottomOverlay(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 12.dp)
+            .padding(horizontal = 12.dp, vertical = if (isLandscape) 8.dp else 10.dp)
     ) {
-        val compact = !isLandscape || maxWidth < 760.dp
+        val compact = !isLandscape || maxWidth < 780.dp
 
         if (compact) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
                     text = channel.name,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleSmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-
-                Spacer(modifier = Modifier.height(2.dp))
 
                 Text(
                     text = channel.group,
@@ -333,7 +367,7 @@ private fun PlayerBottomOverlay(
                     overflow = TextOverflow.Ellipsis
                 )
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Row(
                     modifier = Modifier
@@ -341,22 +375,16 @@ private fun PlayerBottomOverlay(
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    OutlinedButton(
-                        onClick = onPrevious,
-                        enabled = canPrevious
-                    ) {
-                        Text("Anterior")
+                    OutlinedButton(onClick = onPrevious, enabled = canPrevious) {
+                        Text("Ant.")
                     }
 
-                    OutlinedButton(
-                        onClick = onNext,
-                        enabled = canNext
-                    ) {
-                        Text("Siguiente")
+                    OutlinedButton(onClick = onNext, enabled = canNext) {
+                        Text("Sig.")
                     }
 
                     Button(onClick = onFavorite) {
-                        Text(if (isFavorite) "Quitar favorito" else "Favorito")
+                        Text(if (isFavorite) "Quitar" else "Fav.")
                     }
 
                     OutlinedButton(onClick = onReport) {
@@ -364,7 +392,7 @@ private fun PlayerBottomOverlay(
                     }
 
                     OutlinedButton(onClick = onRetry) {
-                        Text("Reintentar")
+                        Text("Reint.")
                     }
 
                     Button(onClick = onBack) {
@@ -380,16 +408,14 @@ private fun PlayerBottomOverlay(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = channel.name,
-                        style = MaterialTheme.typography.titleLarge,
+                        style = MaterialTheme.typography.titleMedium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
 
-                    Spacer(modifier = Modifier.height(2.dp))
-
                     Text(
                         text = channel.group,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodySmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -398,22 +424,16 @@ private fun PlayerBottomOverlay(
                 Spacer(modifier = Modifier.width(12.dp))
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        onClick = onPrevious,
-                        enabled = canPrevious
-                    ) {
-                        Text("Anterior")
+                    OutlinedButton(onClick = onPrevious, enabled = canPrevious) {
+                        Text("Ant.")
                     }
 
-                    OutlinedButton(
-                        onClick = onNext,
-                        enabled = canNext
-                    ) {
-                        Text("Siguiente")
+                    OutlinedButton(onClick = onNext, enabled = canNext) {
+                        Text("Sig.")
                     }
 
                     Button(onClick = onFavorite) {
-                        Text(if (isFavorite) "Quitar favorito" else "Favorito")
+                        Text(if (isFavorite) "Quitar" else "Fav.")
                     }
 
                     OutlinedButton(onClick = onReport) {
@@ -421,7 +441,7 @@ private fun PlayerBottomOverlay(
                     }
 
                     OutlinedButton(onClick = onRetry) {
-                        Text("Reintentar")
+                        Text("Reint.")
                     }
 
                     Button(onClick = onBack) {
