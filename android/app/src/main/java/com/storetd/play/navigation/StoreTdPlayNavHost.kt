@@ -53,8 +53,24 @@ fun StoreTdPlayNavHost() {
     NavHost(navController = navController, startDestination = startDestination) {
         composable(Routes.Activation) {
             ActivationScreen(
-                onActivate = { customerName, activationCode ->
-                    LocalAccount.activate(context, customerName, activationCode)
+                onActivate = { customerName, activationCode, status, expiresAt ->
+                    LocalAccount.activate(
+                        context = context,
+                        customerName = customerName,
+                        activationCode = activationCode,
+                        status = status,
+                        expiresAt = expiresAt
+                    )
+                    navigateAndClear(Routes.Home)
+                },
+                onDemo = {
+                    LocalAccount.activate(
+                        context = context,
+                        customerName = "Cliente Demo",
+                        activationCode = "DEMO1234",
+                        status = "Activa",
+                        expiresAt = ""
+                    )
                     navigateAndClear(Routes.Home)
                 }
             )

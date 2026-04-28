@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -21,20 +22,32 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.storetd.play.R
+import com.storetd.play.core.network.ActivationApi
+import com.storetd.play.core.storage.LocalAccount
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun ActivationScreen(
-    onActivate: (customerName: String, activationCode: String) -> Unit
+    onActivate: (customerName: String, activationCode: String, status: String, expiresAt: String) -> Unit,
+    onDemo: () -> Unit
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
     var customerName by remember { mutableStateOf("") }
     var activationCode by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -76,7 +89,8 @@ fun ActivationScreen(
                     onValueChange = { customerName = it },
                     label = { Text("Nombre del cliente") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isLoading
                 )
 
                 OutlinedTextField(
@@ -84,7 +98,8 @@ fun ActivationScreen(
                     onValueChange = { activationCode = it.uppercase().take(20) },
                     label = { Text("Codigo de activacion") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isLoading
                 )
 
                 errorMessage?.let {
@@ -94,27 +109,60 @@ fun ActivationScreen(
                     )
                 }
 
+                if (isLoading) {
+                    CircularProgressIndicator()
+                }
+
                 Button(
                     onClick = {
                         if (customerName.trim().length < 2) {
                             errorMessage = "Ingresa el nombre del cliente."
-                        } else if (activationCode.trim().length < 4) {
+                            return@Button
+                        }
+
+                        if (activationCode.trim().length < 4) {
                             errorMessage = "El codigo debe tener al menos 4 caracteres."
-                        } else {
-                            errorMessage = null
-                            onActivate(customerName.trim(), activationCode.trim())
+                            return@Button
+                        }
+
+                        isLoading = true
+                        errorMessage = null
+
+                        scope.launch {
+                            val deviceCode = LocalAccount.getDeviceCode(context)
+
+                            val result = withContext(Dispatchers.IO) {
+                                ActivationApi.activate(
+                                    customerName = customerName.trim(),
+                                    activationCode = activationCode.trim(),
+                                    deviceCode = deviceCode
+                                )
+                            }
+
+                            isLoading = false
+
+                            if (result.success) {
+                                onActivate(
+                                    result.customerName ?: customerName.trim(),
+                                    result.activationCode ?: activationCode.trim(),
+                                    result.status ?: "Activa",
+                                    result.expiresAt ?: ""
+                                )
+                            } else {
+                                errorMessage = result.message
+                            }
                         }
                     },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isLoading
                 ) {
-                    Text("Activar dispositivo")
+                    Text("Activar con backend")
                 }
 
                 OutlinedButton(
-                    onClick = {
-                        onActivate("Cliente Demo", "DEMO1234")
-                    },
-                    modifier = Modifier.fillMaxWidth()
+                    onClick = onDemo,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isLoading
                 ) {
                     Text("Entrar en modo demo")
                 }

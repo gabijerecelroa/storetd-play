@@ -42,13 +42,19 @@ object LocalAccount {
         )
     }
 
-    fun activate(context: Context, customerName: String, activationCode: String) {
+    fun activate(
+        context: Context,
+        customerName: String,
+        activationCode: String,
+        status: String = "Activa",
+        expiresAt: String = defaultExpirationDate()
+    ) {
         prefs(context).edit()
             .putBoolean(KEY_ACTIVATED, true)
             .putString(KEY_CUSTOMER_NAME, customerName.ifBlank { "Cliente" })
             .putString(KEY_ACTIVATION_CODE, activationCode)
-            .putString(KEY_STATUS, "Activa")
-            .putString(KEY_EXPIRES_AT, defaultExpirationDate())
+            .putString(KEY_STATUS, status.ifBlank { "Activa" })
+            .putString(KEY_EXPIRES_AT, expiresAt.ifBlank { defaultExpirationDate() })
             .apply()
     }
 
