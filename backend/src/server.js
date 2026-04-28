@@ -9,14 +9,15 @@ const adminKey = process.env.ADMIN_KEY || "admin1234";
 
 const dataDir = path.join(__dirname, "..", "data");
 const clientsFile = path.join(dataDir, "clients.json");
+const reportsFile = path.join(dataDir, "reports.json");
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "..", "public")));
 
 const activatedDevicesByCode = new Map();
 
-function ensureDataFile() {
+function ensureDataFiles() {
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
   }
@@ -24,23 +25,42 @@ function ensureDataFile() {
   if (!fs.existsSync(clientsFile)) {
     fs.writeFileSync(clientsFile, "[]", "utf8");
   }
-}
 
-function loadClients() {
-  ensureDataFile();
-
-  try {
-    const raw = fs.readFileSync(clientsFile, "utf8");
-    return JSON.parse(raw);
-  } catch (error) {
-    console.error("Could not read clients.json:", error);
-    return [];
+  if (!fs.existsSync(reportsFile)) {
+    fs.writeFileSync(reportsFile, "[]", "utf8");
   }
 }
 
+function readJson(file, fallback) {
+  ensureDataFiles();
+
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch (error) {
+    console.error("Could not read JSON:", file, error);
+    return fallback;
+  }
+}
+
+function writeJson(file, value) {
+  ensureDataFiles();
+  fs.writeFileSync(file, JSON.stringify(value, null, 2), "utf8");
+}
+
+function loadClients() {
+  return readJson(clientsFile, []);
+}
+
 function saveClients(clients) {
-  ensureDataFile();
-  fs.writeFileSync(clientsFile, JSON.stringify(clients, null, 2), "utf8");
+  writeJson(clientsFile, clients);
+}
+
+function loadReports() {
+  return readJson(reportsFile, []);
+}
+
+function saveReports(reports) {
+  writeJson(reportsFile, reports);
 }
 
 function normalizeCode(code) {
@@ -97,21 +117,74 @@ function sanitizeClient(input) {
   };
 }
 
+function maskUrl(value) {
+  const text = String(value || "");
+  if (!text) return "";
+
+  try {
+    const url = new URL(text);
+    return url.origin + "/***";
+  } catch {
+    if (text.length <= 18) return "***";
+    return text.slice(0, 10) + "***" + text.slice(-6);
+  }
+}
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function groupReportsByChannel(reports) {
+  const map = new Map();
+
+  for (const report of reports) {
+    const key = `${report.channelName || "Sin nombre"}|${report.category || ""}`;
+
+    if (!map.has(key)) {
+      map.set(key, {
+        channelName: report.channelName || "Sin nombre",
+        category: report.category || "",
+        total: 0,
+        pending: 0,
+        lastReportedAt: report.createdAt,
+        statuses: {}
+      });
+    }
+
+    const item = map.get(key);
+    item.total += 1;
+
+    if (report.status === "Pendiente") {
+      item.pending += 1;
+    }
+
+    item.statuses[report.status] = (item.statuses[report.status] || 0) + 1;
+
+    if (report.createdAt > item.lastReportedAt) {
+      item.lastReportedAt = report.createdAt;
+    }
+  }
+
+  return Array.from(map.values()).sort((a, b) => b.total - a.total);
+}
+
 app.get("/", (req, res) => {
   res.json({
     name: "StoreTD Play Backend",
     status: "ok",
-    version: "1.2.0"
+    version: "1.3.0"
   });
 });
 
 app.get("/health", (req, res) => {
   const clients = loadClients();
+  const reports = loadReports();
 
   res.json({
     status: "ok",
     clients: clients.length,
-    version: "1.2.0"
+    reports: reports.length,
+    version: "1.3.0"
   });
 });
 
@@ -179,6 +252,64 @@ app.post("/auth/activate", (req, res) => {
     deviceCount: getDeviceCount(normalizedCode),
     deviceCode,
     appVersion
+  });
+});
+
+app.post("/reports/channel", (req, res) => {
+  const body = req.body || {};
+  const reports = loadReports();
+
+  const report = {
+    id: "rep_" + Date.now() + "_" + Math.random().toString(16).slice(2),
+    createdAt: nowIso(),
+    status: "Pendiente",
+    channelName: String(body.channelName || "Sin nombre").trim(),
+    category: String(body.category || "").trim(),
+    problemType: String(body.problemType || "Otro problema").trim(),
+    streamUrlMasked: maskUrl(body.streamUrl || ""),
+    customerName: String(body.customerName || "").trim(),
+    activationCode: normalizeCode(body.activationCode || ""),
+    deviceCode: String(body.deviceCode || "").trim(),
+    appVersion: String(body.appVersion || "").trim(),
+    androidVersion: String(body.androidVersion || "").trim(),
+    deviceModel: String(body.deviceModel || "").trim(),
+    playerError: String(body.playerError || "").trim(),
+    internalComment: ""
+  };
+
+  if (!report.channelName) {
+    return res.status(400).json({
+      success: false,
+      message: "Falta el nombre del canal."
+    });
+  }
+
+  reports.unshift(report);
+  saveReports(reports);
+
+  res.json({
+    success: true,
+    message: "Reporte enviado correctamente.",
+    reportId: report.id
+  });
+});
+
+app.get("/admin/api/stats", requireAdmin, (req, res) => {
+  const clients = loadClients();
+  const reports = loadReports();
+
+  res.json({
+    success: true,
+    stats: {
+      clientsTotal: clients.length,
+      clientsActive: clients.filter((c) => c.status === "Activa").length,
+      clientsTrial: clients.filter((c) => c.status === "Prueba").length,
+      clientsSuspended: clients.filter((c) => c.status === "Suspendida").length,
+      clientsExpired: clients.filter((c) => c.status === "Vencida" || isExpired(c.expiresAt)).length,
+      reportsTotal: reports.length,
+      reportsPending: reports.filter((r) => r.status === "Pendiente").length,
+      topReportedChannels: groupReportsByChannel(reports).slice(0, 10)
+    }
   });
 });
 
@@ -299,6 +430,63 @@ app.post("/admin/api/clients/:code/unlink-devices", requireAdmin, (req, res) => 
   res.json({
     success: true,
     message: "Dispositivos desvinculados."
+  });
+});
+
+app.get("/admin/api/reports", requireAdmin, (req, res) => {
+  const reports = loadReports();
+
+  res.json({
+    success: true,
+    reports,
+    grouped: groupReportsByChannel(reports)
+  });
+});
+
+app.put("/admin/api/reports/:id", requireAdmin, (req, res) => {
+  const reports = loadReports();
+  const id = String(req.params.id || "");
+  const index = reports.findIndex((report) => report.id === id);
+
+  if (index === -1) {
+    return res.status(404).json({
+      success: false,
+      message: "Reporte no encontrado."
+    });
+  }
+
+  reports[index] = {
+    ...reports[index],
+    status: String(req.body.status || reports[index].status),
+    internalComment: String(req.body.internalComment || "")
+  };
+
+  saveReports(reports);
+
+  res.json({
+    success: true,
+    message: "Reporte actualizado.",
+    report: reports[index]
+  });
+});
+
+app.delete("/admin/api/reports/:id", requireAdmin, (req, res) => {
+  const reports = loadReports();
+  const id = String(req.params.id || "");
+  const nextReports = reports.filter((report) => report.id !== id);
+
+  if (nextReports.length === reports.length) {
+    return res.status(404).json({
+      success: false,
+      message: "Reporte no encontrado."
+    });
+  }
+
+  saveReports(nextReports);
+
+  res.json({
+    success: true,
+    message: "Reporte eliminado."
   });
 });
 

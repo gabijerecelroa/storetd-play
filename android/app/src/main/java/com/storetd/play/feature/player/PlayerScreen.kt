@@ -1,8 +1,6 @@
 package com.storetd.play.feature.player
 
-import android.content.Intent
 import android.content.res.Configuration
-import android.net.Uri
 import android.os.Build
 import android.view.View
 import android.view.ViewGroup
@@ -25,12 +23,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -38,6 +38,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,11 +55,16 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
-import com.storetd.play.BuildConfig
+import com.storetd.play.core.network.ChannelReportApi
+import com.storetd.play.core.network.ChannelReportPayload
 import com.storetd.play.core.player.PlayerSession
+import com.storetd.play.core.storage.LocalAccount
 import com.storetd.play.core.storage.LocalLibrary
 import com.storetd.play.core.storage.SavedChannel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(UnstableApi::class)
 private enum class VideoResizeMode(
@@ -91,6 +97,7 @@ fun PlayerScreen(
     val view = LocalView.current
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val scope = rememberCoroutineScope()
 
     var currentChannel by remember {
         mutableStateOf(
@@ -110,6 +117,10 @@ fun PlayerScreen(
     var isBuffering by remember(currentChannel.streamUrl) { mutableStateOf(false) }
     var isPlaying by remember(currentChannel.streamUrl) { mutableStateOf(true) }
     var showControls by remember(currentChannel.streamUrl) { mutableStateOf(true) }
+    var showReportDialog by remember { mutableStateOf(false) }
+    var reportMessage by remember { mutableStateOf<String?>(null) }
+    var isSendingReport by remember { mutableStateOf(false) }
+
     var isFavorite by remember(currentChannel.streamUrl) {
         mutableStateOf(LocalLibrary.isFavorite(context, currentChannel.streamUrl))
     }
@@ -189,32 +200,33 @@ fun PlayerScreen(
         }
     }
 
-    fun reportChannel() {
-        showControls = true
+    fun sendReport(problemType: String) {
+        isSendingReport = true
+        reportMessage = null
 
-        val body = """
-            Reporte de canal
+        val account = LocalAccount.getAccount(context)
 
-            Canal: ${currentChannel.name}
-            Categoria: ${currentChannel.group}
-            URL oculta: ${LocalLibrary.maskUrl(currentChannel.streamUrl)}
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                ChannelReportApi.send(
+                    ChannelReportPayload(
+                        channelName = currentChannel.name,
+                        category = currentChannel.group,
+                        streamUrl = currentChannel.streamUrl,
+                        problemType = problemType,
+                        playerError = errorMessage ?: "Sin error capturado",
+                        androidVersion = Build.VERSION.RELEASE ?: "unknown",
+                        deviceModel = "${Build.MANUFACTURER} ${Build.MODEL}",
+                        account = account
+                    )
+                )
+            }
 
-            Dispositivo: ${Build.MANUFACTURER} ${Build.MODEL}
-            Android: ${Build.VERSION.RELEASE}
-            Version app: ${BuildConfig.VERSION_NAME}
-            Modo vista: ${videoResizeMode.label}
-            Error tecnico: ${errorMessage ?: "Sin error capturado"}
-
-            Describe el problema:
-        """.trimIndent()
-
-        val intent = Intent(Intent.ACTION_SENDTO).apply {
-            data = Uri.parse("mailto:${BuildConfig.SUPPORT_EMAIL}")
-            putExtra(Intent.EXTRA_SUBJECT, "Reporte de canal - ${currentChannel.name}")
-            putExtra(Intent.EXTRA_TEXT, body)
+            isSendingReport = false
+            showReportDialog = false
+            reportMessage = result.message
+            showControls = true
         }
-
-        runCatching { context.startActivity(intent) }
     }
 
     fun toggleFavorite() {
@@ -343,6 +355,21 @@ fun PlayerScreen(
             }
         }
 
+        reportMessage?.let { message ->
+            Card(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .padding(12.dp)
+            ) {
+                Text(
+                    text = message,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(14.dp)
+                )
+            }
+        }
+
         if (showControls) {
             Surface(
                 modifier = Modifier
@@ -363,7 +390,10 @@ fun PlayerScreen(
                     onPrevious = ::zapPrevious,
                     onNext = ::zapNext,
                     onFavorite = ::toggleFavorite,
-                    onReport = ::reportChannel,
+                    onReport = {
+                        showControls = true
+                        showReportDialog = true
+                    },
                     onRetry = ::retryPlayback,
                     onChangeResizeMode = {
                         videoResizeMode = videoResizeMode.next()
@@ -373,7 +403,68 @@ fun PlayerScreen(
                 )
             }
         }
+
+        if (showReportDialog) {
+            ReportDialog(
+                isSending = isSendingReport,
+                onDismiss = {
+                    if (!isSendingReport) showReportDialog = false
+                },
+                onSend = ::sendReport
+            )
+        }
     }
+}
+
+@Composable
+private fun ReportDialog(
+    isSending: Boolean,
+    onDismiss: () -> Unit,
+    onSend: (String) -> Unit
+) {
+    val options = listOf(
+        "No reproduce",
+        "Se corta",
+        "Sin audio",
+        "Sin video",
+        "Canal incorrecto",
+        "Baja calidad",
+        "Audio desfasado",
+        "Subtitulos incorrectos",
+        "Otro problema"
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Reportar canal") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Selecciona el problema detectado.")
+                options.forEach { option ->
+                    OutlinedButton(
+                        onClick = { onSend(option) },
+                        enabled = !isSending,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(option)
+                    }
+                }
+
+                if (isSending) {
+                    Text("Enviando reporte...")
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isSending
+            ) {
+                Text("Cancelar")
+            }
+        }
+    )
 }
 
 @Composable
