@@ -130,6 +130,9 @@ fun PlayerScreen(
         mutableStateOf(LocalLibrary.isFavorite(context, currentChannel.streamUrl))
     }
 
+    var currentEpgProgram by remember(currentChannel.name) { mutableStateOf<EpgProgram?>(null) }
+    var nextEpgProgram by remember(currentChannel.name) { mutableStateOf<EpgProgram?>(null) }
+
     LaunchedEffect(currentChannel.name) {
         val pair = withContext(Dispatchers.IO) {
             EpgMatcher.currentAndNext(context, currentChannel.name)
