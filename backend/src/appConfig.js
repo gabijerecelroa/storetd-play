@@ -14,6 +14,8 @@ function defaultAppConfig() {
     termsUrl: "",
     privacyUrl: "",
     allowUserPlaylistInput: true,
+    epgSourceUrl: "https://raw.githubusercontent.com/globetvapp/epg/main/Argentina/argentina1.xml",
+    epgFilterKeywords: "A24\nC5N\nCronica\nCrónica\nCanal 26\nTN\nESPN\nFox Sports\nTyC",
     forceAppUpdate: false,
     minimumAppVersion: "1.0.0",
     updatedAt: null
@@ -36,6 +38,8 @@ function rowToConfig(row) {
     termsUrl: row.terms_url || "",
     privacyUrl: row.privacy_url || "",
     allowUserPlaylistInput: Boolean(row.allow_user_playlist_input),
+    epgSourceUrl: row.epg_source_url || "",
+    epgFilterKeywords: row.epg_filter_keywords || "",
     forceAppUpdate: Boolean(row.force_app_update),
     minimumAppVersion: row.minimum_app_version || "1.0.0",
     updatedAt: row.updated_at || null
@@ -59,6 +63,8 @@ function inputToRow(input) {
     terms_url: String(input.termsUrl ?? "").trim(),
     privacy_url: String(input.privacyUrl ?? "").trim(),
     allow_user_playlist_input: input.allowUserPlaylistInput !== false,
+    epg_source_url: String(input.epgSourceUrl ?? "").trim(),
+    epg_filter_keywords: String(input.epgFilterKeywords ?? "").trim(),
     force_app_update: Boolean(input.forceAppUpdate),
     minimum_app_version: String(input.minimumAppVersion ?? "1.0.0").trim(),
     updated_at: new Date().toISOString()

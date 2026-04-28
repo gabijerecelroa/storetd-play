@@ -214,6 +214,19 @@
       </div>
     </section>
 
+
+    <section class="card">
+      <h2>EPG Proxy</h2>
+
+      <label>URL EPG fuente</label>
+      <input id="epgSourceUrl" placeholder="https://..." />
+
+      <label>Canales o palabras clave a conservar</label>
+      <textarea id="epgFilterKeywords" placeholder="A24\nC5N\nCanal 26\nESPN"></textarea>
+
+      <button class="secondary" onclick="testEpgProxy()">Probar EPG Proxy</button>
+    </section>
+
     <section class="card">
       <button onclick="saveConfig()">Guardar configuración</button>
       <button class="secondary" onclick="loadConfig()">Recargar</button>
@@ -307,6 +320,8 @@
       document.getElementById("termsUrl").value = config.termsUrl || "";
       document.getElementById("privacyUrl").value = config.privacyUrl || "";
       document.getElementById("allowUserPlaylistInput").checked = config.allowUserPlaylistInput !== false;
+      document.getElementById("epgSourceUrl").value = config.epgSourceUrl || "";
+      document.getElementById("epgFilterKeywords").value = config.epgFilterKeywords || "";
     }
 
     function readForm() {
@@ -324,8 +339,25 @@
         renewUrl: document.getElementById("renewUrl").value,
         termsUrl: document.getElementById("termsUrl").value,
         privacyUrl: document.getElementById("privacyUrl").value,
-        allowUserPlaylistInput: document.getElementById("allowUserPlaylistInput").checked
+        allowUserPlaylistInput: document.getElementById("allowUserPlaylistInput").checked,
+        epgSourceUrl: document.getElementById("epgSourceUrl").value,
+        epgFilterKeywords: document.getElementById("epgFilterKeywords").value
       };
+    }
+
+    async function testEpgProxy() {
+      try {
+        await saveConfig();
+        showMessage("Actualizando EPG Proxy...");
+
+        const data = await api("/admin/api/epg-proxy/refresh");
+
+        showMessage(
+          "EPG Proxy lista. Tamaño: " + data.bytes + " bytes. Ya puedes usar /epg/proxy"
+        );
+      } catch (error) {
+        showMessage(error.message);
+      }
     }
 
     function escapeHtml(value) {

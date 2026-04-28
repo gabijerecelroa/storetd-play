@@ -698,6 +698,240 @@ app.put("/admin/api/app-config", requireAdmin, async (req, res) => {
 });
 
 
+
+let epgProxyCache = {
+  xml: "",
+  updatedAt: 0,
+  sourceUrl: "",
+  keywordsKey: ""
+};
+
+function normalizeEpgText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function parseEpgKeywords(value) {
+  return String(value || "")
+    .split(/[\n,;]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function getXmlAttribute(attrs, name) {
+  const regex = new RegExp(name + '\\s*=\\s*"([^"]*)"', "i");
+  const match = regex.exec(attrs || "");
+  return match ? match[1] : "";
+}
+
+function stripTags(value) {
+  return String(value || "").replace(/<[^>]+>/g, " ");
+}
+
+async function downloadTextWithLimit(url, maxBytes) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 65000);
+
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "StoreTD-Play-EPG-Proxy",
+        "Accept": "application/xml,text/xml,*/*"
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error("HTTP " + response.status);
+    }
+
+    const contentLength = Number(response.headers.get("content-length") || 0);
+
+    if (contentLength > maxBytes) {
+      throw new Error("La EPG fuente es demasiado pesada para el proxy actual.");
+    }
+
+    const reader = response.body.getReader();
+    const chunks = [];
+    let total = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) break;
+
+      total += value.length;
+
+      if (total > maxBytes) {
+        throw new Error("La EPG fuente supera el limite permitido.");
+      }
+
+      chunks.push(Buffer.from(value));
+    }
+
+    return Buffer.concat(chunks).toString("utf8");
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function filterXmlTv(xml, keywords) {
+  const cleanKeywords = keywords
+    .map(normalizeEpgText)
+    .filter(Boolean);
+
+  if (!cleanKeywords.length) {
+    throw new Error("No hay palabras clave configuradas para filtrar EPG.");
+  }
+
+  const tvOpenMatch = xml.match(/<tv\b[^>]*>/i);
+  const tvOpen = tvOpenMatch ? tvOpenMatch[0] : "<tv>";
+
+  const selectedIds = new Set();
+  const selectedChannelBlocks = [];
+
+  const channelRegex = /<channel\s+([^>]*)>([\s\S]*?)<\/channel>/gi;
+  let channelMatch;
+
+  while ((channelMatch = channelRegex.exec(xml)) !== null) {
+    const attrs = channelMatch[1];
+    const body = channelMatch[2];
+    const fullBlock = channelMatch[0];
+    const id = getXmlAttribute(attrs, "id");
+
+    if (!id) continue;
+
+    const searchable = normalizeEpgText(id + " " + stripTags(body));
+    const matches = cleanKeywords.some((keyword) => searchable.includes(keyword));
+
+    if (matches) {
+      selectedIds.add(id);
+      selectedChannelBlocks.push(fullBlock);
+    }
+
+    if (selectedChannelBlocks.length >= 250) break;
+  }
+
+  if (!selectedIds.size) {
+    throw new Error("La EPG fuente no tiene canales que coincidan con los filtros configurados.");
+  }
+
+  const selectedProgrammeBlocks = [];
+  const programmeRegex = /<programme\s+([^>]*)>([\s\S]*?)<\/programme>/gi;
+  let programmeMatch;
+
+  while ((programmeMatch = programmeRegex.exec(xml)) !== null) {
+    const attrs = programmeMatch[1];
+    const channelId = getXmlAttribute(attrs, "channel");
+
+    if (selectedIds.has(channelId)) {
+      selectedProgrammeBlocks.push(programmeMatch[0]);
+    }
+
+    if (selectedProgrammeBlocks.length >= 2500) break;
+  }
+
+  const output = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    tvOpen,
+    selectedChannelBlocks.join("\n"),
+    selectedProgrammeBlocks.join("\n"),
+    "</tv>"
+  ].join("\n");
+
+  return output;
+}
+
+app.get("/epg/proxy", async (req, res) => {
+  try {
+    const config = await getAppConfig();
+    const sourceUrl = String(config.epgSourceUrl || "").trim();
+    const keywords = parseEpgKeywords(config.epgFilterKeywords);
+    const keywordsKey = keywords.join("|");
+    const force = req.query.force === "1" && req.query.key === adminKey;
+    const cacheTtlMs = 6 * 60 * 60 * 1000;
+    const cacheValid =
+      epgProxyCache.xml &&
+      epgProxyCache.sourceUrl === sourceUrl &&
+      epgProxyCache.keywordsKey === keywordsKey &&
+      Date.now() - epgProxyCache.updatedAt < cacheTtlMs;
+
+    if (!sourceUrl.startsWith("http://") && !sourceUrl.startsWith("https://")) {
+      return res.status(400).json({
+        success: false,
+        message: "EPG source URL no configurada."
+      });
+    }
+
+    if (!force && cacheValid) {
+      res.setHeader("Content-Type", "application/xml; charset=utf-8");
+      res.setHeader("X-StoreTD-EPG-Cache", "HIT");
+      return res.send(epgProxyCache.xml);
+    }
+
+    const sourceXml = await downloadTextWithLimit(sourceUrl, 25 * 1024 * 1024);
+    const filteredXml = filterXmlTv(sourceXml, keywords);
+
+    epgProxyCache = {
+      xml: filteredXml,
+      updatedAt: Date.now(),
+      sourceUrl,
+      keywordsKey
+    };
+
+    res.setHeader("Content-Type", "application/xml; charset=utf-8");
+    res.setHeader("X-StoreTD-EPG-Cache", "MISS");
+    res.send(filteredXml);
+  } catch (error) {
+    console.error("EPG proxy error:", error);
+
+    if (epgProxyCache.xml) {
+      res.setHeader("Content-Type", "application/xml; charset=utf-8");
+      res.setHeader("X-StoreTD-EPG-Cache", "STALE");
+      return res.send(epgProxyCache.xml);
+    }
+
+    res.status(500).json({
+      success: false,
+      message: error.message || "No se pudo generar EPG proxy."
+    });
+  }
+});
+
+app.get("/admin/api/epg-proxy/refresh", requireAdmin, async (req, res) => {
+  try {
+    const config = await getAppConfig();
+    const sourceUrl = String(config.epgSourceUrl || "").trim();
+    const keywords = parseEpgKeywords(config.epgFilterKeywords);
+    const sourceXml = await downloadTextWithLimit(sourceUrl, 25 * 1024 * 1024);
+    const filteredXml = filterXmlTv(sourceXml, keywords);
+
+    epgProxyCache = {
+      xml: filteredXml,
+      updatedAt: Date.now(),
+      sourceUrl,
+      keywordsKey: keywords.join("|")
+    };
+
+    res.json({
+      success: true,
+      message: "EPG proxy actualizada.",
+      bytes: Buffer.byteLength(filteredXml),
+      updatedAt: new Date(epgProxyCache.updatedAt).toISOString()
+    });
+  } catch (error) {
+    console.error("EPG proxy refresh error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: error.message || "No se pudo actualizar EPG proxy."
+    });
+  }
+});
+
+
 app.listen(port, () => {
   console.log("StoreTD Play backend running on port " + port);
 });

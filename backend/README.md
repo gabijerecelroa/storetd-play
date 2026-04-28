@@ -1,6 +1,6 @@
 # StoreTD Play Backend
 
-Backend con activacion, panel admin, clientes, dispositivos, reportes y configuracion remota usando Supabase/PostgreSQL.
+Backend con activacion, panel admin, clientes, dispositivos, reportes, configuracion remota y EPG Proxy usando Supabase/PostgreSQL.
 
 ## Variables requeridas
 
@@ -18,6 +18,7 @@ npm run dev
 GET /
 GET /health
 GET /app/config
+GET /epg/proxy
 POST /auth/activate
 POST /reports/channel
 
@@ -29,20 +30,11 @@ POST /reports/channel
 
 /admin/config
 
-Permite editar:
+Incluye EPG Proxy:
 
-- Nombre de app
-- Mensaje de bienvenida
-- Mensaje del proveedor
-- Modo mantenimiento
-- WhatsApp soporte
-- Email soporte
-- URL renovacion
-- Terminos
-- Privacidad
-- Version minima
-- Forzar actualizacion
-- Permitir carga manual de playlist
+- URL EPG fuente
+- Palabras clave de canales a conservar
+- Boton para probar y refrescar EPG Proxy
 
 ## API admin
 
@@ -68,6 +60,10 @@ Configuracion app:
 
 GET /admin/api/app-config
 PUT /admin/api/app-config
+
+EPG Proxy:
+
+GET /admin/api/epg-proxy/refresh
 
 Header requerido:
 
