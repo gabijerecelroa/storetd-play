@@ -1,20 +1,140 @@
 package com.storetd.play.feature.account
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.storetd.play.BuildConfig
+import com.storetd.play.core.storage.LocalAccount
 
 @Composable
-fun AccountScreen(onBack: () -> Unit) {
-    Column(Modifier.fillMaxSize().padding(32.dp)) {
+fun AccountScreen(
+    onBack: () -> Unit,
+    onLogout: () -> Unit
+) {
+    val context = LocalContext.current
+    val account = remember { LocalAccount.getAccount(context) }
+    var message by remember { mutableStateOf<String?>(null) }
+
+    fun copyDeviceCode() {
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(
+            ClipData.newPlainText("Codigo de dispositivo", account.deviceCode)
+        )
+        message = "Codigo de dispositivo copiado."
+    }
+
+    fun openRenewWhatsApp() {
+        val phone = BuildConfig.SUPPORT_WHATSAPP.ifBlank { "5490000000000" }
+        val text = Uri.encode(
+            "Hola, quiero renovar mi servicio StoreTD Play.\n\n" +
+                "Cliente: ${account.customerName}\n" +
+                "Estado: ${account.status}\n" +
+                "Vence: ${account.expiresAt}\n" +
+                "Dispositivo: ${account.deviceCode}"
+        )
+
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$phone?text=$text"))
+        runCatching { context.startActivity(intent) }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .navigationBarsPadding()
+            .padding(24.dp)
+    ) {
         Text("Mi cuenta", style = MaterialTheme.typography.headlineMedium)
-        Text("En la version con backend se mostrara vencimiento, dispositivos y soporte comercial.")
-        Button(onClick = onBack) { Text("Volver") }
+        Text("Informacion local del cliente y dispositivo.")
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text("Cliente", style = MaterialTheme.typography.titleMedium)
+                Text("Nombre: ${account.customerName}")
+                Text("Codigo de activacion: ${account.activationCode}")
+                Text("Estado: ${account.status}")
+                Text("Vencimiento: ${account.expiresAt}")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text("Dispositivo", style = MaterialTheme.typography.titleMedium)
+                Text("Codigo: ${account.deviceCode}")
+                Text("Este codigo sirve para soporte, renovacion o vinculacion futura con backend.")
+
+                Button(
+                    onClick = { copyDeviceCode() },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Copiar codigo de dispositivo")
+                }
+            }
+        }
+
+        message?.let {
+            Spacer(modifier = Modifier.height(16.dp))
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = it,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(onClick = { openRenewWhatsApp() }) {
+                Text("Renovar")
+            }
+
+            OutlinedButton(onClick = onBack) {
+                Text("Volver")
+            }
+
+            OutlinedButton(
+                onClick = {
+                    LocalAccount.logout(context)
+                    onLogout()
+                }
+            ) {
+                Text("Cerrar sesion")
+            }
+        }
     }
 }

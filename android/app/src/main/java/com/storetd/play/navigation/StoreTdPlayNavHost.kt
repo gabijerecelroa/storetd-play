@@ -2,6 +2,7 @@ package com.storetd.play.navigation
 
 import android.net.Uri
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -9,9 +10,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.storetd.play.core.player.PlayerSession
+import com.storetd.play.core.storage.LocalAccount
 import com.storetd.play.core.storage.LocalLibrary
 import com.storetd.play.core.storage.SavedChannel
 import com.storetd.play.feature.account.AccountScreen
+import com.storetd.play.feature.auth.ActivationScreen
 import com.storetd.play.feature.favorites.FavoritesScreen
 import com.storetd.play.feature.history.HistoryScreen
 import com.storetd.play.feature.home.HomeScreen
@@ -24,6 +27,18 @@ import com.storetd.play.feature.support.SupportScreen
 fun StoreTdPlayNavHost() {
     val navController = rememberNavController()
     val context = LocalContext.current
+    val startDestination = remember {
+        if (LocalAccount.isActivated(context)) Routes.Home else Routes.Activation
+    }
+
+    fun navigateAndClear(route: String) {
+        navController.navigate(route) {
+            popUpTo(0) {
+                inclusive = true
+            }
+            launchSingleTop = true
+        }
+    }
 
     fun openPlayer(channel: SavedChannel) {
         navController.navigate(
@@ -35,7 +50,16 @@ fun StoreTdPlayNavHost() {
         )
     }
 
-    NavHost(navController = navController, startDestination = Routes.Home) {
+    NavHost(navController = navController, startDestination = startDestination) {
+        composable(Routes.Activation) {
+            ActivationScreen(
+                onActivate = { customerName, activationCode ->
+                    LocalAccount.activate(context, customerName, activationCode)
+                    navigateAndClear(Routes.Home)
+                }
+            )
+        }
+
         composable(Routes.Home) {
             HomeScreen(
                 onOpenLiveTv = { navController.navigate(Routes.LiveTv) },
@@ -111,7 +135,12 @@ fun StoreTdPlayNavHost() {
         }
 
         composable(Routes.Account) {
-            AccountScreen(onBack = { navController.popBackStack() })
+            AccountScreen(
+                onBack = { navController.popBackStack() },
+                onLogout = {
+                    navigateAndClear(Routes.Activation)
+                }
+            )
         }
 
         composable(Routes.Support) {
