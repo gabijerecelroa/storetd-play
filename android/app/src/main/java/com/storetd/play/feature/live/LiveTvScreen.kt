@@ -41,7 +41,7 @@ import com.storetd.play.core.model.Channel
 @Composable
 fun LiveTvScreen(
     onBack: () -> Unit,
-    onPlay: (Channel) -> Unit,
+    onPlay: (Channel, List<Channel>) -> Unit,
     viewModel: LiveTvViewModel = viewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -83,7 +83,7 @@ fun LiveTvScreen(
                 }
 
                 items(state.visibleChannels) { channel ->
-                    ChannelRow(channel = channel, onPlay = { onPlay(channel) })
+                    ChannelRow(channel = channel, onPlay = { onPlay(channel, state.visibleChannels) })
                 }
             }
         } else {
@@ -122,7 +122,7 @@ fun LiveTvScreen(
 
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         items(state.visibleChannels) { channel ->
-                            ChannelRow(channel = channel, onPlay = { onPlay(channel) })
+                            ChannelRow(channel = channel, onPlay = { onPlay(channel, state.visibleChannels) })
                         }
                     }
                 }

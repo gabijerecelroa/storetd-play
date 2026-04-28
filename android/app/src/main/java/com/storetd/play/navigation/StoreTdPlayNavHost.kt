@@ -8,6 +8,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.storetd.play.core.player.PlayerSession
 import com.storetd.play.core.storage.LocalLibrary
 import com.storetd.play.core.storage.SavedChannel
 import com.storetd.play.feature.account.AccountScreen
@@ -49,9 +50,14 @@ fun StoreTdPlayNavHost() {
         composable(Routes.LiveTv) {
             LiveTvScreen(
                 onBack = { navController.popBackStack() },
-                onPlay = { channel ->
-                    LocalLibrary.addHistory(context, channel)
-                    openPlayer(SavedChannel.from(channel))
+                onPlay = { channel, visibleChannels ->
+                    val saved = SavedChannel.from(channel)
+                    PlayerSession.setQueue(
+                        channels = visibleChannels.map { SavedChannel.from(it) },
+                        currentStreamUrl = channel.streamUrl
+                    )
+                    LocalLibrary.addHistory(context, saved)
+                    openPlayer(saved)
                 }
             )
         }
@@ -80,6 +86,10 @@ fun StoreTdPlayNavHost() {
             FavoritesScreen(
                 onBack = { navController.popBackStack() },
                 onPlay = { channel ->
+                    PlayerSession.setQueue(
+                        channels = LocalLibrary.favorites(context),
+                        currentStreamUrl = channel.streamUrl
+                    )
                     LocalLibrary.addHistory(context, channel)
                     openPlayer(channel)
                 }
@@ -90,14 +100,26 @@ fun StoreTdPlayNavHost() {
             HistoryScreen(
                 onBack = { navController.popBackStack() },
                 onPlay = { channel ->
+                    PlayerSession.setQueue(
+                        channels = LocalLibrary.history(context),
+                        currentStreamUrl = channel.streamUrl
+                    )
                     LocalLibrary.addHistory(context, channel)
                     openPlayer(channel)
                 }
             )
         }
 
-        composable(Routes.Account) { AccountScreen(onBack = { navController.popBackStack() }) }
-        composable(Routes.Support) { SupportScreen(onBack = { navController.popBackStack() }) }
-        composable(Routes.Settings) { SettingsScreen(onBack = { navController.popBackStack() }) }
+        composable(Routes.Account) {
+            AccountScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.Support) {
+            SupportScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.Settings) {
+            SettingsScreen(onBack = { navController.popBackStack() })
+        }
     }
 }
