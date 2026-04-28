@@ -1,6 +1,7 @@
 package com.storetd.play.feature.player
 
 import android.content.Intent
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
 import android.view.ViewGroup
@@ -8,7 +9,7 @@ import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -17,13 +18,16 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -33,16 +37,19 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.storetd.play.BuildConfig
 import com.storetd.play.core.player.PlayerSession
@@ -60,6 +67,8 @@ fun PlayerScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     var currentChannel by remember {
         mutableStateOf(
@@ -74,26 +83,17 @@ fun PlayerScreen(
         )
     }
 
-    var errorMessage by remember(currentChannel.streamUrl) {
-        mutableStateOf<String?>(null)
-    }
-
-    var isBuffering by remember(currentChannel.streamUrl) {
-        mutableStateOf(false)
-    }
-
-    var showOverlay by remember(currentChannel.streamUrl) {
-        mutableStateOf(true)
-    }
-
+    var errorMessage by remember(currentChannel.streamUrl) { mutableStateOf<String?>(null) }
+    var isBuffering by remember(currentChannel.streamUrl) { mutableStateOf(false) }
+    var showTopOverlay by remember(currentChannel.streamUrl) { mutableStateOf(true) }
     var isFavorite by remember(currentChannel.streamUrl) {
         mutableStateOf(LocalLibrary.isFavorite(context, currentChannel.streamUrl))
     }
 
     LaunchedEffect(currentChannel.streamUrl) {
-        showOverlay = true
-        delay(2500)
-        showOverlay = false
+        showTopOverlay = true
+        delay(2200)
+        showTopOverlay = false
     }
 
     val player = remember(currentChannel.streamUrl) {
@@ -181,100 +181,126 @@ fun PlayerScreen(
 
     BackHandler { onBack() }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        Box(modifier = Modifier.weight(1f)) {
-            key(currentChannel.streamUrl) {
-                AndroidView(
-                    modifier = Modifier.fillMaxSize(),
-                    factory = {
-                        PlayerView(it).apply {
-                            useController = true
-                            layoutParams = ViewGroup.LayoutParams(
-                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                ViewGroup.LayoutParams.MATCH_PARENT
-                            )
+        key(currentChannel.streamUrl) {
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = {
+                    PlayerView(it).apply {
+                        useController = true
+                        resizeMode = if (isLandscape) {
+                            AspectRatioFrameLayout.RESIZE_MODE_FIT
+                        } else {
+                            AspectRatioFrameLayout.RESIZE_MODE_FIT
                         }
-                    },
-                    update = {
-                        it.player = player
+                        layoutParams = ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
                     }
-                )
-            }
-
-            if (showOverlay) {
-                Card(
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(16.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = currentChannel.name,
-                            style = MaterialTheme.typography.titleLarge,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = currentChannel.group,
-                            style = MaterialTheme.typography.bodyMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                },
+                update = {
+                    it.player = player
+                    it.resizeMode = if (isLandscape) {
+                        AspectRatioFrameLayout.RESIZE_MODE_FIT
+                    } else {
+                        AspectRatioFrameLayout.RESIZE_MODE_FIT
                     }
                 }
-            }
+            )
+        }
 
-            if (isBuffering) {
-                Card(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .padding(16.dp)
-                ) {
+        if (showTopOverlay) {
+            Card(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .statusBarsPadding()
+                    .padding(16.dp)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
                     Text(
-                        text = "Cargando stream...",
-                        modifier = Modifier.padding(16.dp),
-                        color = MaterialTheme.colorScheme.primary
+                        text = currentChannel.name,
+                        style = MaterialTheme.typography.titleLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = currentChannel.group,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
         }
 
-        errorMessage?.let {
-            Card(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        if (isBuffering) {
+            Card(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(16.dp)
+            ) {
                 Text(
-                    text = "Error de reproduccion: $it",
+                    text = "Cargando stream...",
+                    modifier = Modifier.padding(16.dp),
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+
+        errorMessage?.let { message ->
+            Card(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(start = 16.dp, end = 16.dp, bottom = if (isLandscape) 92.dp else 132.dp)
+            ) {
+                Text(
+                    text = "Error de reproducción: $message",
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(16.dp)
                 )
             }
         }
 
-        PlayerBottomBar(
-            channel = currentChannel,
-            isFavorite = isFavorite,
-            canPrevious = PlayerSession.hasPrevious(),
-            canNext = PlayerSession.hasNext(),
-            onPrevious = ::zapPrevious,
-            onNext = ::zapNext,
-            onFavorite = ::toggleFavorite,
-            onReport = ::reportChannel,
-            onRetry = ::retryPlayback,
-            onBack = onBack
-        )
+        Surface(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .navigationBarsPadding(),
+            tonalElevation = 6.dp,
+            shadowElevation = 10.dp,
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
+        ) {
+            PlayerBottomOverlay(
+                channel = currentChannel,
+                isFavorite = isFavorite,
+                canPrevious = PlayerSession.hasPrevious(),
+                canNext = PlayerSession.hasNext(),
+                isLandscape = isLandscape,
+                onPrevious = ::zapPrevious,
+                onNext = ::zapNext,
+                onFavorite = ::toggleFavorite,
+                onReport = ::reportChannel,
+                onRetry = ::retryPlayback,
+                onBack = onBack
+            )
+        }
     }
 }
 
 @Composable
-private fun PlayerBottomBar(
+private fun PlayerBottomOverlay(
     channel: SavedChannel,
     isFavorite: Boolean,
     canPrevious: Boolean,
     canNext: Boolean,
+    isLandscape: Boolean,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onFavorite: () -> Unit,
@@ -285,9 +311,9 @@ private fun PlayerBottomBar(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp)
+            .padding(horizontal = 14.dp, vertical = 12.dp)
     ) {
-        val compact = maxWidth < 700.dp
+        val compact = !isLandscape || maxWidth < 760.dp
 
         if (compact) {
             Column(modifier = Modifier.fillMaxWidth()) {
@@ -298,7 +324,7 @@ private fun PlayerBottomBar(
                     overflow = TextOverflow.Ellipsis
                 )
 
-                Spacer(Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(2.dp))
 
                 Text(
                     text = channel.group,
@@ -307,12 +333,13 @@ private fun PlayerBottomBar(
                     overflow = TextOverflow.Ellipsis
                 )
 
-                Spacer(Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     OutlinedButton(
                         onClick = onPrevious,
@@ -321,8 +348,6 @@ private fun PlayerBottomBar(
                         Text("Anterior")
                     }
 
-                    Spacer(Modifier.width(8.dp))
-
                     OutlinedButton(
                         onClick = onNext,
                         enabled = canNext
@@ -330,25 +355,17 @@ private fun PlayerBottomBar(
                         Text("Siguiente")
                     }
 
-                    Spacer(Modifier.width(8.dp))
-
                     Button(onClick = onFavorite) {
-                        Text(if (isFavorite) "Quitar" else "Favorito")
+                        Text(if (isFavorite) "Quitar favorito" else "Favorito")
                     }
-
-                    Spacer(Modifier.width(8.dp))
 
                     OutlinedButton(onClick = onReport) {
                         Text("Reportar")
                     }
 
-                    Spacer(Modifier.width(8.dp))
-
                     OutlinedButton(onClick = onRetry) {
                         Text("Reintentar")
                     }
-
-                    Spacer(Modifier.width(8.dp))
 
                     Button(onClick = onBack) {
                         Text("Volver")
@@ -356,7 +373,10 @@ private fun PlayerBottomBar(
                 }
             }
         } else {
-            Row(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = channel.name,
@@ -364,6 +384,8 @@ private fun PlayerBottomBar(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+
+                    Spacer(modifier = Modifier.height(2.dp))
 
                     Text(
                         text = channel.group,
@@ -373,46 +395,38 @@ private fun PlayerBottomBar(
                     )
                 }
 
-                Spacer(Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(12.dp))
 
-                OutlinedButton(
-                    onClick = onPrevious,
-                    enabled = canPrevious
-                ) {
-                    Text("Anterior")
-                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = onPrevious,
+                        enabled = canPrevious
+                    ) {
+                        Text("Anterior")
+                    }
 
-                Spacer(Modifier.width(8.dp))
+                    OutlinedButton(
+                        onClick = onNext,
+                        enabled = canNext
+                    ) {
+                        Text("Siguiente")
+                    }
 
-                OutlinedButton(
-                    onClick = onNext,
-                    enabled = canNext
-                ) {
-                    Text("Siguiente")
-                }
+                    Button(onClick = onFavorite) {
+                        Text(if (isFavorite) "Quitar favorito" else "Favorito")
+                    }
 
-                Spacer(Modifier.width(8.dp))
+                    OutlinedButton(onClick = onReport) {
+                        Text("Reportar")
+                    }
 
-                Button(onClick = onFavorite) {
-                    Text(if (isFavorite) "Quitar favorito" else "Favorito")
-                }
+                    OutlinedButton(onClick = onRetry) {
+                        Text("Reintentar")
+                    }
 
-                Spacer(Modifier.width(8.dp))
-
-                OutlinedButton(onClick = onReport) {
-                    Text("Reportar")
-                }
-
-                Spacer(Modifier.width(8.dp))
-
-                OutlinedButton(onClick = onRetry) {
-                    Text("Reintentar")
-                }
-
-                Spacer(Modifier.width(8.dp))
-
-                Button(onClick = onBack) {
-                    Text("Volver")
+                    Button(onClick = onBack) {
+                        Text("Volver")
+                    }
                 }
             }
         }
