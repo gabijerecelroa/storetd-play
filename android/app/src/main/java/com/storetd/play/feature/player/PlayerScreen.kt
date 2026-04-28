@@ -4,6 +4,7 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
+import android.view.View
 import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
@@ -42,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -58,6 +60,23 @@ import com.storetd.play.core.storage.LocalLibrary
 import com.storetd.play.core.storage.SavedChannel
 import kotlinx.coroutines.delay
 
+private enum class VideoResizeMode(
+    val label: String,
+    val media3Mode: Int
+) {
+    Fit("Ajustar", AspectRatioFrameLayout.RESIZE_MODE_FIT),
+    Zoom("Zoom", AspectRatioFrameLayout.RESIZE_MODE_ZOOM),
+    Fill("Llenar", AspectRatioFrameLayout.RESIZE_MODE_FILL);
+
+    fun next(): VideoResizeMode {
+        return when (this) {
+            Fit -> Zoom
+            Zoom -> Fill
+            Fill -> Fit
+        }
+    }
+}
+
 @OptIn(UnstableApi::class)
 @Composable
 fun PlayerScreen(
@@ -68,6 +87,7 @@ fun PlayerScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val view = LocalView.current
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
@@ -84,12 +104,29 @@ fun PlayerScreen(
         )
     }
 
+    var resizeMode by remember { mutableStateOf(VideoResizeMode.Fit) }
     var errorMessage by remember(currentChannel.streamUrl) { mutableStateOf<String?>(null) }
     var isBuffering by remember(currentChannel.streamUrl) { mutableStateOf(false) }
     var isPlaying by remember(currentChannel.streamUrl) { mutableStateOf(true) }
     var showControls by remember(currentChannel.streamUrl) { mutableStateOf(true) }
     var isFavorite by remember(currentChannel.streamUrl) {
         mutableStateOf(LocalLibrary.isFavorite(context, currentChannel.streamUrl))
+    }
+
+    DisposableEffect(Unit) {
+        val previousFlags = view.systemUiVisibility
+
+        view.systemUiVisibility =
+            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+                View.SYSTEM_UI_FLAG_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+
+        onDispose {
+            view.systemUiVisibility = previousFlags
+        }
     }
 
     LaunchedEffect(showControls, currentChannel.streamUrl) {
@@ -143,6 +180,7 @@ fun PlayerScreen(
 
     fun togglePlayPause() {
         showControls = true
+
         if (player.isPlaying) {
             player.pause()
         } else {
@@ -163,6 +201,7 @@ fun PlayerScreen(
             Dispositivo: ${Build.MANUFACTURER} ${Build.MODEL}
             Android: ${Build.VERSION.RELEASE}
             Version app: ${BuildConfig.VERSION_NAME}
+            Modo vista: ${resizeMode.label}
             Error tecnico: ${errorMessage ?: "Sin error capturado"}
 
             Describe el problema:
@@ -219,7 +258,7 @@ fun PlayerScreen(
                 factory = {
                     PlayerView(it).apply {
                         useController = false
-                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                        resizeMode = resizeMode.media3Mode
                         layoutParams = ViewGroup.LayoutParams(
                             ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.MATCH_PARENT
@@ -229,7 +268,7 @@ fun PlayerScreen(
                 update = {
                     it.player = player
                     it.useController = false
-                    it.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                    it.resizeMode = resizeMode.media3Mode
                 }
             )
         }
@@ -239,7 +278,7 @@ fun PlayerScreen(
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .statusBarsPadding()
-                    .padding(14.dp)
+                    .padding(12.dp)
             ) {
                 Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
                     Text(
@@ -248,8 +287,9 @@ fun PlayerScreen(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+
                     Text(
-                        text = currentChannel.group,
+                        text = "${currentChannel.group} · Vista: ${resizeMode.label}",
                         style = MaterialTheme.typography.bodySmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -291,7 +331,7 @@ fun PlayerScreen(
                     .padding(
                         start = 14.dp,
                         end = 14.dp,
-                        bottom = if (isLandscape) 82.dp else 118.dp
+                        bottom = if (isLandscape) 78.dp else 112.dp
                     )
             ) {
                 Text(
@@ -317,12 +357,17 @@ fun PlayerScreen(
                     isFavorite = isFavorite,
                     canPrevious = PlayerSession.hasPrevious(),
                     canNext = PlayerSession.hasNext(),
+                    resizeModeLabel = resizeMode.label,
                     isLandscape = isLandscape,
                     onPrevious = ::zapPrevious,
                     onNext = ::zapNext,
                     onFavorite = ::toggleFavorite,
                     onReport = ::reportChannel,
                     onRetry = ::retryPlayback,
+                    onChangeResizeMode = {
+                        resizeMode = resizeMode.next()
+                        showControls = true
+                    },
                     onBack = onBack
                 )
             }
@@ -336,12 +381,14 @@ private fun PlayerBottomOverlay(
     isFavorite: Boolean,
     canPrevious: Boolean,
     canNext: Boolean,
+    resizeModeLabel: String,
     isLandscape: Boolean,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onFavorite: () -> Unit,
     onReport: () -> Unit,
     onRetry: () -> Unit,
+    onChangeResizeMode: () -> Unit,
     onBack: () -> Unit
 ) {
     BoxWithConstraints(
@@ -361,7 +408,7 @@ private fun PlayerBottomOverlay(
                 )
 
                 Text(
-                    text = channel.group,
+                    text = "${channel.group} · $resizeModeLabel",
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -381,6 +428,10 @@ private fun PlayerBottomOverlay(
 
                     OutlinedButton(onClick = onNext, enabled = canNext) {
                         Text("Sig.")
+                    }
+
+                    OutlinedButton(onClick = onChangeResizeMode) {
+                        Text("Vista")
                     }
 
                     Button(onClick = onFavorite) {
@@ -414,7 +465,7 @@ private fun PlayerBottomOverlay(
                     )
 
                     Text(
-                        text = channel.group,
+                        text = "${channel.group} · Vista: $resizeModeLabel",
                         style = MaterialTheme.typography.bodySmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -430,6 +481,10 @@ private fun PlayerBottomOverlay(
 
                     OutlinedButton(onClick = onNext, enabled = canNext) {
                         Text("Sig.")
+                    }
+
+                    OutlinedButton(onClick = onChangeResizeMode) {
+                        Text("Vista")
                     }
 
                     Button(onClick = onFavorite) {
