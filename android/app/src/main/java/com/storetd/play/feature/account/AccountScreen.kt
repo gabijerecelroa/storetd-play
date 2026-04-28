@@ -7,13 +7,14 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
@@ -63,10 +64,15 @@ fun AccountScreen(
         modifier = Modifier
             .fillMaxSize()
             .navigationBarsPadding()
+            .verticalScroll(rememberScrollState())
             .padding(24.dp)
     ) {
         Text("Mi cuenta", style = MaterialTheme.typography.headlineMedium)
-        Text("Informacion del cliente, dispositivo y servicio asignado.")
+        Text(
+            text = "Informacion del cliente, dispositivo y servicio asignado.",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.85f)
+        )
 
         Spacer(modifier = Modifier.height(20.dp))
 
@@ -156,23 +162,34 @@ fun AccountScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Button(onClick = { openRenewWhatsApp() }) {
-                Text("Renovar")
-            }
-
-            OutlinedButton(onClick = onBack) {
-                Text("Volver")
-            }
-
-            OutlinedButton(
-                onClick = {
-                    LocalAccount.logout(context)
-                    onLogout()
-                }
-            ) {
-                Text("Cerrar sesion")
-            }
+        Button(
+            onClick = { openRenewWhatsApp() },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Renovar por WhatsApp")
         }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        OutlinedButton(
+            onClick = onBack,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Volver")
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        OutlinedButton(
+            onClick = {
+                LocalAccount.logout(context)
+                onLogout()
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Cerrar sesion")
+        }
+
+        Spacer(modifier = Modifier.height(40.dp))
     }
 }
