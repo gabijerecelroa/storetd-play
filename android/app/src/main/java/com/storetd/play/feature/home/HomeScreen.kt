@@ -46,6 +46,7 @@ fun HomeScreen(
     onOpenLiveTv: () -> Unit,
     onOpenFavorites: () -> Unit,
     onOpenHistory: () -> Unit,
+    onOpenEpg: () -> Unit,
     onOpenAccount: () -> Unit,
     onOpenSupport: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -55,6 +56,7 @@ fun HomeScreen(
         HomeItem("TV en vivo", "Canales, categorias y zapping", onOpenLiveTv),
         HomeItem("Favoritos", "Tus canales guardados", onOpenFavorites),
         HomeItem("Ultimos vistos", "Continua donde quedaste", onOpenHistory),
+        HomeItem("Guia EPG", "Programacion actual y proximos eventos", onOpenEpg),
         HomeItem("Mi cuenta", "Estado, vencimiento y cliente", onOpenAccount),
         HomeItem("Soporte", "WhatsApp, email y diagnostico", onOpenSupport),
         HomeItem("Configuracion", "Tema, cache y preferencias", onOpenSettings)

@@ -10,4 +10,5 @@ object Routes {
     const val Account = "account"
     const val Support = "support"
     const val Settings = "settings"
+    const val Epg = "epg"
 }

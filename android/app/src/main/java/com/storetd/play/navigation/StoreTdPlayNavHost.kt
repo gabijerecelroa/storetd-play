@@ -22,6 +22,7 @@ import com.storetd.play.core.storage.LocalAppConfig
 import com.storetd.play.core.storage.LocalLibrary
 import com.storetd.play.core.storage.SavedChannel
 import com.storetd.play.feature.account.AccountScreen
+import com.storetd.play.feature.epg.EpgScreen
 import com.storetd.play.feature.auth.ActivationScreen
 import com.storetd.play.feature.favorites.FavoritesScreen
 import com.storetd.play.feature.history.HistoryScreen
@@ -130,10 +131,17 @@ fun StoreTdPlayNavHost() {
                 onOpenLiveTv = { navController.navigate(Routes.LiveTv) },
                 onOpenFavorites = { navController.navigate(Routes.Favorites) },
                 onOpenHistory = { navController.navigate(Routes.History) },
+                onOpenEpg = { navController.navigate(Routes.Epg) },
                 onOpenAccount = { navController.navigate(Routes.Account) },
                 onOpenSupport = { navController.navigate(Routes.Support) },
                 onOpenSettings = { navController.navigate(Routes.Settings) },
                 config = appConfig
+            )
+        }
+
+        composable(Routes.Epg) {
+            EpgScreen(
+                onBack = { navController.popBackStack() }
             )
         }
 
