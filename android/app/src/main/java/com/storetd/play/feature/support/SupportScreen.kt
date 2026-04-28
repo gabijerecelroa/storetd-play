@@ -10,7 +10,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
@@ -21,15 +24,29 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.storetd.play.BuildConfig
+import com.storetd.play.core.network.RemoteAppConfig
 
 @Composable
-fun SupportScreen(onBack: () -> Unit) {
+fun SupportScreen(
+    onBack: () -> Unit,
+    config: RemoteAppConfig = RemoteAppConfig()
+) {
     val context = LocalContext.current
 
+    fun openUrl(url: String) {
+        if (url.isBlank()) return
+        runCatching {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        }
+    }
+
     fun openWhatsApp() {
-        val phone = BuildConfig.SUPPORT_WHATSAPP.ifBlank { "5490000000000" }
+        val phone = config.supportWhatsApp.ifBlank { BuildConfig.SUPPORT_WHATSAPP }
+
+        if (phone.isBlank()) return
+
         val message = Uri.encode(
-            "Hola, necesito soporte con StoreTD Play.\n\n" +
+            "Hola, necesito soporte con ${config.appName}.\n\n" +
                 "Dispositivo: ${Build.MANUFACTURER} ${Build.MODEL}\n" +
                 "Android: ${Build.VERSION.RELEASE}\n" +
                 "Version app: ${BuildConfig.VERSION_NAME}"
@@ -41,8 +58,12 @@ fun SupportScreen(onBack: () -> Unit) {
     }
 
     fun sendEmail() {
+        val email = config.supportEmail.ifBlank { BuildConfig.SUPPORT_EMAIL }
+
+        if (email.isBlank()) return
+
         val body = """
-            Solicitud de soporte StoreTD Play
+            Solicitud de soporte ${config.appName}
 
             Dispositivo: ${Build.MANUFACTURER} ${Build.MODEL}
             Android: ${Build.VERSION.RELEASE}
@@ -52,8 +73,8 @@ fun SupportScreen(onBack: () -> Unit) {
         """.trimIndent()
 
         val intent = Intent(Intent.ACTION_SENDTO).apply {
-            data = Uri.parse("mailto:${BuildConfig.SUPPORT_EMAIL}")
-            putExtra(Intent.EXTRA_SUBJECT, "Soporte StoreTD Play")
+            data = Uri.parse("mailto:$email")
+            putExtra(Intent.EXTRA_SUBJECT, "Soporte ${config.appName}")
             putExtra(Intent.EXTRA_TEXT, body)
         }
 
@@ -63,6 +84,8 @@ fun SupportScreen(onBack: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .navigationBarsPadding()
+            .verticalScroll(rememberScrollState())
             .padding(24.dp)
     ) {
         Text("Soporte", style = MaterialTheme.typography.headlineMedium)
@@ -85,18 +108,61 @@ fun SupportScreen(onBack: () -> Unit) {
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Button(onClick = { openWhatsApp() }) {
-                Text("WhatsApp")
-            }
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text("Contacto", style = MaterialTheme.typography.titleMedium)
 
-            OutlinedButton(onClick = { sendEmail() }) {
-                Text("Email")
-            }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(
+                        onClick = { openWhatsApp() },
+                        enabled = config.supportWhatsApp.isNotBlank() || BuildConfig.SUPPORT_WHATSAPP.isNotBlank()
+                    ) {
+                        Text("WhatsApp")
+                    }
 
-            OutlinedButton(onClick = onBack) {
-                Text("Volver")
+                    OutlinedButton(
+                        onClick = { sendEmail() },
+                        enabled = config.supportEmail.isNotBlank() || BuildConfig.SUPPORT_EMAIL.isNotBlank()
+                    ) {
+                        Text("Email")
+                    }
+                }
+
+                Button(
+                    onClick = { openUrl(config.renewUrl) },
+                    enabled = config.renewUrl.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Renovar servicio")
+                }
+
+                OutlinedButton(
+                    onClick = { openUrl(config.termsUrl) },
+                    enabled = config.termsUrl.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Terminos y condiciones")
+                }
+
+                OutlinedButton(
+                    onClick = { openUrl(config.privacyUrl) },
+                    enabled = config.privacyUrl.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Politica de privacidad")
+                }
             }
         }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        OutlinedButton(onClick = onBack) {
+            Text("Volver")
+        }
+
+        Spacer(modifier = Modifier.height(40.dp))
     }
 }

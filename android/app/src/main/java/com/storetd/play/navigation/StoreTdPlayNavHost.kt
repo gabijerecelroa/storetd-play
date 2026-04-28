@@ -2,15 +2,23 @@ package com.storetd.play.navigation
 
 import android.net.Uri
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.storetd.play.core.network.AppConfigApi
+import com.storetd.play.core.network.RemoteAppConfig
 import com.storetd.play.core.player.PlayerSession
 import com.storetd.play.core.storage.LocalAccount
+import com.storetd.play.core.storage.LocalAppConfig
 import com.storetd.play.core.storage.LocalLibrary
 import com.storetd.play.core.storage.SavedChannel
 import com.storetd.play.feature.account.AccountScreen
@@ -19,16 +27,41 @@ import com.storetd.play.feature.favorites.FavoritesScreen
 import com.storetd.play.feature.history.HistoryScreen
 import com.storetd.play.feature.home.HomeScreen
 import com.storetd.play.feature.live.LiveTvScreen
+import com.storetd.play.feature.maintenance.MaintenanceScreen
 import com.storetd.play.feature.player.PlayerScreen
 import com.storetd.play.feature.settings.SettingsScreen
 import com.storetd.play.feature.support.SupportScreen
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun StoreTdPlayNavHost() {
     val navController = rememberNavController()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var appConfig by remember {
+        mutableStateOf(LocalAppConfig.get(context))
+    }
+
     val startDestination = remember {
         if (LocalAccount.isActivated(context)) Routes.Home else Routes.Activation
+    }
+
+    fun reloadConfig() {
+        scope.launch {
+            val remoteConfig = withContext(Dispatchers.IO) {
+                AppConfigApi.load()
+            }
+
+            LocalAppConfig.save(context, remoteConfig)
+            appConfig = remoteConfig
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        reloadConfig()
     }
 
     fun navigateAndClear(route: String) {
@@ -48,6 +81,14 @@ fun StoreTdPlayNavHost() {
                 "${Uri.encode(channel.group)}/" +
                 "${Uri.encode(channel.logoUrl ?: "-")}"
         )
+    }
+
+    if (appConfig.maintenanceMode) {
+        MaintenanceScreen(
+            config = appConfig,
+            onRetry = { reloadConfig() }
+        )
+        return
     }
 
     NavHost(navController = navController, startDestination = startDestination) {
@@ -91,7 +132,8 @@ fun StoreTdPlayNavHost() {
                 onOpenHistory = { navController.navigate(Routes.History) },
                 onOpenAccount = { navController.navigate(Routes.Account) },
                 onOpenSupport = { navController.navigate(Routes.Support) },
-                onOpenSettings = { navController.navigate(Routes.Settings) }
+                onOpenSettings = { navController.navigate(Routes.Settings) },
+                config = appConfig
             )
         }
 
@@ -168,7 +210,10 @@ fun StoreTdPlayNavHost() {
         }
 
         composable(Routes.Support) {
-            SupportScreen(onBack = { navController.popBackStack() })
+            SupportScreen(
+                onBack = { navController.popBackStack() },
+                config = appConfig
+            )
         }
 
         composable(Routes.Settings) {
