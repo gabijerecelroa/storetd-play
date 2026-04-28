@@ -5,9 +5,9 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -64,7 +64,8 @@ fun EpgScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    var epgUrl by remember { mutableStateOf(AccountEpgReader.epgUrl(context)) }
+    val epgUrl = remember { AccountEpgReader.epgUrl(context) }
+
     var query by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("") }
@@ -75,7 +76,7 @@ fun EpgScreen(
 
     fun loadCacheAsync() {
         loading = true
-        message = "Leyendo EPG guardada..."
+        message = "Leyendo guía guardada..."
 
         scope.launch {
             val parsed = withContext(Dispatchers.IO) {
@@ -89,26 +90,25 @@ fun EpgScreen(
             lastUpdatedAt = LocalEpgCache.lastUpdatedAt(context)
 
             message = when {
-                parsed.isNotEmpty() -> "EPG cargada desde caché local."
-                epgUrl.isNotBlank() -> "Toca Actualizar EPG para descargar programación."
-                else -> "Pega una URL XMLTV autorizada y toca Actualizar EPG."
+                parsed.isNotEmpty() -> "Guía cargada desde caché local."
+                epgUrl.isNotBlank() -> "Toca Actualizar guía para sincronizar programación."
+                else -> "No hay EPG asignada a esta cuenta."
             }
         }
     }
 
-    fun updateEpg(url: String) {
-        val cleanUrl = url.trim()
+    fun updateEpg() {
+        val cleanUrl = epgUrl.trim()
 
         if (!cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://")) {
-            message = "Ingresa una URL EPG válida."
+            message = "No hay una URL EPG válida asignada a esta cuenta."
             return
         }
 
         LocalEpgCache.rememberUrl(context, cleanUrl)
-        epgUrl = cleanUrl
 
         loading = true
-        message = "Descargando EPG. Si la fuente es grande puede tardar..."
+        message = "Sincronizando guía TV..."
 
         scope.launch {
             val result = withContext(Dispatchers.IO) {
@@ -125,7 +125,7 @@ fun EpgScreen(
 
             result.onSuccess {
                 programmes = it
-                message = "EPG actualizada correctamente. Programas cargados: ${it.size}"
+                message = "Guía actualizada correctamente. Programas cargados: ${it.size}"
             }.onFailure { error ->
                 val cached = withContext(Dispatchers.IO) {
                     val cachedXml = LocalEpgCache.load(context)
@@ -137,7 +137,7 @@ fun EpgScreen(
                     message = "No se pudo actualizar. Mostrando caché local."
                 } else {
                     programmes = emptyList()
-                    message = error.message ?: "No se pudo cargar la EPG."
+                    message = error.message ?: "No se pudo cargar la guía."
                 }
             }
         }
@@ -181,12 +181,12 @@ fun EpgScreen(
             .padding(20.dp)
     ) {
         Text(
-            text = "Guía EPG",
+            text = "Guía TV",
             style = MaterialTheme.typography.headlineMedium
         )
 
         Text(
-            text = "Programación XMLTV para contenido autorizado.",
+            text = "Programación sincronizada automáticamente.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.82f)
         )
@@ -202,18 +202,19 @@ fun EpgScreen(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "Fuente EPG",
+                    text = "Sincronización",
                     style = MaterialTheme.typography.titleMedium
                 )
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-                OutlinedTextField(
-                    value = epgUrl,
-                    onValueChange = { epgUrl = it },
-                    label = { Text("URL EPG XMLTV") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                Text(
+                    text = if (epgUrl.isBlank()) {
+                        "No hay guía asignada desde el panel."
+                    } else {
+                        "Guía asignada desde el panel."
+                    },
+                    style = MaterialTheme.typography.bodyMedium
                 )
 
                 Spacer(modifier = Modifier.height(10.dp))
@@ -224,11 +225,11 @@ fun EpgScreen(
                 }
 
                 Button(
-                    onClick = { updateEpg(epgUrl) },
-                    enabled = !loading,
+                    onClick = { updateEpg() },
+                    enabled = !loading && epgUrl.isNotBlank(),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(if (loading) "Cargando..." else "Actualizar EPG")
+                    Text(if (loading) "Sincronizando..." else "Actualizar guía")
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -247,7 +248,7 @@ fun EpgScreen(
                             LocalEpgCache.clear(context)
                             programmes = emptyList()
                             lastUpdatedAt = 0L
-                            message = "Caché EPG limpiada."
+                            message = "Caché de guía limpiada."
                         },
                         enabled = !loading,
                         modifier = Modifier.weight(1f)
@@ -287,20 +288,9 @@ fun EpgScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    AssistChip(
-                        onClick = {},
-                        label = { Text("Ahora: $nowCount") }
-                    )
-
-                    AssistChip(
-                        onClick = {},
-                        label = { Text("Próximos: $upcomingCount") }
-                    )
-
-                    AssistChip(
-                        onClick = {},
-                        label = { Text("Total: $totalCount") }
-                    )
+                    AssistChip(onClick = {}, label = { Text("Ahora: $nowCount") })
+                    AssistChip(onClick = {}, label = { Text("Próximos: $upcomingCount") })
+                    AssistChip(onClick = {}, label = { Text("Total: $totalCount") })
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -379,9 +369,7 @@ fun EpgScreen(
             ) {
                 items(
                     items = visiblePrograms,
-                    key = { program ->
-                        "${program.channelId}-${program.startAtMillis}-${program.title}"
-                    }
+                    key = { program -> "${program.channelId}-${program.startAtMillis}-${program.title}" }
                 ) { program ->
                     EpgProgramCard(
                         program = program,
@@ -413,9 +401,9 @@ private fun EmptyEpgCard(
             Spacer(modifier = Modifier.height(6.dp))
 
             val text = when {
-                !hasPrograms -> "Actualiza la EPG con una URL XMLTV válida o usa una fuente más liviana."
-                tab == EpgTab.Now -> "No hay programas activos en este horario. Prueba la pestaña Próximo o Todo."
-                tab == EpgTab.Upcoming -> "No hay próximos programas detectados. Prueba la pestaña Todo."
+                !hasPrograms -> "Actualiza la guía o revisa que el cliente tenga EPG asignada desde el panel."
+                tab == EpgTab.Now -> "No hay programas activos en este horario. Prueba Próximo o Todo."
+                tab == EpgTab.Upcoming -> "No hay próximos programas detectados. Prueba Todo."
                 else -> "No hay resultados para esta búsqueda."
             }
 

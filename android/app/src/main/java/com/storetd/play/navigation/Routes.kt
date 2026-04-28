@@ -4,6 +4,8 @@ object Routes {
     const val Activation = "activation"
     const val Home = "home"
     const val LiveTv = "live_tv"
+    const val Movies = "movies"
+    const val Series = "series"
     const val Player = "player"
     const val Favorites = "favorites"
     const val History = "history"

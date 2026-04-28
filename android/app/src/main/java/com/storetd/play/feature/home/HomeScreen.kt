@@ -38,12 +38,15 @@ import com.storetd.play.core.network.RemoteAppConfig
 private data class HomeItem(
     val title: String,
     val subtitle: String,
+    val tag: String,
     val action: () -> Unit
 )
 
 @Composable
 fun HomeScreen(
     onOpenLiveTv: () -> Unit,
+    onOpenMovies: () -> Unit,
+    onOpenSeries: () -> Unit,
     onOpenFavorites: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenEpg: () -> Unit,
@@ -52,14 +55,18 @@ fun HomeScreen(
     onOpenSettings: () -> Unit,
     config: RemoteAppConfig = RemoteAppConfig()
 ) {
-    val items = listOf(
-        HomeItem("TV en vivo", "Canales, categorias y zapping", onOpenLiveTv),
-        HomeItem("Favoritos", "Tus canales guardados", onOpenFavorites),
-        HomeItem("Ultimos vistos", "Continua donde quedaste", onOpenHistory),
-        HomeItem("Guia EPG", "Programacion actual y proximos eventos", onOpenEpg),
-        HomeItem("Mi cuenta", "Estado, vencimiento y cliente", onOpenAccount),
-        HomeItem("Soporte", "WhatsApp, email y diagnostico", onOpenSupport),
-        HomeItem("Configuracion", "Tema, cache y preferencias", onOpenSettings)
+    val mainItems = listOf(
+        HomeItem("TV en vivo", "Canales, categorías y zapping.", "LIVE", onOpenLiveTv),
+        HomeItem("Películas", "Cine, estrenos y contenido VOD.", "VOD", onOpenMovies),
+        HomeItem("Series", "Temporadas, episodios y colecciones.", "SERIES", onOpenSeries)
+    )
+
+    val secondaryItems = listOf(
+        HomeItem("Favoritos", "Tus canales y contenidos guardados.", "GUARDADO", onOpenFavorites),
+        HomeItem("Últimos vistos", "Continúa donde quedaste.", "HISTORIAL", onOpenHistory),
+        HomeItem("Guía TV", "Programación actual y próximos eventos.", "EPG", onOpenEpg),
+        HomeItem("Mi cuenta", "Estado, vencimiento y servicio.", "CLIENTE", onOpenAccount),
+        HomeItem("Configuración", "Preferencias y mantenimiento local.", "APP", onOpenSettings)
     )
 
     BoxWithConstraints(
@@ -79,7 +86,7 @@ fun HomeScreen(
                 onOpenSupport = onOpenSupport
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(22.dp))
 
             if (config.forceAppUpdate) {
                 Surface(
@@ -91,13 +98,13 @@ fun HomeScreen(
                 ) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Text(
-                            text = "Actualizacion requerida",
+                            text = "Actualización requerida",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onErrorContainer
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Version minima requerida: ${config.minimumAppVersion}. Version instalada: ${BuildConfig.VERSION_NAME}.",
+                            text = "Versión mínima: ${config.minimumAppVersion}. Instalada: ${BuildConfig.VERSION_NAME}.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onErrorContainer
                         )
@@ -107,35 +114,27 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(18.dp))
             }
 
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 4.dp,
-                shadowElevation = 8.dp,
-                shape = MaterialTheme.shapes.extraLarge
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = config.welcomeTitle,
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = config.welcomeMessage,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-            }
+            HeroCard(
+                title = config.welcomeTitle,
+                message = config.welcomeMessage
+            )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Text(
+                text = "Contenido",
+                style = MaterialTheme.typography.titleLarge
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
 
             LazyVerticalGrid(
                 columns = GridCells.Fixed(columns),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                items(items) { item ->
+                items(mainItems + secondaryItems) { item ->
                     HomeCard(item = item)
                 }
             }
@@ -143,7 +142,7 @@ fun HomeScreen(
             Text(
                 text = config.providerMessage,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.85f),
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.82f),
                 modifier = Modifier.padding(top = 12.dp)
             )
         }
@@ -193,18 +192,55 @@ private fun Header(
 }
 
 @Composable
+private fun HeroCard(
+    title: String,
+    message: String
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 5.dp,
+        shadowElevation = 10.dp,
+        shape = MaterialTheme.shapes.extraLarge
+    ) {
+        Column(modifier = Modifier.padding(22.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.84f)
+            )
+        }
+    }
+}
+
+@Composable
 private fun HomeCard(item: HomeItem) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(170.dp)
+            .height(180.dp)
             .focusable(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 7.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
+            Text(
+                text = item.tag,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             Text(
                 text = item.title,
                 style = MaterialTheme.typography.headlineSmall,

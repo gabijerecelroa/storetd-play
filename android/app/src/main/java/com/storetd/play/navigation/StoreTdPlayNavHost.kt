@@ -15,18 +15,18 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.storetd.play.core.network.AppConfigApi
-import com.storetd.play.core.network.RemoteAppConfig
 import com.storetd.play.core.player.PlayerSession
 import com.storetd.play.core.storage.LocalAccount
 import com.storetd.play.core.storage.LocalAppConfig
 import com.storetd.play.core.storage.LocalLibrary
 import com.storetd.play.core.storage.SavedChannel
 import com.storetd.play.feature.account.AccountScreen
-import com.storetd.play.feature.epg.EpgScreen
 import com.storetd.play.feature.auth.ActivationScreen
+import com.storetd.play.feature.epg.EpgScreen
 import com.storetd.play.feature.favorites.FavoritesScreen
 import com.storetd.play.feature.history.HistoryScreen
 import com.storetd.play.feature.home.HomeScreen
+import com.storetd.play.feature.live.ContentMode
 import com.storetd.play.feature.live.LiveTvScreen
 import com.storetd.play.feature.maintenance.MaintenanceScreen
 import com.storetd.play.feature.player.PlayerScreen
@@ -129,6 +129,8 @@ fun StoreTdPlayNavHost() {
         composable(Routes.Home) {
             HomeScreen(
                 onOpenLiveTv = { navController.navigate(Routes.LiveTv) },
+                onOpenMovies = { navController.navigate(Routes.Movies) },
+                onOpenSeries = { navController.navigate(Routes.Series) },
                 onOpenFavorites = { navController.navigate(Routes.Favorites) },
                 onOpenHistory = { navController.navigate(Routes.History) },
                 onOpenEpg = { navController.navigate(Routes.Epg) },
@@ -147,6 +149,39 @@ fun StoreTdPlayNavHost() {
 
         composable(Routes.LiveTv) {
             LiveTvScreen(
+                contentMode = ContentMode.LiveTv,
+                onBack = { navController.popBackStack() },
+                onPlay = { channel, visibleChannels ->
+                    val saved = SavedChannel.from(channel)
+                    PlayerSession.setQueue(
+                        channels = visibleChannels.map { SavedChannel.from(it) },
+                        currentStreamUrl = channel.streamUrl
+                    )
+                    LocalLibrary.addHistory(context, saved)
+                    openPlayer(saved)
+                }
+            )
+        }
+
+        composable(Routes.Movies) {
+            LiveTvScreen(
+                contentMode = ContentMode.Movies,
+                onBack = { navController.popBackStack() },
+                onPlay = { channel, visibleChannels ->
+                    val saved = SavedChannel.from(channel)
+                    PlayerSession.setQueue(
+                        channels = visibleChannels.map { SavedChannel.from(it) },
+                        currentStreamUrl = channel.streamUrl
+                    )
+                    LocalLibrary.addHistory(context, saved)
+                    openPlayer(saved)
+                }
+            )
+        }
+
+        composable(Routes.Series) {
+            LiveTvScreen(
+                contentMode = ContentMode.Series,
                 onBack = { navController.popBackStack() },
                 onPlay = { channel, visibleChannels ->
                     val saved = SavedChannel.from(channel)
