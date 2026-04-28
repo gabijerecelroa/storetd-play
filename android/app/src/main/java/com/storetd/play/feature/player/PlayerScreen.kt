@@ -7,12 +7,17 @@ import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
@@ -25,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.MediaItem
@@ -93,7 +99,11 @@ fun PlayerScreen(
 
     BackHandler { onBack() }
 
-    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
         AndroidView(
             modifier = Modifier.weight(1f),
             factory = {
@@ -111,13 +121,13 @@ fun PlayerScreen(
         if (isBuffering) {
             Text(
                 text = "Cargando stream...",
-                modifier = Modifier.padding(horizontal = 16.dp),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 color = MaterialTheme.colorScheme.primary
             )
         }
 
         errorMessage?.let {
-            Card(modifier = Modifier.padding(16.dp)) {
+            Card(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Text(
                     text = "Error de reproduccion: $it",
                     color = MaterialTheme.colorScheme.error,
@@ -126,82 +136,190 @@ fun PlayerScreen(
             }
         }
 
-        Row(modifier = Modifier.padding(16.dp)) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = channelName,
-                    style = MaterialTheme.typography.titleLarge
-                )
-                Text(
-                    text = groupName,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            val compact = maxWidth < 700.dp
 
-            Button(
-                onClick = {
-                    if (isFavorite) {
-                        LocalLibrary.removeFavorite(context, streamUrl)
-                        isFavorite = false
-                    } else {
-                        LocalLibrary.addFavorite(context, savedChannel)
-                        isFavorite = true
+            if (compact) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = channelName,
+                        style = MaterialTheme.typography.titleLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    Spacer(Modifier.height(4.dp))
+
+                    Text(
+                        text = groupName,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                    ) {
+                        Button(
+                            onClick = {
+                                if (isFavorite) {
+                                    LocalLibrary.removeFavorite(context, streamUrl)
+                                    isFavorite = false
+                                } else {
+                                    LocalLibrary.addFavorite(context, savedChannel)
+                                    isFavorite = true
+                                }
+                            }
+                        ) {
+                            Text(if (isFavorite) "Quitar favorito" else "Favorito")
+                        }
+
+                        Spacer(Modifier.width(8.dp))
+
+                        Button(
+                            onClick = {
+                                val body = """
+                                    Reporte de canal
+
+                                    Canal: $channelName
+                                    Categoria: $groupName
+                                    URL oculta: ${LocalLibrary.maskUrl(streamUrl)}
+
+                                    Dispositivo: ${Build.MANUFACTURER} ${Build.MODEL}
+                                    Android: ${Build.VERSION.RELEASE}
+                                    Version app: ${BuildConfig.VERSION_NAME}
+                                    Error tecnico: ${errorMessage ?: "Sin error capturado"}
+
+                                    Describe el problema:
+                                """.trimIndent()
+
+                                val intent = Intent(Intent.ACTION_SENDTO).apply {
+                                    data = Uri.parse("mailto:${BuildConfig.SUPPORT_EMAIL}")
+                                    putExtra(Intent.EXTRA_SUBJECT, "Reporte de canal - $channelName")
+                                    putExtra(Intent.EXTRA_TEXT, body)
+                                }
+
+                                runCatching { context.startActivity(intent) }
+                            }
+                        ) {
+                            Text("Reportar")
+                        }
+
+                        Spacer(Modifier.width(8.dp))
+
+                        Button(
+                            onClick = {
+                                errorMessage = null
+                                player.stop()
+                                player.clearMediaItems()
+                                player.setMediaItem(MediaItem.fromUri(streamUrl))
+                                player.prepare()
+                                player.playWhenReady = true
+                            }
+                        ) {
+                            Text("Reintentar")
+                        }
+
+                        Spacer(Modifier.width(8.dp))
+
+                        Button(onClick = onBack) {
+                            Text("Volver")
+                        }
                     }
                 }
-            ) {
-                Text(if (isFavorite) "Quitar favorito" else "Favorito")
-            }
-
-            Spacer(Modifier.width(8.dp))
-
-            Button(
-                onClick = {
-                    val body = """
-                        Reporte de canal
-
-                        Canal: $channelName
-                        Categoria: $groupName
-                        URL oculta: ${LocalLibrary.maskUrl(streamUrl)}
-
-                        Dispositivo: ${Build.MANUFACTURER} ${Build.MODEL}
-                        Android: ${Build.VERSION.RELEASE}
-                        Version app: ${BuildConfig.VERSION_NAME}
-                        Error tecnico: ${errorMessage ?: "Sin error capturado"}
-
-                        Describe el problema:
-                    """.trimIndent()
-
-                    val intent = Intent(Intent.ACTION_SENDTO).apply {
-                        data = Uri.parse("mailto:${BuildConfig.SUPPORT_EMAIL}")
-                        putExtra(Intent.EXTRA_SUBJECT, "Reporte de canal - $channelName")
-                        putExtra(Intent.EXTRA_TEXT, body)
+            } else {
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = channelName,
+                            style = MaterialTheme.typography.titleLarge,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = groupName,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
 
-                    runCatching { context.startActivity(intent) }
+                    Spacer(Modifier.width(12.dp))
+
+                    Button(
+                        onClick = {
+                            if (isFavorite) {
+                                LocalLibrary.removeFavorite(context, streamUrl)
+                                isFavorite = false
+                            } else {
+                                LocalLibrary.addFavorite(context, savedChannel)
+                                isFavorite = true
+                            }
+                        }
+                    ) {
+                        Text(if (isFavorite) "Quitar favorito" else "Favorito")
+                    }
+
+                    Spacer(Modifier.width(8.dp))
+
+                    Button(
+                        onClick = {
+                            val body = """
+                                Reporte de canal
+
+                                Canal: $channelName
+                                Categoria: $groupName
+                                URL oculta: ${LocalLibrary.maskUrl(streamUrl)}
+
+                                Dispositivo: ${Build.MANUFACTURER} ${Build.MODEL}
+                                Android: ${Build.VERSION.RELEASE}
+                                Version app: ${BuildConfig.VERSION_NAME}
+                                Error tecnico: ${errorMessage ?: "Sin error capturado"}
+
+                                Describe el problema:
+                            """.trimIndent()
+
+                            val intent = Intent(Intent.ACTION_SENDTO).apply {
+                                data = Uri.parse("mailto:${BuildConfig.SUPPORT_EMAIL}")
+                                putExtra(Intent.EXTRA_SUBJECT, "Reporte de canal - $channelName")
+                                putExtra(Intent.EXTRA_TEXT, body)
+                            }
+
+                            runCatching { context.startActivity(intent) }
+                        }
+                    ) {
+                        Text("Reportar")
+                    }
+
+                    Spacer(Modifier.width(8.dp))
+
+                    Button(
+                        onClick = {
+                            errorMessage = null
+                            player.stop()
+                            player.clearMediaItems()
+                            player.setMediaItem(MediaItem.fromUri(streamUrl))
+                            player.prepare()
+                            player.playWhenReady = true
+                        }
+                    ) {
+                        Text("Reintentar")
+                    }
+
+                    Spacer(Modifier.width(8.dp))
+
+                    Button(onClick = onBack) {
+                        Text("Volver")
+                    }
                 }
-            ) {
-                Text("Reportar")
-            }
-
-            Spacer(Modifier.width(8.dp))
-
-            Button(onClick = onBack) {
-                Text("Volver")
-            }
-
-            Spacer(Modifier.width(8.dp))
-
-            Button(
-                onClick = {
-                    errorMessage = null
-                    player.stop()
-                    player.clearMediaItems()
-                    player.setMediaItem(MediaItem.fromUri(streamUrl))
-                    player.prepare()
-                    player.playWhenReady = true
-                }
-            ) {
-                Text("Reintentar")
             }
         }
     }
