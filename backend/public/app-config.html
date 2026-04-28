@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>StoreTD Play Config</title>
+  <style>
+    :root {
+      --bg: #050505;
+      --card: #1f1f24;
+      --text: #ffffff;
+      --muted: #b8b8c2;
+      --red: #e50914;
+      --border: #3a3a44;
+      --input: #08080a;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    header {
+      padding: 22px;
+      background: #0d0d0f;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    h1 {
+      margin: 0;
+      color: var(--red);
+      font-size: 28px;
+    }
+
+    main {
+      padding: 18px;
+      max-width: 900px;
+      margin: auto;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+
+    label {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    input, textarea {
+      width: 100%;
+      background: var(--input);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+      font-size: 15px;
+    }
+
+    textarea {
+      min-height: 90px;
+    }
+
+    button {
+      background: var(--red);
+      color: white;
+      border: 0;
+      border-radius: 999px;
+      padding: 12px 18px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      margin: 4px 4px 4px 0;
+    }
+
+    button.secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+    }
+
+    .message {
+      padding: 12px;
+      border-radius: 12px;
+      background: #111;
+      border: 1px solid var(--border);
+      margin-bottom: 14px;
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .row input {
+      width: auto;
+      margin: 0;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    @media (max-width: 760px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>StoreTD Play Config</h1>
+    <div style="color:#b8b8c2">Configuración comercial remota</div>
+  </header>
+
+  <main>
+    <div id="message"></div>
+
+    <section class="card">
+      <h2>Acceso admin</h2>
+      <label>Clave admin</label>
+      <input id="adminKey" type="password" placeholder="ADMIN_KEY" />
+      <button onclick="saveKey()">Guardar clave</button>
+      <button class="secondary" onclick="loadConfig()">Cargar configuración</button>
+      <button class="secondary" onclick="window.location.href='/admin'">Volver al panel</button>
+    </section>
+
+    <section class="card">
+      <h2>Marca y textos</h2>
+
+      <label>Nombre comercial</label>
+      <input id="appName" placeholder="StoreTD Play" />
+
+      <label>Título de bienvenida</label>
+      <input id="welcomeTitle" />
+
+      <label>Mensaje de bienvenida</label>
+      <textarea id="welcomeMessage"></textarea>
+
+      <label>Mensaje del proveedor</label>
+      <textarea id="providerMessage"></textarea>
+    </section>
+
+    <section class="card">
+      <h2>Mantenimiento y actualización</h2>
+
+      <div class="row">
+        <input id="maintenanceMode" type="checkbox" />
+        <span>Activar modo mantenimiento</span>
+      </div>
+
+      <label>Mensaje de mantenimiento</label>
+      <textarea id="maintenanceMessage"></textarea>
+
+      <div class="row">
+        <input id="forceAppUpdate" type="checkbox" />
+        <span>Forzar actualización de app</span>
+      </div>
+
+      <label>Versión mínima de app</label>
+      <input id="minimumAppVersion" placeholder="1.0.0" />
+    </section>
+
+    <section class="card">
+      <h2>Soporte y comercial</h2>
+
+      <div class="grid">
+        <div>
+          <label>WhatsApp soporte</label>
+          <input id="supportWhatsApp" placeholder="549..." />
+        </div>
+
+        <div>
+          <label>Email soporte</label>
+          <input id="supportEmail" placeholder="soporte@empresa.com" />
+        </div>
+      </div>
+
+      <label>URL de renovación</label>
+      <input id="renewUrl" placeholder="https://..." />
+
+      <label>URL términos y condiciones</label>
+      <input id="termsUrl" placeholder="https://..." />
+
+      <label>URL política de privacidad</label>
+      <input id="privacyUrl" placeholder="https://..." />
+
+      <div class="row">
+        <input id="allowUserPlaylistInput" type="checkbox" />
+        <span>Permitir que el usuario cargue URL M3U manualmente</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <button onclick="saveConfig()">Guardar configuración</button>
+      <button class="secondary" onclick="loadConfig()">Recargar</button>
+    </section>
+  </main>
+
+  <script>
+    const adminKeyInput = document.getElementById("adminKey");
+    const messageBox = document.getElementById("message");
+
+    adminKeyInput.value =
+      sessionStorage.getItem("storetd_admin_key") ||
+      localStorage.getItem("storetd_admin_key") ||
+      "";
+
+    if (adminKeyInput.value) {
+      loadConfig();
+    }
+
+    function getKey() {
+      return adminKeyInput.value.trim();
+    }
+
+    function saveKey() {
+      sessionStorage.setItem("storetd_admin_key", getKey());
+      localStorage.setItem("storetd_admin_key", getKey());
+      showMessage("Clave guardada.");
+    }
+
+    function showMessage(text) {
+      messageBox.innerHTML = text ? `<div class="message">${escapeHtml(text)}</div>` : "";
+    }
+
+    async function api(path, options = {}) {
+      const response = await fetch(path, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-key": getKey(),
+          ...(options.headers || {})
+        }
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.message || "Error de servidor");
+      }
+
+      return data;
+    }
+
+    async function loadConfig() {
+      try {
+        showMessage("Cargando configuración...");
+        const data = await api("/admin/api/app-config");
+        fillForm(data.config || {});
+        showMessage("Configuración cargada.");
+      } catch (error) {
+        showMessage(error.message);
+      }
+    }
+
+    async function saveConfig() {
+      try {
+        const body = readForm();
+
+        await api("/admin/api/app-config", {
+          method: "PUT",
+          body: JSON.stringify(body)
+        });
+
+        showMessage("Configuración guardada correctamente.");
+      } catch (error) {
+        showMessage(error.message);
+      }
+    }
+
+    function fillForm(config) {
+      document.getElementById("appName").value = config.appName || "";
+      document.getElementById("welcomeTitle").value = config.welcomeTitle || "";
+      document.getElementById("welcomeMessage").value = config.welcomeMessage || "";
+      document.getElementById("providerMessage").value = config.providerMessage || "";
+      document.getElementById("maintenanceMode").checked = Boolean(config.maintenanceMode);
+      document.getElementById("maintenanceMessage").value = config.maintenanceMessage || "";
+      document.getElementById("forceAppUpdate").checked = Boolean(config.forceAppUpdate);
+      document.getElementById("minimumAppVersion").value = config.minimumAppVersion || "1.0.0";
+      document.getElementById("supportWhatsApp").value = config.supportWhatsApp || "";
+      document.getElementById("supportEmail").value = config.supportEmail || "";
+      document.getElementById("renewUrl").value = config.renewUrl || "";
+      document.getElementById("termsUrl").value = config.termsUrl || "";
+      document.getElementById("privacyUrl").value = config.privacyUrl || "";
+      document.getElementById("allowUserPlaylistInput").checked = config.allowUserPlaylistInput !== false;
+    }
+
+    function readForm() {
+      return {
+        appName: document.getElementById("appName").value,
+        welcomeTitle: document.getElementById("welcomeTitle").value,
+        welcomeMessage: document.getElementById("welcomeMessage").value,
+        providerMessage: document.getElementById("providerMessage").value,
+        maintenanceMode: document.getElementById("maintenanceMode").checked,
+        maintenanceMessage: document.getElementById("maintenanceMessage").value,
+        forceAppUpdate: document.getElementById("forceAppUpdate").checked,
+        minimumAppVersion: document.getElementById("minimumAppVersion").value,
+        supportWhatsApp: document.getElementById("supportWhatsApp").value,
+        supportEmail: document.getElementById("supportEmail").value,
+        renewUrl: document.getElementById("renewUrl").value,
+        termsUrl: document.getElementById("termsUrl").value,
+        privacyUrl: document.getElementById("privacyUrl").value,
+        allowUserPlaylistInput: document.getElementById("allowUserPlaylistInput").checked
+      };
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+  </script>
+</body>
+</html>

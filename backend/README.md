@@ -1,6 +1,6 @@
 # StoreTD Play Backend
 
-Backend con activacion, panel admin, clientes, dispositivos y reportes usando Supabase/PostgreSQL.
+Backend con activacion, panel admin, clientes, dispositivos, reportes y configuracion remota usando Supabase/PostgreSQL.
 
 ## Variables requeridas
 
@@ -17,12 +17,32 @@ npm run dev
 
 GET /
 GET /health
+GET /app/config
 POST /auth/activate
 POST /reports/channel
 
 ## Panel admin
 
 /admin
+
+## Configuracion comercial remota
+
+/admin/config
+
+Permite editar:
+
+- Nombre de app
+- Mensaje de bienvenida
+- Mensaje del proveedor
+- Modo mantenimiento
+- WhatsApp soporte
+- Email soporte
+- URL renovacion
+- Terminos
+- Privacidad
+- Version minima
+- Forzar actualizacion
+- Permitir carga manual de playlist
 
 ## API admin
 
@@ -43,6 +63,11 @@ DELETE /admin/api/reports/:id
 Estadisticas:
 
 GET /admin/api/stats
+
+Configuracion app:
+
+GET /admin/api/app-config
+PUT /admin/api/app-config
 
 Header requerido:
 

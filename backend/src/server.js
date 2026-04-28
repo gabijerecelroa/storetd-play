@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const { supabase, isDatabaseConfigured } = require("./db");
+const { getAppConfig, updateAppConfig } = require("./appConfig");
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -635,6 +636,67 @@ app.delete("/admin/api/reports/:id", requireAdmin, async (req, res) => {
     });
   }
 });
+
+
+app.get("/app/config", async (req, res) => {
+  try {
+    const config = await getAppConfig();
+
+    res.json({
+      success: true,
+      config
+    });
+  } catch (error) {
+    console.error("App config error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "No se pudo cargar la configuracion de la app."
+    });
+  }
+});
+
+app.get("/admin/config", (req, res) => {
+  res.sendFile(path.join(__dirname, "..", "public", "app-config.html"));
+});
+
+app.get("/admin/api/app-config", requireAdmin, async (req, res) => {
+  try {
+    const config = await getAppConfig();
+
+    res.json({
+      success: true,
+      config
+    });
+  } catch (error) {
+    console.error("Admin app config get error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "No se pudo cargar la configuracion."
+    });
+  }
+});
+
+app.put("/admin/api/app-config", requireAdmin, async (req, res) => {
+  try {
+    const config = await updateAppConfig(req.body || {});
+
+    res.json({
+      success: true,
+      message: "Configuracion actualizada.",
+      config
+    });
+  } catch (error) {
+    console.error("Admin app config update error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "No se pudo actualizar la configuracion."
+    });
+  }
+});
+
 
 app.listen(port, () => {
   console.log("StoreTD Play backend running on port " + port);
