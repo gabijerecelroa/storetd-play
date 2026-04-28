@@ -49,7 +49,7 @@ import coil.compose.rememberAsyncImagePainter
 import com.storetd.play.core.epg.EpgProgram
 import com.storetd.play.core.model.Channel
 import com.storetd.play.core.storage.LocalAccount
-import com.storetd.play.core.storage.LocalSettings
+import com.storetd.play.core.parental.ParentalControl
 import java.net.URLEncoder
 import java.text.Normalizer
 import java.text.SimpleDateFormat
@@ -81,7 +81,7 @@ fun LiveTvScreen(
         selectedSeriesKey = null
 
         viewModel.setContentMode(contentMode)
-        viewModel.setHideAdultContent(LocalSettings.isAdultContentHidden(context))
+        viewModel.setHideAdultContent(ParentalControl.isAdultContentHidden(context))
 
         val account = LocalAccount.getAccount(context)
         val assignedPlaylist = buildSectionPlaylistUrl(
@@ -119,7 +119,7 @@ fun LiveTvScreen(
                         mode = contentMode,
                         onSearchChange = viewModel::setSearchQuery,
                         onHideAdultChange = { hidden ->
-                            LocalSettings.setAdultContentHidden(context, hidden)
+                            ParentalControl.setAdultContentHidden(context, hidden)
                             viewModel.setHideAdultContent(hidden)
                         },
                         onRefresh = { viewModel.refreshPlaylist(context) },
@@ -160,7 +160,7 @@ fun LiveTvScreen(
                         mode = contentMode,
                         onSearchChange = viewModel::setSearchQuery,
                         onHideAdultChange = { hidden ->
-                            LocalSettings.setAdultContentHidden(context, hidden)
+                            ParentalControl.setAdultContentHidden(context, hidden)
                             viewModel.setHideAdultContent(hidden)
                         },
                         onRefresh = { viewModel.refreshPlaylist(context) },
@@ -371,7 +371,7 @@ private fun ContentControls(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        if (LocalSettings.verifyPin(context, pinValue)) {
+                        if (ParentalControl.verifyPin(context, pinValue)) {
                             onHideAdultChange(false)
                             showPinDialog = false
                             pinValue = ""

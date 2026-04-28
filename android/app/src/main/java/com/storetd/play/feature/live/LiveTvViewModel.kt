@@ -333,8 +333,10 @@ class LiveTvViewModel(
 
     companion object {
         private val adultWords = listOf(
-            "adult", "adulto", "xxx", "+18", "18+", "hot", "erotic", "erotico",
-            "erótico", "porn", "playboy"
+            "adult", "adulto", "adultos", "xxx", "+18", "18+", "hot",
+            "erotic", "erotico", "erótica", "erotica", "porno", "porn",
+            "playboy", "venus", "private", "sexy", "sex", "sex tv",
+            "para adultos", "adults only", "redlight", "brazzers"
         )
 
         private val movieWords = listOf(
