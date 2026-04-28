@@ -1,65 +1,47 @@
 const express = require("express");
 const cors = require("cors");
+const fs = require("fs");
+const path = require("path");
 
 const app = express();
 const port = process.env.PORT || 3000;
+const adminKey = process.env.ADMIN_KEY || "admin1234";
+
+const dataDir = path.join(__dirname, "..", "data");
+const clientsFile = path.join(dataDir, "clients.json");
 
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, "..", "public")));
 
-/**
- * Base simple de clientes.
- *
- * IMPORTANTE:
- * - playlistUrl debe ser una lista autorizada.
- * - No pongas listas ilegales ni contenido no autorizado.
- * - En una version futura esto se movera a base de datos y panel admin.
- */
-const clients = [
-  {
-    customerName: "Jose",
-    activationCode: "TEST1234",
-    status: "Activa",
-    expiresAt: "2026-12-31",
-    maxDevices: 2,
-    playlistUrl: "https://gist.githubusercontent.com/gabijerecelroa/1beb318f81af17604a81a8c257297615/raw/lista.m3u",
-    epgUrl: ""
-  },
-  {
-    customerName: "Cliente Demo",
-    activationCode: "DEMO1234",
-    status: "Prueba",
-    expiresAt: "2026-12-31",
-    maxDevices: 5,
-    playlistUrl: "https://example.com/lista-demo.m3u",
-    epgUrl: ""
-  },
-  {
-    customerName: "Cliente Suspendido",
-    activationCode: "SUSPENDIDO",
-    status: "Suspendida",
-    expiresAt: "2026-12-31",
-    maxDevices: 1,
-    playlistUrl: "",
-    epgUrl: ""
-  },
-  {
-    customerName: "Cliente Vencido",
-    activationCode: "VENCIDO",
-    status: "Vencida",
-    expiresAt: "2025-01-01",
-    maxDevices: 1,
-    playlistUrl: "",
-    epgUrl: ""
-  }
-];
-
-/**
- * Registro basico en memoria.
- * En Render puede reiniciarse cuando el servicio duerme o se redeploya.
- * Para produccion real, esto debe ir a PostgreSQL/Supabase/Firebase/etc.
- */
 const activatedDevicesByCode = new Map();
+
+function ensureDataFile() {
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+
+  if (!fs.existsSync(clientsFile)) {
+    fs.writeFileSync(clientsFile, "[]", "utf8");
+  }
+}
+
+function loadClients() {
+  ensureDataFile();
+
+  try {
+    const raw = fs.readFileSync(clientsFile, "utf8");
+    return JSON.parse(raw);
+  } catch (error) {
+    console.error("Could not read clients.json:", error);
+    return [];
+  }
+}
+
+function saveClients(clients) {
+  ensureDataFile();
+  fs.writeFileSync(clientsFile, JSON.stringify(clients, null, 2), "utf8");
+}
 
 function normalizeCode(code) {
   return String(code || "").trim().toUpperCase();
@@ -75,6 +57,10 @@ function getDeviceCount(code) {
   return activatedDevicesByCode.get(code)?.size || 0;
 }
 
+function getDevices(code) {
+  return Array.from(activatedDevicesByCode.get(code) || []);
+}
+
 function registerDevice(code, deviceCode) {
   if (!activatedDevicesByCode.has(code)) {
     activatedDevicesByCode.set(code, new Set());
@@ -83,22 +69,58 @@ function registerDevice(code, deviceCode) {
   activatedDevicesByCode.get(code).add(deviceCode);
 }
 
+function requireAdmin(req, res, next) {
+  const key =
+    req.headers["x-admin-key"] ||
+    req.query.key ||
+    req.body?.adminKey;
+
+  if (key !== adminKey) {
+    return res.status(401).json({
+      success: false,
+      message: "No autorizado."
+    });
+  }
+
+  next();
+}
+
+function sanitizeClient(input) {
+  return {
+    customerName: String(input.customerName || "").trim(),
+    activationCode: normalizeCode(input.activationCode),
+    status: String(input.status || "Activa").trim(),
+    expiresAt: String(input.expiresAt || "").trim(),
+    maxDevices: Number(input.maxDevices || 1),
+    playlistUrl: String(input.playlistUrl || "").trim(),
+    epgUrl: String(input.epgUrl || "").trim()
+  };
+}
+
 app.get("/", (req, res) => {
   res.json({
     name: "StoreTD Play Backend",
     status: "ok",
-    version: "1.1.0"
+    version: "1.2.0"
   });
 });
 
 app.get("/health", (req, res) => {
+  const clients = loadClients();
+
   res.json({
     status: "ok",
-    clients: clients.length
+    clients: clients.length,
+    version: "1.2.0"
   });
 });
 
+app.get("/admin", (req, res) => {
+  res.sendFile(path.join(__dirname, "..", "public", "admin.html"));
+});
+
 app.post("/auth/activate", (req, res) => {
+  const clients = loadClients();
   const { customerName, activationCode, deviceCode, appVersion } = req.body || {};
   const normalizedCode = normalizeCode(activationCode);
 
@@ -135,7 +157,7 @@ app.post("/auth/activate", (req, res) => {
   const currentDevices = activatedDevicesByCode.get(normalizedCode) || new Set();
   const alreadyRegistered = currentDevices.has(deviceCode);
 
-  if (!alreadyRegistered && currentDevices.size >= client.maxDevices) {
+  if (!alreadyRegistered && currentDevices.size >= Number(client.maxDevices || 1)) {
     return res.status(403).json({
       success: false,
       message: "Limite de dispositivos alcanzado para esta cuenta."
@@ -153,10 +175,130 @@ app.post("/auth/activate", (req, res) => {
     expiresAt: client.expiresAt,
     playlistUrl: client.playlistUrl || "",
     epgUrl: client.epgUrl || "",
-    maxDevices: client.maxDevices,
+    maxDevices: Number(client.maxDevices || 1),
     deviceCount: getDeviceCount(normalizedCode),
     deviceCode,
     appVersion
+  });
+});
+
+app.get("/admin/api/clients", requireAdmin, (req, res) => {
+  const clients = loadClients().map((client) => {
+    const code = normalizeCode(client.activationCode);
+
+    return {
+      ...client,
+      activationCode: code,
+      deviceCount: getDeviceCount(code),
+      devices: getDevices(code)
+    };
+  });
+
+  res.json({
+    success: true,
+    clients
+  });
+});
+
+app.post("/admin/api/clients", requireAdmin, (req, res) => {
+  const clients = loadClients();
+  const client = sanitizeClient(req.body || {});
+
+  if (!client.customerName) {
+    return res.status(400).json({
+      success: false,
+      message: "Falta el nombre del cliente."
+    });
+  }
+
+  if (!client.activationCode) {
+    return res.status(400).json({
+      success: false,
+      message: "Falta el codigo de activacion."
+    });
+  }
+
+  const exists = clients.some(
+    (item) => normalizeCode(item.activationCode) === client.activationCode
+  );
+
+  if (exists) {
+    return res.status(409).json({
+      success: false,
+      message: "Ya existe un cliente con ese codigo."
+    });
+  }
+
+  clients.push(client);
+  saveClients(clients);
+
+  res.json({
+    success: true,
+    message: "Cliente creado.",
+    client
+  });
+});
+
+app.put("/admin/api/clients/:code", requireAdmin, (req, res) => {
+  const clients = loadClients();
+  const code = normalizeCode(req.params.code);
+  const index = clients.findIndex(
+    (item) => normalizeCode(item.activationCode) === code
+  );
+
+  if (index === -1) {
+    return res.status(404).json({
+      success: false,
+      message: "Cliente no encontrado."
+    });
+  }
+
+  const updated = sanitizeClient({
+    ...clients[index],
+    ...req.body,
+    activationCode: code
+  });
+
+  clients[index] = updated;
+  saveClients(clients);
+
+  res.json({
+    success: true,
+    message: "Cliente actualizado.",
+    client: updated
+  });
+});
+
+app.delete("/admin/api/clients/:code", requireAdmin, (req, res) => {
+  const clients = loadClients();
+  const code = normalizeCode(req.params.code);
+  const nextClients = clients.filter(
+    (item) => normalizeCode(item.activationCode) !== code
+  );
+
+  if (nextClients.length === clients.length) {
+    return res.status(404).json({
+      success: false,
+      message: "Cliente no encontrado."
+    });
+  }
+
+  saveClients(nextClients);
+  activatedDevicesByCode.delete(code);
+
+  res.json({
+    success: true,
+    message: "Cliente eliminado."
+  });
+});
+
+app.post("/admin/api/clients/:code/unlink-devices", requireAdmin, (req, res) => {
+  const code = normalizeCode(req.params.code);
+  activatedDevicesByCode.delete(code);
+
+  res.json({
+    success: true,
+    message: "Dispositivos desvinculados."
   });
 });
 

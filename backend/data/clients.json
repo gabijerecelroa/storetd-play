@@ -1,0 +1,38 @@
+[
+  {
+    "customerName": "Jose",
+    "activationCode": "TEST1234",
+    "status": "Activa",
+    "expiresAt": "2026-12-31",
+    "maxDevices": 2,
+    "playlistUrl": "https://example.com/lista-autorizada.m3u",
+    "epgUrl": "https://example.com/epg.xml"
+  },
+  {
+    "customerName": "Cliente Demo",
+    "activationCode": "DEMO1234",
+    "status": "Prueba",
+    "expiresAt": "2026-12-31",
+    "maxDevices": 5,
+    "playlistUrl": "",
+    "epgUrl": ""
+  },
+  {
+    "customerName": "Cliente Suspendido",
+    "activationCode": "SUSPENDIDO",
+    "status": "Suspendida",
+    "expiresAt": "2026-12-31",
+    "maxDevices": 1,
+    "playlistUrl": "",
+    "epgUrl": ""
+  },
+  {
+    "customerName": "Cliente Vencido",
+    "activationCode": "VENCIDO",
+    "status": "Vencida",
+    "expiresAt": "2025-01-01",
+    "maxDevices": 1,
+    "playlistUrl": "",
+    "epgUrl": ""
+  }
+]

@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>StoreTD Play Admin</title>
+  <style>
+    :root {
+      --bg: #050505;
+      --card: #1f1f24;
+      --card2: #2c2c33;
+      --text: #ffffff;
+      --muted: #b8b8c2;
+      --red: #e50914;
+      --border: #3a3a44;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    header {
+      padding: 22px;
+      background: #0d0d0f;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    h1 {
+      margin: 0;
+      color: var(--red);
+      font-size: 28px;
+    }
+
+    main {
+      padding: 18px;
+      max-width: 1200px;
+      margin: auto;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+
+    label {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      background: #08080a;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+      font-size: 15px;
+    }
+
+    button {
+      background: var(--red);
+      color: white;
+      border: 0;
+      border-radius: 999px;
+      padding: 12px 18px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      margin: 4px;
+    }
+
+    button.secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+    }
+
+    button.danger {
+      background: #8f1118;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .client {
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+
+    .client h3 {
+      margin: 0 0 8px;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #111;
+      border: 1px solid var(--border);
+      margin: 4px 0;
+    }
+
+    .actions {
+      margin-top: 12px;
+    }
+
+    .message {
+      padding: 12px;
+      border-radius: 12px;
+      background: #111;
+      border: 1px solid var(--border);
+      margin-bottom: 14px;
+    }
+
+    @media (max-width: 760px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>StoreTD Play Admin</h1>
+    <div class="muted">Panel administrativo básico</div>
+  </header>
+
+  <main>
+    <div id="message"></div>
+
+    <section class="card">
+      <h2>Acceso admin</h2>
+      <label>Clave admin</label>
+      <input id="adminKey" type="password" placeholder="ADMIN_KEY" />
+      <button onclick="saveKey()">Guardar clave</button>
+      <button class="secondary" onclick="loadClients()">Cargar clientes</button>
+    </section>
+
+    <section class="card">
+      <h2>Crear cliente</h2>
+
+      <div class="grid">
+        <div>
+          <label>Nombre</label>
+          <input id="newCustomerName" placeholder="Jose" />
+        </div>
+
+        <div>
+          <label>Código de activación</label>
+          <input id="newActivationCode" placeholder="JOSE2026" />
+        </div>
+
+        <div>
+          <label>Estado</label>
+          <select id="newStatus">
+            <option>Activa</option>
+            <option>Prueba</option>
+            <option>Vencida</option>
+            <option>Suspendida</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Vencimiento</label>
+          <input id="newExpiresAt" type="date" />
+        </div>
+
+        <div>
+          <label>Máximo dispositivos</label>
+          <input id="newMaxDevices" type="number" min="1" value="1" />
+        </div>
+
+        <div>
+          <label>EPG URL</label>
+          <input id="newEpgUrl" placeholder="https://..." />
+        </div>
+      </div>
+
+      <label>Playlist M3U URL autorizada</label>
+      <input id="newPlaylistUrl" placeholder="https://..." />
+
+      <button onclick="createClient()">Crear cliente</button>
+    </section>
+
+    <section class="card">
+      <h2>Clientes</h2>
+      <div id="clients"></div>
+    </section>
+  </main>
+
+  <script>
+    const apiBase = "";
+    const adminKeyInput = document.getElementById("adminKey");
+    const messageBox = document.getElementById("message");
+    const clientsBox = document.getElementById("clients");
+
+    adminKeyInput.value = localStorage.getItem("storetd_admin_key") || "";
+
+    function showMessage(text) {
+      messageBox.innerHTML = text ? `<div class="message">${escapeHtml(text)}</div>` : "";
+    }
+
+    function saveKey() {
+      localStorage.setItem("storetd_admin_key", adminKeyInput.value);
+      showMessage("Clave guardada en este navegador.");
+    }
+
+    function getKey() {
+      return adminKeyInput.value || localStorage.getItem("storetd_admin_key") || "";
+    }
+
+    async function api(path, options = {}) {
+      const response = await fetch(apiBase + path, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-key": getKey(),
+          ...(options.headers || {})
+        }
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.message || "Error de servidor");
+      }
+
+      return data;
+    }
+
+    async function loadClients() {
+      try {
+        showMessage("Cargando clientes...");
+        const data = await api("/admin/api/clients");
+        renderClients(data.clients || []);
+        showMessage("Clientes cargados.");
+      } catch (error) {
+        showMessage(error.message);
+      }
+    }
+
+    async function createClient() {
+      try {
+        const body = {
+          customerName: document.getElementById("newCustomerName").value,
+          activationCode: document.getElementById("newActivationCode").value,
+          status: document.getElementById("newStatus").value,
+          expiresAt: document.getElementById("newExpiresAt").value,
+          maxDevices: Number(document.getElementById("newMaxDevices").value || 1),
+          playlistUrl: document.getElementById("newPlaylistUrl").value,
+          epgUrl: document.getElementById("newEpgUrl").value
+        };
+
+        await api("/admin/api/clients", {
+          method: "POST",
+          body: JSON.stringify(body)
+        });
+
+        showMessage("Cliente creado.");
+        loadClients();
+      } catch (error) {
+        showMessage(error.message);
+      }
+    }
+
+    async function updateClient(code) {
+      try {
+        const body = {
+          customerName: document.getElementById(`name-${code}`).value,
+          status: document.getElementById(`status-${code}`).value,
+          expiresAt: document.getElementById(`expires-${code}`).value,
+          maxDevices: Number(document.getElementById(`max-${code}`).value || 1),
+          playlistUrl: document.getElementById(`playlist-${code}`).value,
+          epgUrl: document.getElementById(`epg-${code}`).value
+        };
+
+        await api(`/admin/api/clients/${encodeURIComponent(code)}`, {
+          method: "PUT",
+          body: JSON.stringify(body)
+        });
+
+        showMessage("Cliente actualizado.");
+        loadClients();
+      } catch (error) {
+        showMessage(error.message);
+      }
+    }
+
+    async function deleteClient(code) {
+      if (!confirm("¿Eliminar cliente?")) return;
+
+      try {
+        await api(`/admin/api/clients/${encodeURIComponent(code)}`, {
+          method: "DELETE"
+        });
+
+        showMessage("Cliente eliminado.");
+        loadClients();
+      } catch (error) {
+        showMessage(error.message);
+      }
+    }
+
+    async function unlinkDevices(code) {
+      if (!confirm("¿Desvincular dispositivos de este cliente?")) return;
+
+      try {
+        await api(`/admin/api/clients/${encodeURIComponent(code)}/unlink-devices`, {
+          method: "POST",
+          body: JSON.stringify({})
+        });
+
+        showMessage("Dispositivos desvinculados.");
+        loadClients();
+      } catch (error) {
+        showMessage(error.message);
+      }
+    }
+
+    function renderClients(clients) {
+      if (!clients.length) {
+        clientsBox.innerHTML = "<p class='muted'>No hay clientes.</p>";
+        return;
+      }
+
+      clientsBox.innerHTML = clients.map((client) => {
+        const code = escapeAttr(client.activationCode);
+
+        return `
+          <div class="client">
+            <h3>${escapeHtml(client.customerName)} <span class="badge">${escapeHtml(client.status)}</span></h3>
+            <div class="muted">Código: ${escapeHtml(client.activationCode)}</div>
+            <div class="muted">Dispositivos: ${client.deviceCount || 0}/${client.maxDevices || 1}</div>
+            <div class="muted">Registrados: ${(client.devices || []).map(escapeHtml).join(", ") || "ninguno"}</div>
+
+            <div class="grid" style="margin-top:12px">
+              <div>
+                <label>Nombre</label>
+                <input id="name-${code}" value="${escapeAttr(client.customerName)}" />
+              </div>
+
+              <div>
+                <label>Estado</label>
+                <select id="status-${code}">
+                  ${option("Activa", client.status)}
+                  ${option("Prueba", client.status)}
+                  ${option("Vencida", client.status)}
+                  ${option("Suspendida", client.status)}
+                </select>
+              </div>
+
+              <div>
+                <label>Vencimiento</label>
+                <input id="expires-${code}" type="date" value="${escapeAttr(client.expiresAt || "")}" />
+              </div>
+
+              <div>
+                <label>Máximo dispositivos</label>
+                <input id="max-${code}" type="number" min="1" value="${escapeAttr(client.maxDevices || 1)}" />
+              </div>
+
+              <div>
+                <label>EPG URL</label>
+                <input id="epg-${code}" value="${escapeAttr(client.epgUrl || "")}" />
+              </div>
+            </div>
+
+            <label>Playlist URL autorizada</label>
+            <input id="playlist-${code}" value="${escapeAttr(client.playlistUrl || "")}" />
+
+            <div class="actions">
+              <button onclick="updateClient('${code}')">Guardar</button>
+              <button class="secondary" onclick="unlinkDevices('${code}')">Desvincular dispositivos</button>
+              <button class="danger" onclick="deleteClient('${code}')">Eliminar</button>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function option(value, selected) {
+      return `<option ${value === selected ? "selected" : ""}>${escapeHtml(value)}</option>`;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value);
+    }
+
+    if (getKey()) {
+      loadClients();
+    }
+  </script>
+</body>
+</html>

@@ -1,36 +1,40 @@
 # StoreTD Play Backend
 
-Backend basico para activacion de clientes StoreTD Play.
+Backend basico con activacion y panel admin.
 
 ## Ejecutar local
 
 npm install
 npm run dev
 
-## Endpoints
+## Endpoints publicos
 
+GET /
 GET /health
-
 POST /auth/activate
 
-Body ejemplo:
+## Panel admin
 
-{
-  "customerName": "Jose",
-  "activationCode": "TEST1234",
-  "deviceCode": "ABC123",
-  "appVersion": "1.0.0"
-}
+Ruta:
 
-## Clientes de prueba
+/admin
 
-- TEST1234 = Activa
-- DEMO1234 = Prueba
-- SUSPENDIDO = Suspendida
-- VENCIDO = Vencida
+Clave admin por defecto:
 
-## Configurar listas por cliente
+admin1234
 
-Edita backend/src/server.js y cambia playlistUrl y epgUrl por URLs autorizadas.
+En produccion configura variable de entorno:
 
-Importante: usa solamente listas y EPG autorizadas.
+ADMIN_KEY=tu_clave_segura
+
+## API admin
+
+GET /admin/api/clients
+POST /admin/api/clients
+PUT /admin/api/clients/:code
+DELETE /admin/api/clients/:code
+POST /admin/api/clients/:code/unlink-devices
+
+Header requerido:
+
+x-admin-key: tu_clave
