@@ -91,7 +91,7 @@ fun LiveTvScreen(
         )
 
         if (assignedPlaylist.isNotBlank()) {
-            viewModel.loadAssignedPlaylist(assignedPlaylist)
+            viewModel.loadAssignedPlaylist(context, assignedPlaylist)
         }
     }
 
@@ -122,7 +122,7 @@ fun LiveTvScreen(
                             LocalSettings.setAdultContentHidden(context, hidden)
                             viewModel.setHideAdultContent(hidden)
                         },
-                        onRefresh = viewModel::refreshPlaylist,
+                        onRefresh = { viewModel.refreshPlaylist(context) },
                         onBack = onBack
                     )
                 }
@@ -163,7 +163,7 @@ fun LiveTvScreen(
                             LocalSettings.setAdultContentHidden(context, hidden)
                             viewModel.setHideAdultContent(hidden)
                         },
-                        onRefresh = viewModel::refreshPlaylist,
+                        onRefresh = { viewModel.refreshPlaylist(context) },
                         onBack = onBack
                     )
 

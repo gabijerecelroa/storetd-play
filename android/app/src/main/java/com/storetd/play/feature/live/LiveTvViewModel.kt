@@ -1,8 +1,10 @@
 package com.storetd.play.feature.live
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.storetd.play.core.cache.PlaylistMemoryCache
+import com.storetd.play.core.cache.PlaylistDiskCache
 import com.storetd.play.core.model.Channel
 import com.storetd.play.core.parser.M3uValidator
 import com.storetd.play.core.repository.IptvRepository
@@ -108,7 +110,7 @@ class LiveTvViewModel(
         refreshVisibleContent()
     }
 
-    fun loadAssignedPlaylist(url: String) {
+    fun loadAssignedPlaylist(context: Context, url: String) {
         val cleanUrl = url.trim()
         val current = _uiState.value
 
@@ -136,15 +138,16 @@ class LiveTvViewModel(
             return
         }
 
-        loadPlaylistFrom(cleanUrl, forceRefresh = false)
+        loadPlaylistFrom(context, cleanUrl, forceRefresh = false)
     }
 
-    fun refreshPlaylist() {
+    fun refreshPlaylist(context: Context) {
         PlaylistMemoryCache.clear()
-        loadPlaylistFrom(_uiState.value.playlistUrl, forceRefresh = true)
+        PlaylistDiskCache.clear(context, _uiState.value.playlistUrl)
+        loadPlaylistFrom(context, _uiState.value.playlistUrl, forceRefresh = true)
     }
 
-    private fun loadPlaylistFrom(urlValue: String, forceRefresh: Boolean) {
+    private fun loadPlaylistFrom(context: Context, urlValue: String, forceRefresh: Boolean) {
         val url = urlValue.trim()
 
         if (!M3uValidator.validateUrl(url)) {
@@ -166,6 +169,22 @@ class LiveTvViewModel(
                 _uiState.value = _uiState.value.copy(
                     playlistUrl = url,
                     channels = cached,
+                    isLoading = false,
+                    isFiltering = true,
+                    loadedFromCache = true,
+                    errorMessage = null
+                )
+                refreshVisibleContent()
+                return
+            }
+
+            val diskCached = PlaylistDiskCache.load(context, url)
+            if (diskCached.isNotEmpty()) {
+                PlaylistMemoryCache.save(url, diskCached)
+
+                _uiState.value = _uiState.value.copy(
+                    playlistUrl = url,
+                    channels = diskCached,
                     isLoading = false,
                     isFiltering = true,
                     loadedFromCache = true,
@@ -197,6 +216,7 @@ class LiveTvViewModel(
                 loadInProgress = false
 
                 PlaylistMemoryCache.save(url, channels)
+                PlaylistDiskCache.save(context, url, channels)
 
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
