@@ -1,6 +1,12 @@
 # StoreTD Play Backend
 
-Backend basico con activacion, panel admin, clientes y reportes de canales.
+Backend con activacion, panel admin, clientes, dispositivos y reportes usando Supabase/PostgreSQL.
+
+## Variables requeridas
+
+ADMIN_KEY=tu_clave_admin
+SUPABASE_URL=https://tu-proyecto.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=tu_service_role_key
 
 ## Ejecutar local
 
@@ -16,17 +22,7 @@ POST /reports/channel
 
 ## Panel admin
 
-Ruta:
-
 /admin
-
-Clave admin por defecto:
-
-admin1234
-
-En produccion configura variable de entorno:
-
-ADMIN_KEY=tu_clave_segura
 
 ## API admin
 
@@ -51,7 +47,3 @@ GET /admin/api/stats
 Header requerido:
 
 x-admin-key: tu_clave
-
-## Nota importante
-
-Este backend usa archivos JSON para MVP. Para produccion grande se recomienda migrar a base de datos real.
