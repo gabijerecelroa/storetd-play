@@ -104,7 +104,7 @@ fun PlayerScreen(
         )
     }
 
-    var resizeMode by remember { mutableStateOf(VideoResizeMode.Fit) }
+    var videoResizeMode by remember { mutableStateOf(VideoResizeMode.Fit) }
     var errorMessage by remember(currentChannel.streamUrl) { mutableStateOf<String?>(null) }
     var isBuffering by remember(currentChannel.streamUrl) { mutableStateOf(false) }
     var isPlaying by remember(currentChannel.streamUrl) { mutableStateOf(true) }
@@ -201,7 +201,7 @@ fun PlayerScreen(
             Dispositivo: ${Build.MANUFACTURER} ${Build.MODEL}
             Android: ${Build.VERSION.RELEASE}
             Version app: ${BuildConfig.VERSION_NAME}
-            Modo vista: ${resizeMode.label}
+            Modo vista: ${videoResizeMode.label}
             Error tecnico: ${errorMessage ?: "Sin error capturado"}
 
             Describe el problema:
@@ -258,7 +258,7 @@ fun PlayerScreen(
                 factory = {
                     PlayerView(it).apply {
                         useController = false
-                        resizeMode = resizeMode.media3Mode
+                        resizeMode = videoResizeMode.media3Mode
                         layoutParams = ViewGroup.LayoutParams(
                             ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.MATCH_PARENT
@@ -268,7 +268,7 @@ fun PlayerScreen(
                 update = {
                     it.player = player
                     it.useController = false
-                    it.resizeMode = resizeMode.media3Mode
+                    it.resizeMode = videoResizeMode.media3Mode
                 }
             )
         }
@@ -289,7 +289,7 @@ fun PlayerScreen(
                     )
 
                     Text(
-                        text = "${currentChannel.group} · Vista: ${resizeMode.label}",
+                        text = "${currentChannel.group} · Vista: ${videoResizeMode.label}",
                         style = MaterialTheme.typography.bodySmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -357,7 +357,7 @@ fun PlayerScreen(
                     isFavorite = isFavorite,
                     canPrevious = PlayerSession.hasPrevious(),
                     canNext = PlayerSession.hasNext(),
-                    resizeModeLabel = resizeMode.label,
+                    resizeModeLabel = videoResizeMode.label,
                     isLandscape = isLandscape,
                     onPrevious = ::zapPrevious,
                     onNext = ::zapNext,
@@ -365,7 +365,7 @@ fun PlayerScreen(
                     onReport = ::reportChannel,
                     onRetry = ::retryPlayback,
                     onChangeResizeMode = {
-                        resizeMode = resizeMode.next()
+                        videoResizeMode = videoResizeMode.next()
                         showControls = true
                     },
                     onBack = onBack
