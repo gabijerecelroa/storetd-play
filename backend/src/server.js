@@ -932,6 +932,259 @@ app.get("/admin/api/epg-proxy/refresh", requireAdmin, async (req, res) => {
 });
 
 
+
+
+let playlistProxyCache = new Map();
+
+function normalizePlaylistText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function getM3uAttribute(line, name) {
+  const regex = new RegExp(name + '="([^"]*)"', "i");
+  const match = regex.exec(line || "");
+  return match ? match[1] : "";
+}
+
+function getM3uName(line) {
+  const index = String(line || "").lastIndexOf(",");
+  if (index < 0) return "";
+  return line.slice(index + 1).trim();
+}
+
+function isAdultEntry(entry) {
+  const text = normalizePlaylistText(entry.name + " " + entry.group);
+  return [
+    "adult", "adulto", "xxx", "+18", "18+", "hot", "erotic", "erotico",
+    "porn", "playboy"
+  ].some((word) => text.includes(normalizePlaylistText(word)));
+}
+
+function getPlaylistEntryType(entry) {
+  const text = normalizePlaylistText(entry.name + " " + entry.group);
+
+  const seriesWords = [
+    "serie", "series", "temporada", "season", "episode", "episodio",
+    "capitulo", "novela", "novelas", "anime", "tv show", "shows"
+  ];
+
+  const movieWords = [
+    "pelicula", "peliculas", "movie", "movies", "cine", "cinema",
+    "film", "films", "estreno", "estrenos", "vod", "accion",
+    "terror", "comedia", "drama", "suspenso"
+  ];
+
+  const looksLikeEpisode =
+    /\bs[0-9]{1,2}\s*e[0-9]{1,3}\b/i.test(text) ||
+    /\b[0-9]{1,2}x[0-9]{1,3}\b/i.test(text);
+
+  if (looksLikeEpisode || seriesWords.some((word) => text.includes(normalizePlaylistText(word)))) {
+    return "series";
+  }
+
+  if (movieWords.some((word) => text.includes(normalizePlaylistText(word)))) {
+    return "movies";
+  }
+
+  return "live";
+}
+
+function parseM3uEntries(m3uText) {
+  const lines = String(m3uText || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const entries = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const info = lines[i];
+
+    if (!info.startsWith("#EXTINF")) continue;
+
+    const url = lines[i + 1] || "";
+
+    if (!url || url.startsWith("#")) continue;
+
+    entries.push({
+      info,
+      url,
+      name: getM3uName(info),
+      group: getM3uAttribute(info, "group-title"),
+      tvgId: getM3uAttribute(info, "tvg-id"),
+      logo: getM3uAttribute(info, "tvg-logo")
+    });
+  }
+
+  return entries;
+}
+
+function buildM3u(entries) {
+  return "#EXTM3U\n" + entries
+    .map((entry) => entry.info + "\n" + entry.url)
+    .join("\n");
+}
+
+async function findPlaylistClient(activationCode) {
+  const code = String(activationCode || "").trim();
+
+  if (!code) return null;
+
+  if (typeof supabase !== "undefined" && supabase) {
+    const { data, error } = await supabase
+      .from("clients")
+      .select("*")
+      .eq("activation_code", code)
+      .maybeSingle();
+
+    if (!error && data) {
+      return {
+        activationCode: data.activation_code,
+        status: data.status,
+        playlistUrl: data.playlist_url
+      };
+    }
+  }
+
+  if (typeof clients !== "undefined" && Array.isArray(clients)) {
+    return clients.find((client) => client.activationCode === code) || null;
+  }
+
+  return null;
+}
+
+async function downloadPlaylistTextWithLimit(url, maxBytes) {
+  if (typeof downloadTextWithLimit === "function") {
+    return downloadTextWithLimit(url, maxBytes);
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 65000);
+
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "StoreTD-Play-Playlist-Proxy",
+        "Accept": "application/x-mpegURL,text/plain,*/*"
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error("HTTP " + response.status);
+    }
+
+    const contentLength = Number(response.headers.get("content-length") || 0);
+
+    if (contentLength > maxBytes) {
+      throw new Error("La playlist fuente es demasiado pesada.");
+    }
+
+    const reader = response.body.getReader();
+    const chunks = [];
+    let total = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) break;
+
+      total += value.length;
+
+      if (total > maxBytes) {
+        throw new Error("La playlist supera el límite permitido.");
+      }
+
+      chunks.push(Buffer.from(value));
+    }
+
+    return Buffer.concat(chunks).toString("utf8");
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+app.get("/playlist/proxy", async (req, res) => {
+  try {
+    const activationCode = String(req.query.code || "").trim();
+    const type = String(req.query.type || "live").trim().toLowerCase();
+    const force = req.query.force === "1";
+    const allowedTypes = new Set(["live", "movies", "series", "all"]);
+
+    if (!activationCode) {
+      return res.status(400).send("#EXTM3U\n# Error: falta código de activación");
+    }
+
+    if (!allowedTypes.has(type)) {
+      return res.status(400).send("#EXTM3U\n# Error: tipo inválido");
+    }
+
+    const client = await findPlaylistClient(activationCode);
+
+    if (!client || !client.playlistUrl) {
+      return res.status(404).send("#EXTM3U\n# Error: cliente sin playlist asignada");
+    }
+
+    if (String(client.status || "").toLowerCase() !== "activa") {
+      return res.status(403).send("#EXTM3U\n# Error: cliente no activo");
+    }
+
+    const sourceUrl = String(client.playlistUrl || "").trim();
+
+    if (!sourceUrl.startsWith("http://") && !sourceUrl.startsWith("https://")) {
+      return res.status(400).send("#EXTM3U\n# Error: playlist inválida");
+    }
+
+    const cacheKey = activationCode + "|" + type + "|" + sourceUrl;
+    const cached = playlistProxyCache.get(cacheKey);
+    const cacheTtlMs = 4 * 60 * 60 * 1000;
+
+    if (!force && cached && Date.now() - cached.updatedAt < cacheTtlMs) {
+      res.setHeader("Content-Type", "application/x-mpegURL; charset=utf-8");
+      res.setHeader("X-StoreTD-Playlist-Cache", "HIT");
+      return res.send(cached.m3u);
+    }
+
+    const sourceText = await downloadPlaylistTextWithLimit(sourceUrl, 40 * 1024 * 1024);
+    const entries = parseM3uEntries(sourceText);
+
+    let filtered = entries;
+
+    if (type !== "all") {
+      filtered = entries.filter((entry) => getPlaylistEntryType(entry) === type);
+    }
+
+    filtered = filtered.filter((entry) => !isAdultEntry(entry));
+
+    if (type === "live" && filtered.length === 0) {
+      filtered = entries.filter((entry) => !isAdultEntry(entry));
+    }
+
+    const limit = type === "live" ? 2500 : 3000;
+    const output = buildM3u(filtered.slice(0, limit));
+
+    playlistProxyCache.set(cacheKey, {
+      m3u: output,
+      updatedAt: Date.now()
+    });
+
+    res.setHeader("Content-Type", "application/x-mpegURL; charset=utf-8");
+    res.setHeader("X-StoreTD-Playlist-Cache", "MISS");
+    res.send(output);
+  } catch (error) {
+    console.error("Playlist proxy error:", error);
+
+    res.status(500).send(
+      "#EXTM3U\n# Error: no se pudo generar playlist proxy\n# " +
+        String(error.message || "Error desconocido")
+    );
+  }
+});
+
+
 app.listen(port, () => {
   console.log("StoreTD Play backend running on port " + port);
 });
