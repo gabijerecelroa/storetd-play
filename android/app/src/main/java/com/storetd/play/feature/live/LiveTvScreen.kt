@@ -57,6 +57,7 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.net.URLEncoder
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,7 +75,13 @@ fun LiveTvScreen(
         viewModel.setContentMode(contentMode)
         viewModel.setHideAdultContent(LocalSettings.isAdultContentHidden(context))
 
-        val assignedPlaylist = LocalAccount.getAccount(context).playlistUrl
+        val account = LocalAccount.getAccount(context)
+        val assignedPlaylist = buildSectionPlaylistUrl(
+            activationCode = account.activationCode,
+            fallbackUrl = account.playlistUrl,
+            contentMode = contentMode
+        )
+
         if (assignedPlaylist.isNotBlank()) {
             viewModel.loadAssignedPlaylist(assignedPlaylist)
         }
@@ -475,4 +482,27 @@ private fun ChannelRow(
 
 private fun formatLiveEpgTime(value: Long): String {
     return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(value))
+}
+
+
+private fun buildSectionPlaylistUrl(
+    activationCode: String,
+    fallbackUrl: String,
+    contentMode: ContentMode
+): String {
+    val code = activationCode.trim()
+
+    if (code.isBlank()) {
+        return fallbackUrl
+    }
+
+    val type = when (contentMode) {
+        ContentMode.LiveTv -> "live"
+        ContentMode.Movies -> "movies"
+        ContentMode.Series -> "series"
+    }
+
+    val encodedCode = URLEncoder.encode(code, "UTF-8")
+
+    return "https://storetd-play-backend.onrender.com/playlist/proxy?code=$encodedCode&type=$type"
 }
