@@ -127,8 +127,8 @@ fun LiveTvScreen(
                 items(state.visibleChannels) { channel ->
                     ChannelRow(
                         channel = channel,
-                        currentProgram = EpgMatcher.currentProgram(epgPrograms, channel.name),
-                        nextProgram = EpgMatcher.nextProgram(epgPrograms, channel.name),
+                        currentProgram = null,
+                        nextProgram = null,
                         onPlay = { onPlay(channel, state.visibleChannels) }
                     )
                 }
@@ -172,8 +172,8 @@ fun LiveTvScreen(
                         items(state.visibleChannels) { channel ->
                             ChannelRow(
                                 channel = channel,
-                                currentProgram = EpgMatcher.currentProgram(epgPrograms, channel.name),
-                                nextProgram = EpgMatcher.nextProgram(epgPrograms, channel.name),
+                                currentProgram = null,
+                                nextProgram = null,
                                 onPlay = { onPlay(channel, state.visibleChannels) }
                             )
                         }
@@ -387,7 +387,7 @@ private fun StatusBlock(
         }
 
         Text(
-            text = "${state.totalVisibleCount} elementos visibles",
+            text = "${state.totalVisibleCount} elementos encontrados",
             style = MaterialTheme.typography.titleLarge
         )
 

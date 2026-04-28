@@ -218,8 +218,18 @@ class LiveTvViewModel(
                 snapshot.channels
             }
 
-            val modeFiltered = adultFiltered.filter {
+            val rawModeFiltered = adultFiltered.filter {
                 matchesContentMode(it, snapshot.contentMode)
+            }
+
+            val modeFiltered = if (
+                snapshot.contentMode == ContentMode.LiveTv &&
+                rawModeFiltered.isEmpty() &&
+                adultFiltered.isNotEmpty()
+            ) {
+                adultFiltered
+            } else {
+                rawModeFiltered
             }
 
             val groups = listOf("Todos") + modeFiltered
@@ -257,7 +267,7 @@ class LiveTvViewModel(
                 _uiState.value = _uiState.value.copy(
                     groups = groups,
                     selectedGroup = safeSelectedGroup,
-                    visibleChannels = visible,
+                    visibleChannels = visible.take(600),
                     totalVisibleCount = visible.size,
                     isFiltering = false
                 )
