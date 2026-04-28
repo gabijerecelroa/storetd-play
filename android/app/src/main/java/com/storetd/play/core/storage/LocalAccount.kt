@@ -13,7 +13,11 @@ data class LocalCustomerAccount(
     val activationCode: String,
     val status: String,
     val expiresAt: String,
-    val deviceCode: String
+    val deviceCode: String,
+    val playlistUrl: String,
+    val epgUrl: String,
+    val maxDevices: Int,
+    val deviceCount: Int
 )
 
 object LocalAccount {
@@ -23,6 +27,10 @@ object LocalAccount {
     private const val KEY_ACTIVATION_CODE = "activation_code"
     private const val KEY_STATUS = "status"
     private const val KEY_EXPIRES_AT = "expires_at"
+    private const val KEY_PLAYLIST_URL = "playlist_url"
+    private const val KEY_EPG_URL = "epg_url"
+    private const val KEY_MAX_DEVICES = "max_devices"
+    private const val KEY_DEVICE_COUNT = "device_count"
 
     private fun prefs(context: Context) =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -38,7 +46,11 @@ object LocalAccount {
             activationCode = prefs(context).getString(KEY_ACTIVATION_CODE, "-") ?: "-",
             status = prefs(context).getString(KEY_STATUS, "Activa") ?: "Activa",
             expiresAt = prefs(context).getString(KEY_EXPIRES_AT, defaultExpirationDate()) ?: defaultExpirationDate(),
-            deviceCode = getDeviceCode(context)
+            deviceCode = getDeviceCode(context),
+            playlistUrl = prefs(context).getString(KEY_PLAYLIST_URL, "") ?: "",
+            epgUrl = prefs(context).getString(KEY_EPG_URL, "") ?: "",
+            maxDevices = prefs(context).getInt(KEY_MAX_DEVICES, 1),
+            deviceCount = prefs(context).getInt(KEY_DEVICE_COUNT, 1)
         )
     }
 
@@ -47,7 +59,11 @@ object LocalAccount {
         customerName: String,
         activationCode: String,
         status: String = "Activa",
-        expiresAt: String = defaultExpirationDate()
+        expiresAt: String = defaultExpirationDate(),
+        playlistUrl: String = "",
+        epgUrl: String = "",
+        maxDevices: Int = 1,
+        deviceCount: Int = 1
     ) {
         prefs(context).edit()
             .putBoolean(KEY_ACTIVATED, true)
@@ -55,6 +71,10 @@ object LocalAccount {
             .putString(KEY_ACTIVATION_CODE, activationCode)
             .putString(KEY_STATUS, status.ifBlank { "Activa" })
             .putString(KEY_EXPIRES_AT, expiresAt.ifBlank { defaultExpirationDate() })
+            .putString(KEY_PLAYLIST_URL, playlistUrl)
+            .putString(KEY_EPG_URL, epgUrl)
+            .putInt(KEY_MAX_DEVICES, maxDevices)
+            .putInt(KEY_DEVICE_COUNT, deviceCount)
             .apply()
     }
 

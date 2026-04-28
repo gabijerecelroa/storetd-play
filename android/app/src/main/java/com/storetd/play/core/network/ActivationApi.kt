@@ -11,6 +11,10 @@ data class ActivationResult(
     val activationCode: String?,
     val status: String?,
     val expiresAt: String?,
+    val playlistUrl: String?,
+    val epgUrl: String?,
+    val maxDevices: Int?,
+    val deviceCount: Int?,
     val message: String
 )
 
@@ -30,6 +34,10 @@ object ActivationApi {
                 activationCode = null,
                 status = null,
                 expiresAt = null,
+                playlistUrl = null,
+                epgUrl = null,
+                maxDevices = null,
+                deviceCount = null,
                 message = "Backend no configurado. Usa modo demo o configura API_BASE_URL."
             )
         }
@@ -75,6 +83,10 @@ object ActivationApi {
                     activationCode = null,
                     status = null,
                     expiresAt = null,
+                    playlistUrl = null,
+                    epgUrl = null,
+                    maxDevices = null,
+                    deviceCount = null,
                     message = extractString(responseText, "message") ?: "Activacion rechazada por el servidor."
                 )
             } else {
@@ -84,6 +96,10 @@ object ActivationApi {
                     activationCode = extractString(responseText, "activationCode") ?: activationCode,
                     status = extractString(responseText, "status") ?: "Activa",
                     expiresAt = extractString(responseText, "expiresAt"),
+                    playlistUrl = extractString(responseText, "playlistUrl"),
+                    epgUrl = extractString(responseText, "epgUrl"),
+                    maxDevices = extractInt(responseText, "maxDevices"),
+                    deviceCount = extractInt(responseText, "deviceCount"),
                     message = extractString(responseText, "message") ?: "Dispositivo activado correctamente."
                 )
             }
@@ -94,6 +110,10 @@ object ActivationApi {
                 activationCode = null,
                 status = null,
                 expiresAt = null,
+                playlistUrl = null,
+                epgUrl = null,
+                maxDevices = null,
+                deviceCount = null,
                 message = throwable.message ?: "No se pudo conectar con el backend."
             )
         }
@@ -115,5 +135,10 @@ object ActivationApi {
     private fun extractBoolean(json: String, key: String): Boolean? {
         val regex = Regex(""""$key"\s*:\s*(true|false)""")
         return regex.find(json)?.groupValues?.getOrNull(1)?.toBooleanStrictOrNull()
+    }
+
+    private fun extractInt(json: String, key: String): Int? {
+        val regex = Regex(""""$key"\s*:\s*(\d+)""")
+        return regex.find(json)?.groupValues?.getOrNull(1)?.toIntOrNull()
     }
 }

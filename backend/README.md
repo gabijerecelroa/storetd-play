@@ -1,20 +1,19 @@
 # StoreTD Play Backend
 
-Backend basico para probar activacion de dispositivos.
+Backend basico para activacion de clientes StoreTD Play.
 
-## Instalar
+## Ejecutar local
 
 npm install
-
-## Ejecutar
-
 npm run dev
 
-## Endpoint
+## Endpoints
+
+GET /health
 
 POST /auth/activate
 
-Body:
+Body ejemplo:
 
 {
   "customerName": "Jose",
@@ -23,9 +22,15 @@ Body:
   "appVersion": "1.0.0"
 }
 
-Codigos validos de prueba:
+## Clientes de prueba
 
-- TEST1234
-- DEMO1234
-- CLIENTE2026
-- STORETD2026
+- TEST1234 = Activa
+- DEMO1234 = Prueba
+- SUSPENDIDO = Suspendida
+- VENCIDO = Vencida
+
+## Configurar listas por cliente
+
+Edita backend/src/server.js y cambia playlistUrl y epgUrl por URLs autorizadas.
+
+Importante: usa solamente listas y EPG autorizadas.

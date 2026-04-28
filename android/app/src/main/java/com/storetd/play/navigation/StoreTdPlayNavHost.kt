@@ -53,13 +53,17 @@ fun StoreTdPlayNavHost() {
     NavHost(navController = navController, startDestination = startDestination) {
         composable(Routes.Activation) {
             ActivationScreen(
-                onActivate = { customerName, activationCode, status, expiresAt ->
+                onActivate = { customerName, activationCode, status, expiresAt, playlistUrl, epgUrl, maxDevices, deviceCount ->
                     LocalAccount.activate(
                         context = context,
                         customerName = customerName,
                         activationCode = activationCode,
                         status = status,
-                        expiresAt = expiresAt
+                        expiresAt = expiresAt,
+                        playlistUrl = playlistUrl,
+                        epgUrl = epgUrl,
+                        maxDevices = maxDevices,
+                        deviceCount = deviceCount
                     )
                     navigateAndClear(Routes.Home)
                 },
@@ -68,8 +72,12 @@ fun StoreTdPlayNavHost() {
                         context = context,
                         customerName = "Cliente Demo",
                         activationCode = "DEMO1234",
-                        status = "Activa",
-                        expiresAt = ""
+                        status = "Prueba",
+                        expiresAt = "",
+                        playlistUrl = "",
+                        epgUrl = "",
+                        maxDevices = 5,
+                        deviceCount = 1
                     )
                     navigateAndClear(Routes.Home)
                 }

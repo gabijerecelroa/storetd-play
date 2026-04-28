@@ -39,12 +39,10 @@ fun AccountScreen(
     val account = remember { LocalAccount.getAccount(context) }
     var message by remember { mutableStateOf<String?>(null) }
 
-    fun copyDeviceCode() {
+    fun copyText(label: String, value: String) {
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(
-            ClipData.newPlainText("Codigo de dispositivo", account.deviceCode)
-        )
-        message = "Codigo de dispositivo copiado."
+        clipboard.setPrimaryClip(ClipData.newPlainText(label, value))
+        message = "$label copiado."
     }
 
     fun openRenewWhatsApp() {
@@ -68,7 +66,7 @@ fun AccountScreen(
             .padding(24.dp)
     ) {
         Text("Mi cuenta", style = MaterialTheme.typography.headlineMedium)
-        Text("Informacion local del cliente y dispositivo.")
+        Text("Informacion del cliente, dispositivo y servicio asignado.")
 
         Spacer(modifier = Modifier.height(20.dp))
 
@@ -82,6 +80,46 @@ fun AccountScreen(
                 Text("Codigo de activacion: ${account.activationCode}")
                 Text("Estado: ${account.status}")
                 Text("Vencimiento: ${account.expiresAt}")
+                Text("Dispositivos: ${account.deviceCount}/${account.maxDevices}")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text("Servicio asignado", style = MaterialTheme.typography.titleMedium)
+
+                if (account.playlistUrl.isBlank()) {
+                    Text("Lista M3U: no asignada")
+                } else {
+                    Text("Lista M3U: asignada")
+                }
+
+                if (account.epgUrl.isBlank()) {
+                    Text("EPG: no asignada")
+                } else {
+                    Text("EPG: asignada")
+                }
+
+                OutlinedButton(
+                    onClick = { copyText("Playlist URL", account.playlistUrl) },
+                    enabled = account.playlistUrl.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Copiar URL de lista")
+                }
+
+                OutlinedButton(
+                    onClick = { copyText("EPG URL", account.epgUrl) },
+                    enabled = account.epgUrl.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Copiar URL EPG")
+                }
             }
         }
 
@@ -97,7 +135,7 @@ fun AccountScreen(
                 Text("Este codigo sirve para soporte, renovacion o vinculacion futura con backend.")
 
                 Button(
-                    onClick = { copyDeviceCode() },
+                    onClick = { copyText("Codigo de dispositivo", account.deviceCode) },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Copiar codigo de dispositivo")

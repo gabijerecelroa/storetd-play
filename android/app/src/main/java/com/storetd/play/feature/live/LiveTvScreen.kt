@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
 import com.storetd.play.core.model.Channel
 import com.storetd.play.core.storage.LocalSettings
+import com.storetd.play.core.storage.LocalAccount
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,6 +58,11 @@ fun LiveTvScreen(
 
     LaunchedEffect(Unit) {
         viewModel.setHideAdultContent(LocalSettings.isAdultContentHidden(context))
+
+        val assignedPlaylist = LocalAccount.getAccount(context).playlistUrl
+        if (state.playlistUrl.isBlank() && assignedPlaylist.isNotBlank()) {
+            viewModel.setPlaylistUrl(assignedPlaylist)
+        }
     }
 
     BoxWithConstraints(

@@ -38,7 +38,16 @@ import kotlinx.coroutines.withContext
 
 @Composable
 fun ActivationScreen(
-    onActivate: (customerName: String, activationCode: String, status: String, expiresAt: String) -> Unit,
+    onActivate: (
+        customerName: String,
+        activationCode: String,
+        status: String,
+        expiresAt: String,
+        playlistUrl: String,
+        epgUrl: String,
+        maxDevices: Int,
+        deviceCount: Int
+    ) -> Unit,
     onDemo: () -> Unit
 ) {
     val context = LocalContext.current
@@ -146,7 +155,11 @@ fun ActivationScreen(
                                     result.customerName ?: customerName.trim(),
                                     result.activationCode ?: activationCode.trim(),
                                     result.status ?: "Activa",
-                                    result.expiresAt ?: ""
+                                    result.expiresAt ?: "",
+                                    result.playlistUrl ?: "",
+                                    result.epgUrl ?: "",
+                                    result.maxDevices ?: 1,
+                                    result.deviceCount ?: 1
                                 )
                             } else {
                                 errorMessage = result.message
