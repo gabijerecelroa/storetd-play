@@ -173,14 +173,16 @@ private fun PlaylistControls(
 
         Spacer(Modifier.height(12.dp))
 
-        Row(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Ocultar adultos", style = MaterialTheme.typography.titleSmall)
-                Text("Proteccion basica", style = MaterialTheme.typography.bodySmall)
-            }
-            Switch(
-                checked = state.hideAdultContent,
-                onCheckedChange = onHideAdultChange
+        Button(
+            onClick = { onHideAdultChange(!state.hideAdultContent) },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                if (state.hideAdultContent) {
+                    "Adultos ocultos: Si"
+                } else {
+                    "Adultos ocultos: No"
+                }
             )
         }
 
