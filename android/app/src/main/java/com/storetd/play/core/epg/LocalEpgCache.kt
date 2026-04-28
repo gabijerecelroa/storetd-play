@@ -7,6 +7,13 @@ object LocalEpgCache {
     private const val FILE_NAME = "storetd_epg_cache.xml"
     private const val PREFS = "storetd_epg_cache_meta"
 
+    fun rememberUrl(context: Context, url: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString("url", url)
+            .apply()
+    }
+
     fun save(context: Context, url: String, xml: String) {
         File(context.filesDir, FILE_NAME).writeText(xml)
 
@@ -41,7 +48,7 @@ object LocalEpgCache {
 
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
-            .clear()
+            .remove("updatedAt")
             .apply()
     }
 }
