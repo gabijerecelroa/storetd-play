@@ -56,12 +56,27 @@ fun EpgScreen(
     var programmes by remember { mutableStateOf(emptyList<EpgProgram>()) }
     var nowMillis by remember { mutableStateOf(System.currentTimeMillis()) }
 
-    fun parseCached() {
-        val cachedXml = LocalEpgCache.load(context)
+    fun loadCacheAsync() {
+        loading = true
+        message = "Leyendo cache local..."
 
-        if (cachedXml.isNotBlank()) {
-            programmes = XmlTvParser.parse(cachedXml)
-            message = "EPG cargada desde cache local."
+        scope.launch {
+            val parsed = withContext(Dispatchers.IO) {
+                val cachedXml = LocalEpgCache.load(context)
+                if (cachedXml.isBlank()) emptyList() else XmlTvParser.parse(cachedXml)
+            }
+
+            loading = false
+            nowMillis = System.currentTimeMillis()
+            programmes = parsed
+
+            message = if (parsed.isNotEmpty()) {
+                "EPG cargada desde cache local. Programas: ${parsed.size}"
+            } else if (epgUrl.isNotBlank()) {
+                "URL EPG detectada. Toca Cargar EPG para actualizar."
+            } else {
+                "Pega una URL EPG XMLTV y toca Cargar EPG."
+            }
         }
     }
 
@@ -74,7 +89,7 @@ fun EpgScreen(
         }
 
         loading = true
-        message = "Cargando EPG..."
+        message = "Descargando EPG. La primera carga puede tardar..."
 
         scope.launch {
             val result = withContext(Dispatchers.IO) {
@@ -91,36 +106,31 @@ fun EpgScreen(
             result.onSuccess {
                 programmes = it
                 message = "EPG actualizada. Programas cargados: ${it.size}"
-            }.onFailure {
-                val cachedXml = LocalEpgCache.load(context)
+            }.onFailure { error ->
+                val cached = withContext(Dispatchers.IO) {
+                    val cachedXml = LocalEpgCache.load(context)
+                    if (cachedXml.isBlank()) emptyList() else XmlTvParser.parse(cachedXml)
+                }
 
-                if (cachedXml.isNotBlank()) {
-                    programmes = XmlTvParser.parse(cachedXml)
+                if (cached.isNotEmpty()) {
+                    programmes = cached
                     message = "No se pudo descargar. Mostrando cache local."
                 } else {
-                    message = it.message ?: "No se pudo cargar la EPG."
+                    message = error.message ?: "No se pudo cargar la EPG."
                 }
             }
         }
     }
 
     LaunchedEffect(Unit) {
-        parseCached()
-
-        if (epgUrl.isNotBlank()) {
-            loadEpg(epgUrl)
-        }
+        loadCacheAsync()
     }
 
     val normalizedQuery = query.trim().lowercase(Locale.getDefault())
 
     val visiblePrograms = programmes
         .filter { program ->
-            if (showNow) {
-                program.isNow(nowMillis)
-            } else {
-                program.isUpcoming(nowMillis)
-            }
+            if (showNow) program.isNow(nowMillis) else program.isUpcoming(nowMillis)
         }
         .filter { program ->
             if (normalizedQuery.isBlank()) {
@@ -131,7 +141,7 @@ fun EpgScreen(
                     program.description.lowercase(Locale.getDefault()).contains(normalizedQuery)
             }
         }
-        .take(250)
+        .take(150)
 
     Column(
         modifier = Modifier
@@ -139,15 +149,8 @@ fun EpgScreen(
             .navigationBarsPadding()
             .padding(20.dp)
     ) {
-        Text(
-            text = "Guia EPG",
-            style = MaterialTheme.typography.headlineMedium
-        )
-
-        Text(
-            text = "Programacion XMLTV para contenido autorizado.",
-            style = MaterialTheme.typography.bodyMedium
-        )
+        Text("Guia EPG", style = MaterialTheme.typography.headlineMedium)
+        Text("Programacion XMLTV para contenido autorizado.")
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -161,15 +164,41 @@ fun EpgScreen(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = { loadEpg(epgUrl) },
-                enabled = !loading
+                enabled = !loading,
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Text(if (loading) "Cargando..." else "Cargar EPG")
             }
 
-            OutlinedButton(onClick = onBack) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = { loadCacheAsync() },
+                    enabled = !loading,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Leer cache")
+                }
+
+                OutlinedButton(
+                    onClick = {
+                        LocalEpgCache.clear(context)
+                        programmes = emptyList()
+                        message = "Cache EPG limpiada."
+                    },
+                    enabled = !loading,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Limpiar cache")
+                }
+            }
+
+            OutlinedButton(
+                onClick = onBack,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Text("Volver")
             }
         }
@@ -221,14 +250,8 @@ fun EpgScreen(
         if (visiblePrograms.isEmpty()) {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(18.dp)) {
-                    Text(
-                        text = "Sin programas para mostrar",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        text = "Carga una EPG XMLTV valida o prueba con la vista Proximamente.",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Text("Sin programas para mostrar", style = MaterialTheme.typography.titleMedium)
+                    Text("Carga una EPG XMLTV valida o prueba Proximamente.")
                 }
             }
         } else {
