@@ -12,9 +12,11 @@
       --text: #ffffff;
       --muted: #b8b8c2;
       --red: #e50914;
+      --red2: #9f1018;
       --border: #3a3a44;
       --green: #1e8e3e;
       --yellow: #d39e00;
+      --input: #08080a;
     }
 
     * { box-sizing: border-box; }
@@ -32,13 +34,17 @@
       border-bottom: 1px solid var(--border);
       position: sticky;
       top: 0;
-      z-index: 10;
+      z-index: 20;
     }
 
     h1 {
       margin: 0;
       color: var(--red);
       font-size: 28px;
+    }
+
+    h2 {
+      margin-top: 0;
     }
 
     main {
@@ -55,6 +61,11 @@
       margin-bottom: 18px;
     }
 
+    .login-card {
+      max-width: 520px;
+      margin: 32px auto;
+    }
+
     label {
       display: block;
       color: var(--muted);
@@ -64,7 +75,7 @@
 
     input, select, textarea {
       width: 100%;
-      background: #08080a;
+      background: var(--input);
       color: var(--text);
       border: 1px solid var(--border);
       border-radius: 12px;
@@ -95,7 +106,19 @@
     }
 
     button.danger {
-      background: #8f1118;
+      background: var(--red2);
+    }
+
+    button.small {
+      padding: 9px 13px;
+      font-size: 13px;
+    }
+
+    .top-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
     }
 
     .grid {
@@ -153,6 +176,9 @@
 
     .actions {
       margin-top: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
     }
 
     .message {
@@ -181,16 +207,57 @@
     }
 
     .hidden {
-      display: none;
+      display: none !important;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: 1fr 220px auto;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .check-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .check-row input {
+      width: auto;
+      margin: 0;
+    }
+
+    .footer-space {
+      height: 40px;
     }
 
     @media (max-width: 760px) {
-      .grid, .stats {
+      .grid, .stats, .toolbar {
         grid-template-columns: 1fr;
       }
 
       h1 {
         font-size: 24px;
+      }
+
+      main {
+        padding: 12px;
+      }
+
+      .card {
+        padding: 14px;
+      }
+
+      button {
+        width: 100%;
+      }
+
+      .actions button {
+        width: 100%;
       }
     }
   </style>
@@ -198,109 +265,212 @@
 <body>
   <header>
     <h1>StoreTD Play Admin</h1>
-    <div class="muted">Clientes, reportes y estadísticas</div>
+    <div class="muted">Clientes, reportes, estadísticas y exportación</div>
   </header>
 
   <main>
     <div id="message"></div>
 
-    <section class="card">
-      <h2>Acceso admin</h2>
+    <section id="loginSection" class="card login-card">
+      <h2>Acceso administrativo</h2>
+      <p class="muted">Ingresa tu clave ADMIN_KEY para administrar clientes y reportes.</p>
+
       <label>Clave admin</label>
-      <input id="adminKey" type="password" placeholder="ADMIN_KEY" />
-      <button onclick="saveKey()">Guardar clave</button>
-      <button class="secondary" onclick="refreshAll()">Actualizar todo</button>
+      <input id="loginKey" type="password" placeholder="ADMIN_KEY" />
+
+      <div class="check-row">
+        <input id="rememberKey" type="checkbox" />
+        <span>Recordar clave en este navegador</span>
+      </div>
+
+      <button onclick="login()">Entrar</button>
     </section>
 
-    <section class="card">
-      <h2>Estadísticas</h2>
-      <div id="stats" class="stats"></div>
-    </section>
-
-    <div class="tabs">
-      <button id="tabClients" class="tab active" onclick="showTab('clients')">Clientes</button>
-      <button id="tabReports" class="tab" onclick="showTab('reports')">Reportes</button>
-      <button id="tabGrouped" class="tab" onclick="showTab('grouped')">Canales más reportados</button>
-    </div>
-
-    <section id="sectionClients">
+    <section id="dashboardSection" class="hidden">
       <section class="card">
-        <h2>Crear cliente</h2>
+        <h2>Sesión admin</h2>
+        <div class="muted">Sesión activa en este navegador.</div>
+        <div class="top-actions">
+          <button onclick="refreshAll()">Actualizar todo</button>
+          <button class="secondary" onclick="logout()">Cerrar sesión admin</button>
+        </div>
+      </section>
 
-        <div class="grid">
-          <div>
-            <label>Nombre</label>
-            <input id="newCustomerName" placeholder="Jose" />
+      <section class="card">
+        <h2>Estadísticas</h2>
+        <div id="stats" class="stats"></div>
+      </section>
+
+      <div class="tabs">
+        <button id="tabClients" class="tab active" onclick="showTab('clients')">Clientes</button>
+        <button id="tabReports" class="tab" onclick="showTab('reports')">Reportes</button>
+        <button id="tabGrouped" class="tab" onclick="showTab('grouped')">Canales más reportados</button>
+      </div>
+
+      <section id="sectionClients">
+        <section class="card">
+          <h2>Crear cliente</h2>
+
+          <div class="grid">
+            <div>
+              <label>Nombre</label>
+              <input id="newCustomerName" placeholder="Jose" />
+            </div>
+
+            <div>
+              <label>Código de activación</label>
+              <input id="newActivationCode" placeholder="JOSE2026" />
+            </div>
+
+            <div>
+              <label>Estado</label>
+              <select id="newStatus">
+                <option>Activa</option>
+                <option>Prueba</option>
+                <option>Vencida</option>
+                <option>Suspendida</option>
+              </select>
+            </div>
+
+            <div>
+              <label>Vencimiento</label>
+              <input id="newExpiresAt" type="date" />
+            </div>
+
+            <div>
+              <label>Máximo dispositivos</label>
+              <input id="newMaxDevices" type="number" min="1" value="1" />
+            </div>
+
+            <div>
+              <label>EPG URL</label>
+              <input id="newEpgUrl" placeholder="https://..." />
+            </div>
           </div>
 
-          <div>
-            <label>Código de activación</label>
-            <input id="newActivationCode" placeholder="JOSE2026" />
-          </div>
+          <label>Playlist M3U URL autorizada</label>
+          <input id="newPlaylistUrl" placeholder="https://..." />
 
-          <div>
-            <label>Estado</label>
-            <select id="newStatus">
+          <button onclick="createClient()">Crear cliente</button>
+        </section>
+
+        <section class="card">
+          <h2>Clientes</h2>
+
+          <div class="toolbar">
+            <input id="clientSearch" oninput="renderClients()" placeholder="Buscar por nombre, código o URL" />
+
+            <select id="clientStatusFilter" onchange="renderClients()">
+              <option value="">Todos los estados</option>
               <option>Activa</option>
               <option>Prueba</option>
               <option>Vencida</option>
               <option>Suspendida</option>
             </select>
+
+            <button class="secondary" onclick="exportClientsCsv()">Exportar CSV</button>
           </div>
 
-          <div>
-            <label>Vencimiento</label>
-            <input id="newExpiresAt" type="date" />
+          <div id="clients"></div>
+        </section>
+      </section>
+
+      <section id="sectionReports" class="hidden">
+        <section class="card">
+          <h2>Reportes de canales</h2>
+
+          <div class="toolbar">
+            <input id="reportSearch" oninput="renderReports()" placeholder="Buscar por canal, cliente, problema o dispositivo" />
+
+            <select id="reportStatusFilter" onchange="renderReports()">
+              <option value="">Todos los estados</option>
+              <option>Pendiente</option>
+              <option>Revisando</option>
+              <option>Solucionado</option>
+              <option>Descartado</option>
+            </select>
+
+            <button class="secondary" onclick="exportReportsCsv()">Exportar CSV</button>
           </div>
 
-          <div>
-            <label>Máximo dispositivos</label>
-            <input id="newMaxDevices" type="number" min="1" value="1" />
-          </div>
-
-          <div>
-            <label>EPG URL</label>
-            <input id="newEpgUrl" placeholder="https://..." />
-          </div>
-        </div>
-
-        <label>Playlist M3U URL autorizada</label>
-        <input id="newPlaylistUrl" placeholder="https://..." />
-
-        <button onclick="createClient()">Crear cliente</button>
+          <div id="reports"></div>
+        </section>
       </section>
 
-      <section class="card">
-        <h2>Clientes</h2>
-        <div id="clients"></div>
+      <section id="sectionGrouped" class="hidden">
+        <section class="card">
+          <h2>Canales más reportados</h2>
+          <div id="groupedReports"></div>
+        </section>
       </section>
-    </section>
 
-    <section id="sectionReports" class="hidden">
-      <section class="card">
-        <h2>Reportes de canales</h2>
-        <div id="reports"></div>
-      </section>
-    </section>
-
-    <section id="sectionGrouped" class="hidden">
-      <section class="card">
-        <h2>Canales más reportados</h2>
-        <div id="groupedReports"></div>
-      </section>
+      <div class="footer-space"></div>
     </section>
   </main>
 
   <script>
-    const apiBase = "";
-    const adminKeyInput = document.getElementById("adminKey");
+    let clientsCache = [];
+    let reportsCache = [];
+    let groupedCache = [];
+
+    const loginSection = document.getElementById("loginSection");
+    const dashboardSection = document.getElementById("dashboardSection");
+    const loginKeyInput = document.getElementById("loginKey");
+    const rememberKeyInput = document.getElementById("rememberKey");
     const messageBox = document.getElementById("message");
     const clientsBox = document.getElementById("clients");
     const reportsBox = document.getElementById("reports");
     const groupedReportsBox = document.getElementById("groupedReports");
     const statsBox = document.getElementById("stats");
 
-    adminKeyInput.value = localStorage.getItem("storetd_admin_key") || "";
+    const storedKey = sessionStorage.getItem("storetd_admin_key") || localStorage.getItem("storetd_admin_key") || "";
+    if (storedKey) {
+      sessionStorage.setItem("storetd_admin_key", storedKey);
+      showDashboard();
+      refreshAll();
+    }
+
+    function login() {
+      const key = loginKeyInput.value.trim();
+
+      if (!key) {
+        showMessage("Ingresa la clave admin.");
+        return;
+      }
+
+      sessionStorage.setItem("storetd_admin_key", key);
+
+      if (rememberKeyInput.checked) {
+        localStorage.setItem("storetd_admin_key", key);
+      } else {
+        localStorage.removeItem("storetd_admin_key");
+      }
+
+      showDashboard();
+      refreshAll();
+    }
+
+    function logout() {
+      sessionStorage.removeItem("storetd_admin_key");
+      localStorage.removeItem("storetd_admin_key");
+      dashboardSection.classList.add("hidden");
+      loginSection.classList.remove("hidden");
+      loginKeyInput.value = "";
+      showMessage("Sesión cerrada.");
+    }
+
+    function showDashboard() {
+      loginSection.classList.add("hidden");
+      dashboardSection.classList.remove("hidden");
+    }
+
+    function getKey() {
+      return sessionStorage.getItem("storetd_admin_key") || "";
+    }
+
+    function showMessage(text) {
+      messageBox.innerHTML = text ? `<div class="message">${escapeHtml(text)}</div>` : "";
+    }
 
     function showTab(tab) {
       document.getElementById("sectionClients").classList.toggle("hidden", tab !== "clients");
@@ -312,21 +482,8 @@
       document.getElementById("tabGrouped").classList.toggle("active", tab === "grouped");
     }
 
-    function showMessage(text) {
-      messageBox.innerHTML = text ? `<div class="message">${escapeHtml(text)}</div>` : "";
-    }
-
-    function saveKey() {
-      localStorage.setItem("storetd_admin_key", adminKeyInput.value);
-      showMessage("Clave guardada en este navegador.");
-    }
-
-    function getKey() {
-      return adminKeyInput.value || localStorage.getItem("storetd_admin_key") || "";
-    }
-
     async function api(path, options = {}) {
-      const response = await fetch(apiBase + path, {
+      const response = await fetch(path, {
         ...options,
         headers: {
           "Content-Type": "application/json",
@@ -337,6 +494,11 @@
 
       const data = await response.json().catch(() => ({}));
 
+      if (response.status === 401) {
+        logout();
+        throw new Error("Sesión inválida. Ingresa la clave nuevamente.");
+      }
+
       if (!response.ok) {
         throw new Error(data.message || "Error de servidor");
       }
@@ -345,27 +507,30 @@
     }
 
     async function refreshAll() {
+      showMessage("Actualizando datos...");
+
       await Promise.allSettled([
         loadStats(),
         loadClients(),
         loadReports()
       ]);
+
+      showMessage("Datos actualizados.");
     }
 
     async function loadStats() {
-      try {
-        const data = await api("/admin/api/stats");
-        const stats = data.stats || {};
+      const data = await api("/admin/api/stats");
+      const stats = data.stats || {};
 
-        statsBox.innerHTML = `
-          ${stat("Clientes", stats.clientsTotal || 0)}
-          ${stat("Activos", stats.clientsActive || 0)}
-          ${stat("Reportes", stats.reportsTotal || 0)}
-          ${stat("Pendientes", stats.reportsPending || 0)}
-        `;
-      } catch (error) {
-        showMessage(error.message);
-      }
+      statsBox.innerHTML = `
+        ${stat("Clientes", stats.clientsTotal || 0)}
+        ${stat("Activos", stats.clientsActive || 0)}
+        ${stat("Prueba", stats.clientsTrial || 0)}
+        ${stat("Suspendidos", stats.clientsSuspended || 0)}
+        ${stat("Vencidos", stats.clientsExpired || 0)}
+        ${stat("Reportes", stats.reportsTotal || 0)}
+        ${stat("Pendientes", stats.reportsPending || 0)}
+      `;
     }
 
     function stat(label, value) {
@@ -373,12 +538,9 @@
     }
 
     async function loadClients() {
-      try {
-        const data = await api("/admin/api/clients");
-        renderClients(data.clients || []);
-      } catch (error) {
-        showMessage(error.message);
-      }
+      const data = await api("/admin/api/clients");
+      clientsCache = data.clients || [];
+      renderClients();
     }
 
     async function createClient() {
@@ -398,6 +560,7 @@
           body: JSON.stringify(body)
         });
 
+        clearNewClientForm();
         showMessage("Cliente creado.");
         refreshAll();
       } catch (error) {
@@ -405,15 +568,25 @@
       }
     }
 
-    async function updateClient(code) {
+    function clearNewClientForm() {
+      document.getElementById("newCustomerName").value = "";
+      document.getElementById("newActivationCode").value = "";
+      document.getElementById("newStatus").value = "Activa";
+      document.getElementById("newExpiresAt").value = "";
+      document.getElementById("newMaxDevices").value = "1";
+      document.getElementById("newPlaylistUrl").value = "";
+      document.getElementById("newEpgUrl").value = "";
+    }
+
+    async function updateClient(code, index) {
       try {
         const body = {
-          customerName: document.getElementById(`name-${code}`).value,
-          status: document.getElementById(`status-${code}`).value,
-          expiresAt: document.getElementById(`expires-${code}`).value,
-          maxDevices: Number(document.getElementById(`max-${code}`).value || 1),
-          playlistUrl: document.getElementById(`playlist-${code}`).value,
-          epgUrl: document.getElementById(`epg-${code}`).value
+          customerName: document.getElementById(`name-${index}`).value,
+          status: document.getElementById(`status-${index}`).value,
+          expiresAt: document.getElementById(`expires-${index}`).value,
+          maxDevices: Number(document.getElementById(`max-${index}`).value || 1),
+          playlistUrl: document.getElementById(`playlist-${index}`).value,
+          epgUrl: document.getElementById(`epg-${index}`).value
         };
 
         await api(`/admin/api/clients/${encodeURIComponent(code)}`, {
@@ -460,20 +633,18 @@
     }
 
     async function loadReports() {
-      try {
-        const data = await api("/admin/api/reports");
-        renderReports(data.reports || []);
-        renderGroupedReports(data.grouped || []);
-      } catch (error) {
-        showMessage(error.message);
-      }
+      const data = await api("/admin/api/reports");
+      reportsCache = data.reports || [];
+      groupedCache = data.grouped || [];
+      renderReports();
+      renderGroupedReports();
     }
 
-    async function updateReport(id) {
+    async function updateReport(id, index) {
       try {
         const body = {
-          status: document.getElementById(`report-status-${id}`).value,
-          internalComment: document.getElementById(`report-comment-${id}`).value
+          status: document.getElementById(`report-status-${index}`).value,
+          internalComment: document.getElementById(`report-comment-${index}`).value
         };
 
         await api(`/admin/api/reports/${encodeURIComponent(id)}`, {
@@ -503,31 +674,49 @@
       }
     }
 
-    function renderClients(clients) {
-      if (!clients.length) {
-        clientsBox.innerHTML = "<p class='muted'>No hay clientes.</p>";
+    function renderClients() {
+      const search = normalize(document.getElementById("clientSearch")?.value || "");
+      const status = document.getElementById("clientStatusFilter")?.value || "";
+
+      const filtered = clientsCache.filter((client) => {
+        const text = normalize([
+          client.customerName,
+          client.activationCode,
+          client.status,
+          client.playlistUrl,
+          client.epgUrl
+        ].join(" "));
+
+        const matchesSearch = !search || text.includes(search);
+        const matchesStatus = !status || client.status === status;
+
+        return matchesSearch && matchesStatus;
+      });
+
+      if (!filtered.length) {
+        clientsBox.innerHTML = "<p class='muted'>No hay clientes para mostrar.</p>";
         return;
       }
 
-      clientsBox.innerHTML = clients.map((client) => {
-        const code = escapeAttr(client.activationCode);
+      clientsBox.innerHTML = filtered.map((client, index) => {
+        const code = client.activationCode || "";
 
         return `
           <div class="client">
             <h3>${escapeHtml(client.customerName)} <span class="badge">${escapeHtml(client.status)}</span></h3>
-            <div class="muted">Código: ${escapeHtml(client.activationCode)}</div>
-            <div class="muted">Dispositivos: ${client.deviceCount || 0}/${client.maxDevices || 1}</div>
+            <div class="muted">Código: ${escapeHtml(code)}</div>
+            <div class="muted">Dispositivos: ${escapeHtml(client.deviceCount || 0)}/${escapeHtml(client.maxDevices || 1)}</div>
             <div class="muted">Registrados: ${(client.devices || []).map(escapeHtml).join(", ") || "ninguno"}</div>
 
             <div class="grid" style="margin-top:12px">
               <div>
                 <label>Nombre</label>
-                <input id="name-${code}" value="${escapeAttr(client.customerName)}" />
+                <input id="name-${index}" value="${escapeAttr(client.customerName)}" />
               </div>
 
               <div>
                 <label>Estado</label>
-                <select id="status-${code}">
+                <select id="status-${index}">
                   ${option("Activa", client.status)}
                   ${option("Prueba", client.status)}
                   ${option("Vencida", client.status)}
@@ -537,41 +726,63 @@
 
               <div>
                 <label>Vencimiento</label>
-                <input id="expires-${code}" type="date" value="${escapeAttr(client.expiresAt || "")}" />
+                <input id="expires-${index}" type="date" value="${escapeAttr(client.expiresAt || "")}" />
               </div>
 
               <div>
                 <label>Máximo dispositivos</label>
-                <input id="max-${code}" type="number" min="1" value="${escapeAttr(client.maxDevices || 1)}" />
+                <input id="max-${index}" type="number" min="1" value="${escapeAttr(client.maxDevices || 1)}" />
               </div>
 
               <div>
                 <label>EPG URL</label>
-                <input id="epg-${code}" value="${escapeAttr(client.epgUrl || "")}" />
+                <input id="epg-${index}" value="${escapeAttr(client.epgUrl || "")}" />
               </div>
             </div>
 
             <label>Playlist URL autorizada</label>
-            <input id="playlist-${code}" value="${escapeAttr(client.playlistUrl || "")}" />
+            <input id="playlist-${index}" value="${escapeAttr(client.playlistUrl || "")}" />
 
             <div class="actions">
-              <button onclick="updateClient('${code}')">Guardar</button>
-              <button class="secondary" onclick="unlinkDevices('${code}')">Desvincular dispositivos</button>
-              <button class="danger" onclick="deleteClient('${code}')">Eliminar</button>
+              <button onclick='updateClient(${JSON.stringify(code)}, ${index})'>Guardar</button>
+              <button class="secondary" onclick='unlinkDevices(${JSON.stringify(code)})'>Desvincular dispositivos</button>
+              <button class="danger" onclick='deleteClient(${JSON.stringify(code)})'>Eliminar</button>
             </div>
           </div>
         `;
       }).join("");
     }
 
-    function renderReports(reports) {
-      if (!reports.length) {
-        reportsBox.innerHTML = "<p class='muted'>No hay reportes.</p>";
+    function renderReports() {
+      const search = normalize(document.getElementById("reportSearch")?.value || "");
+      const status = document.getElementById("reportStatusFilter")?.value || "";
+
+      const filtered = reportsCache.filter((report) => {
+        const text = normalize([
+          report.channelName,
+          report.category,
+          report.problemType,
+          report.customerName,
+          report.activationCode,
+          report.deviceCode,
+          report.deviceModel,
+          report.playerError,
+          report.status
+        ].join(" "));
+
+        const matchesSearch = !search || text.includes(search);
+        const matchesStatus = !status || report.status === status;
+
+        return matchesSearch && matchesStatus;
+      });
+
+      if (!filtered.length) {
+        reportsBox.innerHTML = "<p class='muted'>No hay reportes para mostrar.</p>";
         return;
       }
 
-      reportsBox.innerHTML = reports.map((report) => {
-        const id = escapeAttr(report.id);
+      reportsBox.innerHTML = filtered.map((report, index) => {
+        const id = report.id || "";
 
         return `
           <div class="report">
@@ -588,7 +799,7 @@
             <div class="grid" style="margin-top:12px">
               <div>
                 <label>Estado</label>
-                <select id="report-status-${id}">
+                <select id="report-status-${index}">
                   ${option("Pendiente", report.status)}
                   ${option("Revisando", report.status)}
                   ${option("Solucionado", report.status)}
@@ -598,24 +809,24 @@
             </div>
 
             <label>Comentario interno</label>
-            <textarea id="report-comment-${id}">${escapeHtml(report.internalComment || "")}</textarea>
+            <textarea id="report-comment-${index}">${escapeHtml(report.internalComment || "")}</textarea>
 
             <div class="actions">
-              <button onclick="updateReport('${id}')">Guardar reporte</button>
-              <button class="danger" onclick="deleteReport('${id}')">Eliminar</button>
+              <button onclick='updateReport(${JSON.stringify(id)}, ${index})'>Guardar reporte</button>
+              <button class="danger" onclick='deleteReport(${JSON.stringify(id)})'>Eliminar</button>
             </div>
           </div>
         `;
       }).join("");
     }
 
-    function renderGroupedReports(grouped) {
-      if (!grouped.length) {
+    function renderGroupedReports() {
+      if (!groupedCache.length) {
         groupedReportsBox.innerHTML = "<p class='muted'>No hay reportes agrupados.</p>";
         return;
       }
 
-      groupedReportsBox.innerHTML = grouped.map((item) => {
+      groupedReportsBox.innerHTML = groupedCache.map((item) => {
         return `
           <div class="report">
             <h3>${escapeHtml(item.channelName)} <span class="badge">${escapeHtml(item.total)} reportes</span></h3>
@@ -627,8 +838,80 @@
       }).join("");
     }
 
+    function exportClientsCsv() {
+      const rows = clientsCache.map((client) => ({
+        customerName: client.customerName,
+        activationCode: client.activationCode,
+        status: client.status,
+        expiresAt: client.expiresAt,
+        maxDevices: client.maxDevices,
+        deviceCount: client.deviceCount,
+        playlistUrl: client.playlistUrl,
+        epgUrl: client.epgUrl
+      }));
+
+      downloadCsv("storetd-clientes.csv", rows);
+    }
+
+    function exportReportsCsv() {
+      const rows = reportsCache.map((report) => ({
+        createdAt: report.createdAt,
+        status: report.status,
+        channelName: report.channelName,
+        category: report.category,
+        problemType: report.problemType,
+        customerName: report.customerName,
+        activationCode: report.activationCode,
+        deviceCode: report.deviceCode,
+        deviceModel: report.deviceModel,
+        androidVersion: report.androidVersion,
+        playerError: report.playerError,
+        internalComment: report.internalComment
+      }));
+
+      downloadCsv("storetd-reportes.csv", rows);
+    }
+
+    function downloadCsv(filename, rows) {
+      if (!rows.length) {
+        showMessage("No hay datos para exportar.");
+        return;
+      }
+
+      const headers = Object.keys(rows[0]);
+      const csv = [
+        headers.join(","),
+        ...rows.map((row) => headers.map((header) => csvCell(row[header])).join(","))
+      ].join("\n");
+
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      showMessage("CSV generado.");
+    }
+
+    function csvCell(value) {
+      const text = String(value ?? "");
+      return `"${text.replaceAll('"', '""')}"`;
+    }
+
     function option(value, selected) {
       return `<option ${value === selected ? "selected" : ""}>${escapeHtml(value)}</option>`;
+    }
+
+    function normalize(value) {
+      return String(value || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
     }
 
     function escapeHtml(value) {
@@ -642,10 +925,6 @@
 
     function escapeAttr(value) {
       return escapeHtml(value);
-    }
-
-    if (getKey()) {
-      refreshAll();
     }
   </script>
 </body>
