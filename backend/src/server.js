@@ -968,49 +968,62 @@ function getPlaylistEntryType(entry) {
   const groupText = normalizePlaylistText(entry.group);
   const text = normalizePlaylistText(entry.name + " " + entry.group);
 
+  // Reglas fuertes por grupo:
+  // TV | 01 Noticias          => live
+  // TV | 06 Cine y Peliculas  => live, porque son canales lineales
+  // TV | 07 Series TV         => live, porque son canales lineales
+  // Peliculas | 2024          => movies
+  // Series | Accion           => series
+
   if (
     groupText.startsWith("tv ") ||
     groupText.startsWith("tv |") ||
     groupText.startsWith("tv 0") ||
-    groupText.includes("canales") ||
+    groupText.startsWith("canales") ||
     groupText.includes("en vivo")
   ) {
     return "live";
   }
 
-  const liveChannelWords = [
-    "canal", "tv", "hd", "fhd", "uhd", "24/7", "noticias", "deportes",
-    "cine y peliculas", "series tv", "tnt", "hbo", "amc", "axn", "fx",
-    "warner", "universal", "studio universal", "space", "cinemax",
-    "cinecanal", "golden", "paramount", "sony", "telefe", "el trece",
-    "america", "a24", "c5n", "tn", "cronica", "espn", "fox sports",
-    "tyc", "cartoon", "disney", "nick", "history", "discovery"
-  ];
+  if (
+    groupText.startsWith("pelicula") ||
+    groupText.startsWith("peliculas") ||
+    groupText.startsWith("movie") ||
+    groupText.startsWith("movies") ||
+    groupText.startsWith("vod") ||
+    groupText.startsWith("cine ")
+  ) {
+    return "movies";
+  }
 
-  const looksLikeLiveChannel = liveChannelWords.some((word) =>
-    text.includes(normalizePlaylistText(word))
-  );
-
-  const seriesWords = [
-    "serie", "series", "temporada", "season", "episode", "episodio",
-    "capitulo", "novela", "novelas", "anime", "tv show", "shows"
-  ];
-
-  const movieWords = [
-    "pelicula", "peliculas", "movie", "movies", "cine", "cinema",
-    "film", "films", "estreno", "estrenos", "vod", "accion",
-    "terror", "comedia", "drama", "suspenso"
-  ];
+  if (
+    groupText.startsWith("serie") ||
+    groupText.startsWith("series") ||
+    groupText.startsWith("temporada") ||
+    groupText.startsWith("novela") ||
+    groupText.startsWith("anime")
+  ) {
+    return "series";
+  }
 
   const looksLikeEpisode =
     /\bs[0-9]{1,2}\s*e[0-9]{1,3}\b/i.test(nameText) ||
     /\b[0-9]{1,2}x[0-9]{1,3}\b/i.test(nameText);
 
-  if (looksLikeLiveChannel && !looksLikeEpisode) {
-    return "live";
+  if (looksLikeEpisode) {
+    return "series";
   }
 
-  if (looksLikeEpisode || seriesWords.some((word) => groupText.includes(normalizePlaylistText(word)))) {
+  const movieWords = [
+    "pelicula", "peliculas", "movie", "movies", "film", "films",
+    "estreno", "estrenos", "accion", "terror", "comedia", "drama"
+  ];
+
+  const seriesWords = [
+    "serie", "series", "season", "episode", "episodio", "capitulo"
+  ];
+
+  if (seriesWords.some((word) => groupText.includes(normalizePlaylistText(word)))) {
     return "series";
   }
 

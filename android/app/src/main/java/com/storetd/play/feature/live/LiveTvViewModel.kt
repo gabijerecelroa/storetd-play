@@ -248,8 +248,14 @@ class LiveTvViewModel(
                 snapshot.channels
             }
 
-            val rawModeFiltered = adultFiltered.filter {
-                matchesContentMode(it, snapshot.contentMode)
+            val isProxySection = snapshot.playlistUrl.contains("/playlist/proxy", ignoreCase = true)
+
+            val rawModeFiltered = if (isProxySection) {
+                adultFiltered
+            } else {
+                adultFiltered.filter {
+                    matchesContentMode(it, snapshot.contentMode)
+                }
             }
 
             val modeFiltered = if (
@@ -330,39 +336,51 @@ class LiveTvViewModel(
         fun matchesContentMode(channel: Channel, mode: ContentMode): Boolean {
             val nameText = normalize(channel.name)
             val groupText = normalize(channel.group)
-            val text = normalize("${channel.name} ${channel.group}")
 
-            val isLinearTvGroup =
+            if (
                 groupText.startsWith("tv ") ||
-                    groupText.startsWith("tv |") ||
-                    groupText.startsWith("tv 0") ||
-                    groupText.contains("canales") ||
-                    groupText.contains("en vivo")
+                groupText.startsWith("tv |") ||
+                groupText.startsWith("tv 0") ||
+                groupText.startsWith("canales") ||
+                groupText.contains("en vivo")
+            ) {
+                return mode == ContentMode.LiveTv
+            }
 
-            val liveChannelWords = listOf(
-                "canal", "tv", "hd", "fhd", "uhd", "24/7", "noticias", "deportes",
-                "cine y peliculas", "series tv", "tnt", "hbo", "amc", "axn", "fx",
-                "warner", "universal", "studio universal", "space", "cinemax",
-                "cinecanal", "golden", "paramount", "sony", "telefe", "el trece",
-                "america", "a24", "c5n", "tn", "cronica", "espn", "fox sports",
-                "tyc", "cartoon", "disney", "nick", "history", "discovery"
-            )
+            if (
+                groupText.startsWith("pelicula") ||
+                groupText.startsWith("peliculas") ||
+                groupText.startsWith("movie") ||
+                groupText.startsWith("movies") ||
+                groupText.startsWith("vod") ||
+                groupText.startsWith("cine ")
+            ) {
+                return mode == ContentMode.Movies
+            }
 
-            val looksLikeLiveChannel = liveChannelWords.any { text.contains(normalize(it)) }
+            if (
+                groupText.startsWith("serie") ||
+                groupText.startsWith("series") ||
+                groupText.startsWith("temporada") ||
+                groupText.startsWith("novela") ||
+                groupText.startsWith("anime")
+            ) {
+                return mode == ContentMode.Series
+            }
 
             val looksLikeEpisode =
                 Regex("\\bs[0-9]{1,2}\\s*e[0-9]{1,3}\\b").containsMatchIn(nameText) ||
                     Regex("\\b[0-9]{1,2}x[0-9]{1,3}\\b").containsMatchIn(nameText)
 
-            val isSeries = !looksLikeLiveChannel &&
-                (looksLikeEpisode || seriesWords.any { groupText.contains(normalize(it)) })
+            if (looksLikeEpisode) {
+                return mode == ContentMode.Series
+            }
 
-            val isMovie = !looksLikeLiveChannel &&
-                !isSeries &&
-                movieWords.any { groupText.contains(normalize(it)) }
+            val isSeries = seriesWords.any { groupText.contains(normalize(it)) }
+            val isMovie = !isSeries && movieWords.any { groupText.contains(normalize(it)) }
 
             return when (mode) {
-                ContentMode.LiveTv -> isLinearTvGroup || looksLikeLiveChannel || (!isMovie && !isSeries)
+                ContentMode.LiveTv -> !isMovie && !isSeries
                 ContentMode.Movies -> isMovie
                 ContentMode.Series -> isSeries
             }
