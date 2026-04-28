@@ -46,18 +46,23 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
-import com.storetd.play.core.cache.EpgMemoryCache
-import com.storetd.play.core.epg.EpgMatcher
 import com.storetd.play.core.epg.EpgProgram
 import com.storetd.play.core.model.Channel
 import com.storetd.play.core.storage.LocalAccount
 import com.storetd.play.core.storage.LocalSettings
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import java.net.URLEncoder
+import java.text.Normalizer
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.net.URLEncoder
+
+private data class SeriesFolder(
+    val key: String,
+    val title: String,
+    val group: String,
+    val logoUrl: String?,
+    val episodes: List<Channel>
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,9 +74,12 @@ fun LiveTvScreen(
 ) {
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
-    var epgPrograms by remember { mutableStateOf(emptyList<EpgProgram>()) }
+
+    var selectedSeriesKey by remember(contentMode) { mutableStateOf<String?>(null) }
 
     LaunchedEffect(contentMode) {
+        selectedSeriesKey = null
+
         viewModel.setContentMode(contentMode)
         viewModel.setHideAdultContent(LocalSettings.isAdultContentHidden(context))
 
@@ -85,10 +93,10 @@ fun LiveTvScreen(
         if (assignedPlaylist.isNotBlank()) {
             viewModel.loadAssignedPlaylist(assignedPlaylist)
         }
+    }
 
-        epgPrograms = withContext(Dispatchers.IO) {
-            EpgMemoryCache.getPrograms(context)
-        }
+    LaunchedEffect(state.selectedGroup, state.searchQuery) {
+        selectedSeriesKey = null
     }
 
     BoxWithConstraints(
@@ -131,14 +139,14 @@ fun LiveTvScreen(
                     StatusBlock(state = state, mode = contentMode)
                 }
 
-                items(state.visibleChannels) { channel ->
-                    ChannelRow(
-                        channel = channel,
-                        currentProgram = null,
-                        nextProgram = null,
-                        onPlay = { onPlay(channel, state.visibleChannels) }
-                    )
-                }
+                contentItems(
+                    state = state,
+                    contentMode = contentMode,
+                    selectedSeriesKey = selectedSeriesKey,
+                    onSelectSeries = { selectedSeriesKey = it },
+                    onClearSeries = { selectedSeriesKey = null },
+                    onPlay = onPlay
+                )
             }
         } else {
             Row(modifier = Modifier.fillMaxSize()) {
@@ -170,23 +178,80 @@ fun LiveTvScreen(
 
                 Spacer(Modifier.width(24.dp))
 
-                Column(modifier = Modifier.weight(1f)) {
-                    StatusBlock(state = state, mode = contentMode)
-
-                    Spacer(Modifier.height(16.dp))
-
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(state.visibleChannels) { channel ->
-                            ChannelRow(
-                                channel = channel,
-                                currentProgram = null,
-                                nextProgram = null,
-                                onPlay = { onPlay(channel, state.visibleChannels) }
-                            )
-                        }
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    item {
+                        StatusBlock(state = state, mode = contentMode)
                     }
+
+                    contentItems(
+                        state = state,
+                        contentMode = contentMode,
+                        selectedSeriesKey = selectedSeriesKey,
+                        onSelectSeries = { selectedSeriesKey = it },
+                        onClearSeries = { selectedSeriesKey = null },
+                        onPlay = onPlay
+                    )
                 }
             }
+        }
+    }
+}
+
+private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
+    state: LiveTvUiState,
+    contentMode: ContentMode,
+    selectedSeriesKey: String?,
+    onSelectSeries: (String) -> Unit,
+    onClearSeries: () -> Unit,
+    onPlay: (Channel, List<Channel>) -> Unit
+) {
+    if (contentMode != ContentMode.Series) {
+        items(state.visibleChannels) { channel ->
+            ChannelRow(
+                channel = channel,
+                currentProgram = null,
+                nextProgram = null,
+                onPlay = { onPlay(channel, state.visibleChannels) }
+            )
+        }
+        return
+    }
+
+    val folders = buildSeriesFolders(state.visibleChannels)
+    val selectedFolder = folders.firstOrNull { it.key == selectedSeriesKey }
+
+    if (selectedFolder == null) {
+        item {
+            Text(
+                text = "${folders.size} series encontradas",
+                style = MaterialTheme.typography.titleMedium
+            )
+        }
+
+        items(folders) { folder ->
+            SeriesFolderRow(
+                folder = folder,
+                onOpen = { onSelectSeries(folder.key) }
+            )
+        }
+    } else {
+        item {
+            SeriesFolderHeader(
+                folder = selectedFolder,
+                onBack = onClearSeries
+            )
+        }
+
+        items(selectedFolder.episodes) { episode ->
+            ChannelRow(
+                channel = episode,
+                currentProgram = null,
+                nextProgram = null,
+                onPlay = { onPlay(episode, selectedFolder.episodes) }
+            )
         }
     }
 }
@@ -410,6 +475,92 @@ private fun StatusBlock(
 }
 
 @Composable
+private fun SeriesFolderRow(
+    folder: SeriesFolder,
+    onOpen: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .focusable()
+    ) {
+        Row(modifier = Modifier.padding(16.dp)) {
+            if (!folder.logoUrl.isNullOrBlank()) {
+                Image(
+                    painter = rememberAsyncImagePainter(folder.logoUrl),
+                    contentDescription = folder.title,
+                    modifier = Modifier.size(60.dp)
+                )
+            }
+
+            Spacer(Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = folder.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item {
+                        AssistChip(
+                            onClick = {},
+                            label = { Text("${folder.episodes.size} capítulos") }
+                        )
+                    }
+
+                    item {
+                        AssistChip(
+                            onClick = {},
+                            label = { Text(folder.group) }
+                        )
+                    }
+                }
+            }
+
+            Button(onClick = onOpen) {
+                Text("Abrir")
+            }
+        }
+    }
+}
+
+@Composable
+private fun SeriesFolderHeader(
+    folder: SeriesFolder,
+    onBack: () -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = folder.title,
+                style = MaterialTheme.typography.headlineSmall
+            )
+
+            Spacer(Modifier.height(6.dp))
+
+            Text(
+                text = "${folder.episodes.size} capítulos disponibles",
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            OutlinedButton(
+                onClick = onBack,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Volver a series")
+            }
+        }
+    }
+}
+
+@Composable
 private fun ChannelRow(
     channel: Channel,
     currentProgram: EpgProgram?,
@@ -480,10 +631,93 @@ private fun ChannelRow(
     }
 }
 
-private fun formatLiveEpgTime(value: Long): String {
-    return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(value))
+private fun buildSeriesFolders(channels: List<Channel>): List<SeriesFolder> {
+    return channels
+        .groupBy { seriesFolderKey(it) }
+        .mapNotNull { (_, episodes) ->
+            val sortedEpisodes = episodes.sortedWith(
+                compareBy<Channel> { extractSeasonEpisode(it.name).first }
+                    .thenBy { extractSeasonEpisode(it.name).second }
+                    .thenBy { it.name }
+            )
+
+            val first = sortedEpisodes.firstOrNull() ?: return@mapNotNull null
+            val title = cleanSeriesTitle(first.name)
+
+            SeriesFolder(
+                key = seriesFolderKey(first),
+                title = title,
+                group = first.group,
+                logoUrl = first.logoUrl,
+                episodes = sortedEpisodes
+            )
+        }
+        .sortedBy { it.title.lowercase(Locale.getDefault()) }
 }
 
+private fun seriesFolderKey(channel: Channel): String {
+    val title = cleanSeriesTitle(channel.name)
+    return normalizeSeriesKey("${channel.group}|$title")
+}
+
+private fun cleanSeriesTitle(value: String): String {
+    var title = value.trim()
+
+    val patterns = listOf(
+        Regex("\\s*[-._ ]*s\\d{1,2}\\s*e\\d{1,3}.*$", RegexOption.IGNORE_CASE),
+        Regex("\\s*[-._ ]*\\d{1,2}x\\d{1,3}.*$", RegexOption.IGNORE_CASE),
+        Regex("\\s*[-._ ]*temporada\\s*\\d+.*$", RegexOption.IGNORE_CASE),
+        Regex("\\s*[-._ ]*season\\s*\\d+.*$", RegexOption.IGNORE_CASE),
+        Regex("\\s*[-._ ]*cap[ií]tulo\\s*\\d+.*$", RegexOption.IGNORE_CASE),
+        Regex("\\s*[-._ ]*episodio\\s*\\d+.*$", RegexOption.IGNORE_CASE),
+        Regex("\\s*[-._ ]*ep\\s*\\d+.*$", RegexOption.IGNORE_CASE)
+    )
+
+    for (pattern in patterns) {
+        title = title.replace(pattern, "").trim()
+    }
+
+    return title.ifBlank { value.trim() }
+}
+
+private fun extractSeasonEpisode(value: String): Pair<Int, Int> {
+    val seasonEpisode = Regex("s(\\d{1,2})\\s*e(\\d{1,3})", RegexOption.IGNORE_CASE)
+        .find(value)
+
+    if (seasonEpisode != null) {
+        val season = seasonEpisode.groupValues.getOrNull(1)?.toIntOrNull() ?: 0
+        val episode = seasonEpisode.groupValues.getOrNull(2)?.toIntOrNull() ?: 0
+        return season to episode
+    }
+
+    val xFormat = Regex("(\\d{1,2})x(\\d{1,3})", RegexOption.IGNORE_CASE)
+        .find(value)
+
+    if (xFormat != null) {
+        val season = xFormat.groupValues.getOrNull(1)?.toIntOrNull() ?: 0
+        val episode = xFormat.groupValues.getOrNull(2)?.toIntOrNull() ?: 0
+        return season to episode
+    }
+
+    val episodeOnly = Regex("(?:cap[ií]tulo|episodio|ep)\\s*(\\d{1,3})", RegexOption.IGNORE_CASE)
+        .find(value)
+
+    if (episodeOnly != null) {
+        val episode = episodeOnly.groupValues.getOrNull(1)?.toIntOrNull() ?: 0
+        return 0 to episode
+    }
+
+    return 0 to 0
+}
+
+private fun normalizeSeriesKey(value: String): String {
+    return Normalizer.normalize(value, Normalizer.Form.NFD)
+        .replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
+        .lowercase(Locale.getDefault())
+        .replace(Regex("[^a-z0-9]+"), " ")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+}
 
 private fun buildSectionPlaylistUrl(
     activationCode: String,
@@ -505,4 +739,8 @@ private fun buildSectionPlaylistUrl(
     val encodedCode = URLEncoder.encode(code, "UTF-8")
 
     return "https://storetd-play-backend.onrender.com/playlist/proxy?code=$encodedCode&type=$type"
+}
+
+private fun formatLiveEpgTime(value: Long): String {
+    return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(value))
 }
