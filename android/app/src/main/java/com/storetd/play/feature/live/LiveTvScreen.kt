@@ -221,9 +221,9 @@ private fun ContentControls(
             Button(
                 onClick = onRefresh,
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !state.isLoading
+                enabled = !state.isLoading && !state.isFiltering
             ) {
-                Text(if (state.isLoading) "Sincronizando..." else "Actualizar contenido")
+                Text(if (state.isLoading || state.isFiltering) "Sincronizando..." else "Actualizar contenido")
             }
 
             Spacer(Modifier.height(12.dp))
@@ -360,7 +360,7 @@ private fun StatusBlock(
     mode: ContentMode
 ) {
     Column {
-        if (state.isLoading) {
+        if (state.isLoading || state.isFiltering) {
             CircularProgressIndicator()
             Spacer(Modifier.height(16.dp))
         }

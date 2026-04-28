@@ -24,12 +24,12 @@ enum class ContentMode(
     ),
     Movies(
         title = "Películas",
-        subtitle = "Contenido tipo cine, estrenos y categorías VOD.",
+        subtitle = "Cine, estrenos y contenido VOD.",
         emptyMessage = "No se encontraron películas en la lista asignada."
     ),
     Series(
         title = "Series",
-        subtitle = "Temporadas, episodios y contenido seriado.",
+        subtitle = "Temporadas, episodios y colecciones.",
         emptyMessage = "No se encontraron series en la lista asignada."
     )
 }
@@ -37,52 +37,181 @@ enum class ContentMode(
 data class LiveTvUiState(
     val playlistUrl: String = "",
     val channels: List<Channel> = emptyList(),
+    val visibleChannels: List<Channel> = emptyList(),
+    val groups: List<String> = listOf("Todos"),
+    val totalVisibleCount: Int = 0,
     val contentMode: ContentMode = ContentMode.LiveTv,
     val selectedGroup: String = "Todos",
     val searchQuery: String = "",
     val hideAdultContent: Boolean = true,
     val isLoading: Boolean = false,
+    val isFiltering: Boolean = false,
     val errorMessage: String? = null
-) {
-    private val filteredByAdult: List<Channel>
-        get() = if (hideAdultContent) {
-            channels.filterNot { isAdult(it) }
-        } else {
-            channels
+)
+
+class LiveTvViewModel(
+    private val repository: IptvRepository = IptvRepository()
+) : ViewModel() {
+    private val _uiState = MutableStateFlow(LiveTvUiState())
+    val uiState: StateFlow<LiveTvUiState> = _uiState
+
+    fun setContentMode(mode: ContentMode) {
+        _uiState.value = _uiState.value.copy(
+            contentMode = mode,
+            selectedGroup = "Todos",
+            searchQuery = "",
+            isFiltering = true
+        )
+        refreshVisibleContent()
+    }
+
+    fun setPlaylistUrl(value: String) {
+        _uiState.value = _uiState.value.copy(
+            playlistUrl = value,
+            errorMessage = null
+        )
+    }
+
+    fun setSearchQuery(value: String) {
+        _uiState.value = _uiState.value.copy(
+            searchQuery = value,
+            isFiltering = true
+        )
+        refreshVisibleContent()
+    }
+
+    fun setHideAdultContent(value: Boolean) {
+        _uiState.value = _uiState.value.copy(
+            hideAdultContent = value,
+            selectedGroup = "Todos",
+            isFiltering = true
+        )
+        refreshVisibleContent()
+    }
+
+    fun selectGroup(group: String) {
+        _uiState.value = _uiState.value.copy(
+            selectedGroup = group,
+            isFiltering = true
+        )
+        refreshVisibleContent()
+    }
+
+    fun loadAssignedPlaylist(url: String) {
+        _uiState.value = _uiState.value.copy(
+            playlistUrl = url,
+            errorMessage = null
+        )
+        loadPlaylistFrom(url)
+    }
+
+    fun loadPlaylist() {
+        loadPlaylistFrom(_uiState.value.playlistUrl)
+    }
+
+    private fun loadPlaylistFrom(urlValue: String) {
+        val url = urlValue.trim()
+
+        if (!M3uValidator.validateUrl(url)) {
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                isFiltering = false,
+                errorMessage = "No hay una lista M3U/M3U8 válida asignada a esta cuenta."
+            )
+            return
         }
 
-    private val filteredByMode: List<Channel>
-        get() = filteredByAdult.filter { matchesContentMode(it, contentMode) }
+        _uiState.value = _uiState.value.copy(
+            isLoading = true,
+            isFiltering = true,
+            errorMessage = null,
+            visibleChannels = emptyList(),
+            totalVisibleCount = 0
+        )
 
-    val groups: List<String>
-        get() = listOf("Todos") + filteredByMode
-            .map { it.group.ifBlank { "Sin categoria" } }
-            .distinct()
-            .sorted()
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                repository.loadPlaylistFromUrl(url)
+            }.onSuccess { channels ->
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    channels = channels,
+                    selectedGroup = "Todos",
+                    errorMessage = if (channels.isEmpty()) {
+                        "La lista asignada no contiene contenido."
+                    } else {
+                        null
+                    }
+                )
 
-    val visibleChannels: List<Channel>
-        get() {
-            val byGroup = if (selectedGroup == "Todos") {
-                filteredByMode
+                refreshVisibleContent()
+            }.onFailure { throwable ->
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    isFiltering = false,
+                    channels = emptyList(),
+                    visibleChannels = emptyList(),
+                    totalVisibleCount = 0,
+                    errorMessage = throwable.message ?: "No se pudo cargar el contenido asignado."
+                )
+            }
+        }
+    }
+
+    private fun refreshVisibleContent() {
+        val snapshot = _uiState.value
+
+        viewModelScope.launch(Dispatchers.Default) {
+            val adultFiltered = if (snapshot.hideAdultContent) {
+                snapshot.channels.filterNot { isAdult(it) }
             } else {
-                filteredByMode.filter { it.group == selectedGroup }
+                snapshot.channels
             }
 
-            val query = searchQuery.trim().lowercase(Locale.getDefault())
+            val modeFiltered = adultFiltered.filter {
+                matchesContentMode(it, snapshot.contentMode)
+            }
 
-            return if (query.isBlank()) {
-                byGroup
+            val groups = listOf("Todos") + modeFiltered
+                .asSequence()
+                .map { it.group.ifBlank { "Sin categoría" } }
+                .distinct()
+                .sorted()
+                .toList()
+
+            val safeSelectedGroup = if (snapshot.selectedGroup in groups) {
+                snapshot.selectedGroup
             } else {
-                byGroup.filter {
+                "Todos"
+            }
+
+            val groupFiltered = if (safeSelectedGroup == "Todos") {
+                modeFiltered
+            } else {
+                modeFiltered.filter { it.group == safeSelectedGroup }
+            }
+
+            val query = snapshot.searchQuery.trim().lowercase(Locale.getDefault())
+
+            val visible = if (query.isBlank()) {
+                groupFiltered
+            } else {
+                groupFiltered.filter {
                     it.name.lowercase(Locale.getDefault()).contains(query) ||
                         it.group.lowercase(Locale.getDefault()).contains(query) ||
                         it.tvgId.orEmpty().lowercase(Locale.getDefault()).contains(query)
                 }
             }
-        }
 
-    val totalVisibleCount: Int
-        get() = visibleChannels.size
+            _uiState.value = _uiState.value.copy(
+                groups = groups,
+                selectedGroup = safeSelectedGroup,
+                visibleChannels = visible,
+                totalVisibleCount = visible.size,
+                isFiltering = false
+            )
+        }
+    }
 
     companion object {
         private val adultWords = listOf(
@@ -93,14 +222,12 @@ data class LiveTvUiState(
         private val movieWords = listOf(
             "pelicula", "peliculas", "película", "películas", "movie", "movies",
             "cine", "cinema", "film", "films", "estreno", "estrenos", "vod",
-            "accion", "acción", "terror", "comedia", "drama", "suspenso",
-            "4k", "60 fps"
+            "accion", "acción", "terror", "comedia", "drama", "suspenso"
         )
 
         private val seriesWords = listOf(
             "serie", "series", "temporada", "season", "episode", "episodio",
-            "capitulo", "capítulo", "novela", "novelas", "anime", "show",
-            "tv show", "shows"
+            "capitulo", "capítulo", "novela", "novelas", "anime", "tv show", "shows"
         )
 
         fun isAdult(channel: Channel): Boolean {
@@ -129,93 +256,6 @@ data class LiveTvUiState(
                 .replace(Regex("[^a-z0-9+ ]+"), " ")
                 .replace(Regex("\\s+"), " ")
                 .trim()
-        }
-    }
-}
-
-class LiveTvViewModel(
-    private val repository: IptvRepository = IptvRepository()
-) : ViewModel() {
-    private val _uiState = MutableStateFlow(LiveTvUiState())
-    val uiState: StateFlow<LiveTvUiState> = _uiState
-
-    fun setContentMode(mode: ContentMode) {
-        _uiState.value = _uiState.value.copy(
-            contentMode = mode,
-            selectedGroup = "Todos",
-            searchQuery = ""
-        )
-    }
-
-    fun setPlaylistUrl(value: String) {
-        _uiState.value = _uiState.value.copy(
-            playlistUrl = value,
-            errorMessage = null
-        )
-    }
-
-    fun setSearchQuery(value: String) {
-        _uiState.value = _uiState.value.copy(searchQuery = value)
-    }
-
-    fun setHideAdultContent(value: Boolean) {
-        _uiState.value = _uiState.value.copy(
-            hideAdultContent = value,
-            selectedGroup = "Todos"
-        )
-    }
-
-    fun selectGroup(group: String) {
-        _uiState.value = _uiState.value.copy(selectedGroup = group)
-    }
-
-    fun loadAssignedPlaylist(url: String) {
-        _uiState.value = _uiState.value.copy(
-            playlistUrl = url,
-            errorMessage = null
-        )
-        loadPlaylistFrom(url)
-    }
-
-    fun loadPlaylist() {
-        loadPlaylistFrom(_uiState.value.playlistUrl)
-    }
-
-    private fun loadPlaylistFrom(urlValue: String) {
-        val url = urlValue.trim()
-
-        if (!M3uValidator.validateUrl(url)) {
-            _uiState.value = _uiState.value.copy(
-                errorMessage = "No hay una lista M3U/M3U8 válida asignada a esta cuenta."
-            )
-            return
-        }
-
-        _uiState.value = _uiState.value.copy(
-            isLoading = true,
-            errorMessage = null
-        )
-
-        viewModelScope.launch(Dispatchers.IO) {
-            runCatching {
-                repository.loadPlaylistFromUrl(url)
-            }.onSuccess { channels ->
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    channels = channels,
-                    selectedGroup = "Todos",
-                    errorMessage = if (channels.isEmpty()) {
-                        "La lista asignada no contiene canales."
-                    } else {
-                        null
-                    }
-                )
-            }.onFailure { throwable ->
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    errorMessage = throwable.message ?: "No se pudo cargar el contenido asignado."
-                )
-            }
         }
     }
 }
