@@ -22,8 +22,8 @@ const clients = [
     status: "Activa",
     expiresAt: "2026-12-31",
     maxDevices: 2,
-    playlistUrl: "https://example.com/lista-autorizada.m3u",
-    epgUrl: "https://example.com/epg.xml"
+    playlistUrl: "https://gist.githubusercontent.com/gabijerecelroa/1beb318f81af17604a81a8c257297615/raw/lista.m3u",
+    epgUrl: ""
   },
   {
     customerName: "Cliente Demo",
