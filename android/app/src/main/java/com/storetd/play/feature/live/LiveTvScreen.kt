@@ -46,6 +46,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
+import com.storetd.play.core.cache.EpgMemoryCache
 import com.storetd.play.core.epg.EpgMatcher
 import com.storetd.play.core.epg.EpgProgram
 import com.storetd.play.core.model.Channel
@@ -79,7 +80,7 @@ fun LiveTvScreen(
         }
 
         epgPrograms = withContext(Dispatchers.IO) {
-            EpgMatcher.loadPrograms(context)
+            EpgMemoryCache.getPrograms(context)
         }
     }
 
@@ -106,7 +107,7 @@ fun LiveTvScreen(
                             LocalSettings.setAdultContentHidden(context, hidden)
                             viewModel.setHideAdultContent(hidden)
                         },
-                        onRefresh = viewModel::loadPlaylist,
+                        onRefresh = viewModel::refreshPlaylist,
                         onBack = onBack
                     )
                 }
@@ -147,7 +148,7 @@ fun LiveTvScreen(
                             LocalSettings.setAdultContentHidden(context, hidden)
                             viewModel.setHideAdultContent(hidden)
                         },
-                        onRefresh = viewModel::loadPlaylist,
+                        onRefresh = viewModel::refreshPlaylist,
                         onBack = onBack
                     )
 
@@ -360,7 +361,7 @@ private fun StatusBlock(
     mode: ContentMode
 ) {
     Column {
-        if (state.isLoading || state.isFiltering) {
+        if (state.isLoading) {
             CircularProgressIndicator()
             Spacer(Modifier.height(16.dp))
         }
@@ -374,6 +375,15 @@ private fun StatusBlock(
                 )
             }
             Spacer(Modifier.height(12.dp))
+        }
+
+        if (state.loadedFromCache && !state.isLoading && !state.isFiltering) {
+            Text(
+                text = "Contenido cargado desde memoria. Usa Actualizar contenido si hubo cambios.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.72f)
+            )
+            Spacer(Modifier.height(8.dp))
         }
 
         Text(

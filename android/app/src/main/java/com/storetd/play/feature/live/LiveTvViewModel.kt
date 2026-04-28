@@ -2,6 +2,7 @@ package com.storetd.play.feature.live
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.storetd.play.core.cache.PlaylistMemoryCache
 import com.storetd.play.core.model.Channel
 import com.storetd.play.core.parser.M3uValidator
 import com.storetd.play.core.repository.IptvRepository
@@ -46,6 +47,7 @@ data class LiveTvUiState(
     val hideAdultContent: Boolean = true,
     val isLoading: Boolean = false,
     val isFiltering: Boolean = false,
+    val loadedFromCache: Boolean = false,
     val errorMessage: String? = null
 )
 
@@ -55,14 +57,21 @@ class LiveTvViewModel(
     private val _uiState = MutableStateFlow(LiveTvUiState())
     val uiState: StateFlow<LiveTvUiState> = _uiState
 
+    private var filterVersion = 0
+
     fun setContentMode(mode: ContentMode) {
-        _uiState.value = _uiState.value.copy(
+        val current = _uiState.value
+
+        _uiState.value = current.copy(
             contentMode = mode,
             selectedGroup = "Todos",
             searchQuery = "",
-            isFiltering = true
+            isFiltering = current.channels.isNotEmpty()
         )
-        refreshVisibleContent()
+
+        if (current.channels.isNotEmpty()) {
+            refreshVisibleContent()
+        }
     }
 
     fun setPlaylistUrl(value: String) {
@@ -98,18 +107,38 @@ class LiveTvViewModel(
     }
 
     fun loadAssignedPlaylist(url: String) {
-        _uiState.value = _uiState.value.copy(
-            playlistUrl = url,
-            errorMessage = null
-        )
-        loadPlaylistFrom(url)
+        val cleanUrl = url.trim()
+        val current = _uiState.value
+
+        if (current.channels.isNotEmpty() && current.playlistUrl == cleanUrl) {
+            refreshVisibleContent()
+            return
+        }
+
+        val cached = PlaylistMemoryCache.get(cleanUrl)
+
+        if (cached != null) {
+            _uiState.value = current.copy(
+                playlistUrl = cleanUrl,
+                channels = cached,
+                isLoading = false,
+                isFiltering = true,
+                loadedFromCache = true,
+                errorMessage = null
+            )
+            refreshVisibleContent()
+            return
+        }
+
+        loadPlaylistFrom(cleanUrl, forceRefresh = false)
     }
 
-    fun loadPlaylist() {
-        loadPlaylistFrom(_uiState.value.playlistUrl)
+    fun refreshPlaylist() {
+        PlaylistMemoryCache.clear()
+        loadPlaylistFrom(_uiState.value.playlistUrl, forceRefresh = true)
     }
 
-    private fun loadPlaylistFrom(urlValue: String) {
+    private fun loadPlaylistFrom(urlValue: String, forceRefresh: Boolean) {
         val url = urlValue.trim()
 
         if (!M3uValidator.validateUrl(url)) {
@@ -121,9 +150,27 @@ class LiveTvViewModel(
             return
         }
 
+        if (!forceRefresh) {
+            val cached = PlaylistMemoryCache.get(url)
+            if (cached != null) {
+                _uiState.value = _uiState.value.copy(
+                    playlistUrl = url,
+                    channels = cached,
+                    isLoading = false,
+                    isFiltering = true,
+                    loadedFromCache = true,
+                    errorMessage = null
+                )
+                refreshVisibleContent()
+                return
+            }
+        }
+
         _uiState.value = _uiState.value.copy(
+            playlistUrl = url,
             isLoading = true,
             isFiltering = true,
+            loadedFromCache = false,
             errorMessage = null,
             visibleChannels = emptyList(),
             totalVisibleCount = 0
@@ -133,6 +180,8 @@ class LiveTvViewModel(
             runCatching {
                 repository.loadPlaylistFromUrl(url)
             }.onSuccess { channels ->
+                PlaylistMemoryCache.save(url, channels)
+
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     channels = channels,
@@ -160,6 +209,7 @@ class LiveTvViewModel(
 
     private fun refreshVisibleContent() {
         val snapshot = _uiState.value
+        val version = ++filterVersion
 
         viewModelScope.launch(Dispatchers.Default) {
             val adultFiltered = if (snapshot.hideAdultContent) {
@@ -203,13 +253,15 @@ class LiveTvViewModel(
                 }
             }
 
-            _uiState.value = _uiState.value.copy(
-                groups = groups,
-                selectedGroup = safeSelectedGroup,
-                visibleChannels = visible,
-                totalVisibleCount = visible.size,
-                isFiltering = false
-            )
+            if (version == filterVersion) {
+                _uiState.value = _uiState.value.copy(
+                    groups = groups,
+                    selectedGroup = safeSelectedGroup,
+                    visibleChannels = visible,
+                    totalVisibleCount = visible.size,
+                    isFiltering = false
+                )
+            }
         }
     }
 
