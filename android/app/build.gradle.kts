@@ -8,6 +8,10 @@ android {
     namespace = "com.storetd.play"
     compileSdk = 36
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     defaultConfig {
         applicationId = "com.storetd.play"
         minSdk = 23
