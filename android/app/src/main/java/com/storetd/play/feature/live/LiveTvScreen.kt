@@ -45,6 +45,13 @@ import coil.compose.rememberAsyncImagePainter
 import com.storetd.play.core.model.Channel
 import com.storetd.play.core.storage.LocalSettings
 import com.storetd.play.core.storage.LocalAccount
+import com.storetd.play.core.epg.EpgMatcher
+import com.storetd.play.core.epg.EpgProgram
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,6 +62,7 @@ fun LiveTvScreen(
 ) {
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
+    var epgPrograms by remember { mutableStateOf(emptyList<EpgProgram>()) }
 
     LaunchedEffect(Unit) {
         viewModel.setHideAdultContent(LocalSettings.isAdultContentHidden(context))
@@ -105,7 +113,12 @@ fun LiveTvScreen(
                 }
 
                 items(state.visibleChannels) { channel ->
-                    ChannelRow(channel = channel, onPlay = { onPlay(channel, state.visibleChannels) })
+                    ChannelRow(
+                    channel = channel,
+                    currentProgram = EpgMatcher.currentProgram(epgPrograms, channel.name),
+                    nextProgram = EpgMatcher.nextProgram(epgPrograms, channel.name),
+                    onPlay = { onPlay(channel, state.visibleChannels) }
+                )
                 }
             }
         } else {
@@ -147,7 +160,12 @@ fun LiveTvScreen(
 
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         items(state.visibleChannels) { channel ->
-                            ChannelRow(channel = channel, onPlay = { onPlay(channel, state.visibleChannels) })
+                            ChannelRow(
+                    channel = channel,
+                    currentProgram = EpgMatcher.currentProgram(epgPrograms, channel.name),
+                    nextProgram = EpgMatcher.nextProgram(epgPrograms, channel.name),
+                    onPlay = { onPlay(channel, state.visibleChannels) }
+                )
                         }
                     }
                 }
@@ -336,7 +354,12 @@ private fun StatusBlock(state: LiveTvUiState) {
 }
 
 @Composable
-private fun ChannelRow(channel: Channel, onPlay: () -> Unit) {
+private fun ChannelRow(
+    channel: Channel,
+    currentProgram: EpgProgram?,
+    nextProgram: EpgProgram?,
+    onPlay: () -> Unit
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -355,6 +378,23 @@ private fun ChannelRow(channel: Channel, onPlay: () -> Unit) {
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(channel.name, style = MaterialTheme.typography.titleMedium)
+
+                currentProgram?.let { program ->
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Ahora: ${program.title}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                nextProgram?.let { program ->
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Próximo ${formatLiveEpgTime(program.startAtMillis)}: ${program.title}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
                 Spacer(Modifier.height(4.dp))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     item { AssistChip(onClick = {}, label = { Text(channel.group) }) }
@@ -367,4 +407,9 @@ private fun ChannelRow(channel: Channel, onPlay: () -> Unit) {
             }
         }
     }
+}
+
+
+private fun formatLiveEpgTime(value: Long): String {
+    return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(value))
 }

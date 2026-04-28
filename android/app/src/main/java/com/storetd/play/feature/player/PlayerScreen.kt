@@ -57,6 +57,8 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.storetd.play.core.network.ChannelReportApi
 import com.storetd.play.core.network.ChannelReportPayload
+import com.storetd.play.core.epg.EpgMatcher
+import com.storetd.play.core.epg.EpgProgram
 import com.storetd.play.core.player.PlayerSession
 import com.storetd.play.core.storage.LocalAccount
 import com.storetd.play.core.storage.LocalLibrary
@@ -65,6 +67,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(UnstableApi::class)
 private enum class VideoResizeMode(
@@ -123,6 +128,15 @@ fun PlayerScreen(
 
     var isFavorite by remember(currentChannel.streamUrl) {
         mutableStateOf(LocalLibrary.isFavorite(context, currentChannel.streamUrl))
+    }
+
+    LaunchedEffect(currentChannel.name) {
+        val pair = withContext(Dispatchers.IO) {
+            EpgMatcher.currentAndNext(context, currentChannel.name)
+        }
+
+        currentEpgProgram = pair.first
+        nextEpgProgram = pair.second
     }
 
     DisposableEffect(Unit) {
@@ -386,6 +400,8 @@ fun PlayerScreen(
                     canPrevious = PlayerSession.hasPrevious(),
                     canNext = PlayerSession.hasNext(),
                     resizeModeLabel = videoResizeMode.label,
+currentProgram = currentEpgProgram,
+nextProgram = nextEpgProgram,
                     isLandscape = isLandscape,
                     onPrevious = ::zapPrevious,
                     onNext = ::zapNext,
@@ -474,7 +490,9 @@ private fun PlayerBottomOverlay(
     canPrevious: Boolean,
     canNext: Boolean,
     resizeModeLabel: String,
-    isLandscape: Boolean,
+currentProgram: EpgProgram?,
+nextProgram: EpgProgram?,
+isLandscape: Boolean,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onFavorite: () -> Unit,
@@ -598,4 +616,34 @@ private fun PlayerBottomOverlay(
             }
         }
     }
+}
+
+
+@Composable
+private fun PlayerEpgInfo(
+    currentProgram: EpgProgram?,
+    nextProgram: EpgProgram?
+) {
+    currentProgram?.let { program ->
+        Text(
+            text = "Ahora: ${program.title}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+
+    nextProgram?.let { program ->
+        Text(
+            text = "Próximo ${formatPlayerEpgTime(program.startAtMillis)}: ${program.title}",
+            style = MaterialTheme.typography.bodySmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+private fun formatPlayerEpgTime(value: Long): String {
+    return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(value))
 }
