@@ -4,10 +4,9 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,6 +15,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -44,85 +45,181 @@ fun LiveTvScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
 
-    Row(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(24.dp)
+            .padding(20.dp)
     ) {
-        Column(modifier = Modifier.width(300.dp).fillMaxHeight()) {
-            Text("TV en vivo", style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.height(16.dp))
+        val isCompact = maxWidth < 700.dp
 
-            OutlinedTextField(
-                value = state.playlistUrl,
-                onValueChange = viewModel::setPlaylistUrl,
-                label = { Text("URL M3U/M3U8 autorizada") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(Modifier.height(12.dp))
-
-            Button(
-                onClick = viewModel::loadPlaylist,
-                modifier = Modifier.fillMaxWidth()
+        if (isCompact) {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxSize()
             ) {
-                Text("Cargar lista")
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            Button(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
-                Text("Volver")
-            }
-
-            Spacer(Modifier.height(24.dp))
-            Text("Categorias", style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(8.dp))
-
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(state.groups) { group ->
-                    FilterChip(
-                        selected = group == state.selectedGroup,
-                        onClick = { viewModel.selectGroup(group) },
-                        label = { Text(group) }
+                item {
+                    PlaylistControls(
+                        playlistUrl = state.playlistUrl,
+                        onPlaylistUrlChange = viewModel::setPlaylistUrl,
+                        onLoadPlaylist = viewModel::loadPlaylist,
+                        onBack = onBack
                     )
                 }
-            }
-        }
 
-        Spacer(Modifier.width(24.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            if (state.isLoading) {
-                CircularProgressIndicator()
-                Spacer(Modifier.height(16.dp))
-            }
-
-            state.errorMessage?.let {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = it,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(16.dp)
+                item {
+                    CategoryRow(
+                        groups = state.groups,
+                        selectedGroup = state.selectedGroup,
+                        onSelectGroup = viewModel::selectGroup
                     )
                 }
-                Spacer(Modifier.height(12.dp))
-            }
 
-            Text(
-                text = "${state.visibleChannels.size} canales",
-                style = MaterialTheme.typography.titleLarge
-            )
-            Spacer(Modifier.height(16.dp))
+                item {
+                    StatusBlock(
+                        isLoading = state.isLoading,
+                        errorMessage = state.errorMessage,
+                        count = state.visibleChannels.size
+                    )
+                }
 
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(state.visibleChannels) { channel ->
                     ChannelRow(channel = channel, onPlay = { onPlay(channel) })
                 }
             }
+        } else {
+            Row(modifier = Modifier.fillMaxSize()) {
+                Column(modifier = Modifier.width(320.dp).fillMaxHeight()) {
+                    PlaylistControls(
+                        playlistUrl = state.playlistUrl,
+                        onPlaylistUrlChange = viewModel::setPlaylistUrl,
+                        onLoadPlaylist = viewModel::loadPlaylist,
+                        onBack = onBack
+                    )
+
+                    Spacer(Modifier.height(24.dp))
+
+                    Text("Categorias", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(8.dp))
+
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(state.groups) { group ->
+                            FilterChip(
+                                selected = group == state.selectedGroup,
+                                onClick = { viewModel.selectGroup(group) },
+                                label = { Text(group) }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.width(24.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    StatusBlock(
+                        isLoading = state.isLoading,
+                        errorMessage = state.errorMessage,
+                        count = state.visibleChannels.size
+                    )
+
+                    Spacer(Modifier.height(16.dp))
+
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        items(state.visibleChannels) { channel ->
+                            ChannelRow(channel = channel, onPlay = { onPlay(channel) })
+                        }
+                    }
+                }
+            }
         }
+    }
+}
+
+@Composable
+private fun PlaylistControls(
+    playlistUrl: String,
+    onPlaylistUrlChange: (String) -> Unit,
+    onLoadPlaylist: () -> Unit,
+    onBack: () -> Unit
+) {
+    Column {
+        Text("TV en vivo", style = MaterialTheme.typography.headlineMedium)
+        Spacer(Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = playlistUrl,
+            onValueChange = onPlaylistUrlChange,
+            label = { Text("URL M3U/M3U8 autorizada") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        Button(
+            onClick = onLoadPlaylist,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Cargar lista")
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        Button(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
+            Text("Volver")
+        }
+    }
+}
+
+@Composable
+private fun CategoryRow(
+    groups: List<String>,
+    selectedGroup: String,
+    onSelectGroup: (String) -> Unit
+) {
+    Column {
+        Text("Categorias", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(8.dp))
+
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(groups) { group ->
+                FilterChip(
+                    selected = group == selectedGroup,
+                    onClick = { onSelectGroup(group) },
+                    label = { Text(group) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatusBlock(
+    isLoading: Boolean,
+    errorMessage: String?,
+    count: Int
+) {
+    Column {
+        if (isLoading) {
+            CircularProgressIndicator()
+            Spacer(Modifier.height(16.dp))
+        }
+
+        errorMessage?.let {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = it,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+        }
+
+        Text(
+            text = "$count canales",
+            style = MaterialTheme.typography.titleLarge
+        )
     }
 }
 
