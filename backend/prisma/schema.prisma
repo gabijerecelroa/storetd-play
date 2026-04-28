@@ -1,0 +1,132 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CustomerStatus {
+  ACTIVE
+  EXPIRED
+  SUSPENDED
+  TRIAL
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWING
+  SOLVED
+  DISCARDED
+}
+
+model Admin {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String   @default("admin")
+  createdAt    DateTime @default(now())
+}
+
+model Customer {
+  id           String         @id @default(cuid())
+  name         String
+  email        String?        @unique
+  phone        String?
+  username     String         @unique
+  passwordHash String
+  status       CustomerStatus @default(TRIAL)
+  expiresAt    DateTime?
+  maxDevices   Int            @default(1)
+  notes        String?
+  devices      Device[]
+  reports      ChannelReport[]
+  playlists    CustomerPlaylist[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
+model Device {
+  id             String   @id @default(cuid())
+  customerId     String
+  customer       Customer @relation(fields: [customerId], references: [id])
+  deviceUidHash  String
+  deviceName     String?
+  manufacturer   String?
+  model          String?
+  androidVersion String?
+  appVersion     String?
+  lastSeenAt     DateTime?
+  status         String   @default("active")
+  createdAt      DateTime @default(now())
+
+  @@unique([customerId, deviceUidHash])
+}
+
+model Playlist {
+  id                   String             @id @default(cuid())
+  name                 String
+  urlEncrypted          String
+  type                 String             @default("m3u")
+  status               String             @default("active")
+  autoRefresh           Boolean            @default(true)
+  refreshIntervalHours  Int                @default(12)
+  lastRefreshAt         DateTime?
+  customers             CustomerPlaylist[]
+  createdAt             DateTime           @default(now())
+}
+
+model CustomerPlaylist {
+  id         String   @id @default(cuid())
+  customerId String
+  playlistId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  playlist   Playlist @relation(fields: [playlistId], references: [id])
+
+  @@unique([customerId, playlistId])
+}
+
+model ChannelReport {
+  id                String       @id @default(cuid())
+  customerId        String?
+  customer          Customer?    @relation(fields: [customerId], references: [id])
+  channelName       String
+  channelGroup      String?
+  streamUrlMasked   String
+  reportType        String
+  status            ReportStatus @default(PENDING)
+  technicalMessage  String?
+  appVersion        String?
+  androidVersion    String?
+  deviceModel       String?
+  connectionType    String?
+  createdAt         DateTime     @default(now())
+  resolvedAt        DateTime?
+  comments          ReportComment[]
+}
+
+model ReportComment {
+  id        String        @id @default(cuid())
+  reportId  String
+  report    ChannelReport @relation(fields: [reportId], references: [id])
+  adminId   String?
+  comment   String
+  createdAt DateTime      @default(now())
+}
+
+model AppConfig {
+  id                 String  @id @default(cuid())
+  appName            String  @default("StoreTD Play")
+  primaryColor       String  @default("#E50914")
+  secondaryColor     String  @default("#141414")
+  logoUrl            String?
+  splashUrl          String?
+  supportWhatsapp    String?
+  supportEmail       String?
+  termsUrl           String?
+  privacyUrl         String?
+  maintenanceMode    Boolean @default(false)
+  maintenanceMessage String?
+}

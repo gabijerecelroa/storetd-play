@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: storetd-play-postgres
+    environment:
+      POSTGRES_USER: storetd
+      POSTGRES_PASSWORD: storetd
+      POSTGRES_DB: storetd_play
+    ports:
+      - "5432:5432"
+    volumes:
+      - storetd_pgdata:/var/lib/postgresql/data
+
+volumes:
+  storetd_pgdata:

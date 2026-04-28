@@ -1,0 +1,44 @@
+# General
+.DS_Store
+*.log
+*.tmp
+
+# Env
+.env
+.env.local
+.env.production
+.env.development
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/*.iml
+android/.idea/
+*.keystore
+*.jks
+release.keystore
+
+# Gradle
+.gradle/
+build/
+
+# Node
+node_modules/
+dist/
+.next/
+coverage/
+backend/node_modules/
+backend/dist/
+admin-panel/node_modules/
+admin-panel/.next/
+
+# Prisma
+backend/prisma/dev.db
+backend/prisma/migrations/*/migration_lock.toml
+
+# IDE
+.idea/
+.vscode/
+*.iml

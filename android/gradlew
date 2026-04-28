@@ -1,0 +1,35 @@
+#!/usr/bin/env sh
+set -e
+
+DIR="$(cd "$(dirname "$0")" && pwd)"
+WRAPPER_JAR="$DIR/gradle/wrapper/gradle-wrapper.jar"
+
+if [ -f "$WRAPPER_JAR" ]; then
+  exec java -jar "$WRAPPER_JAR" "$@"
+fi
+
+if command -v gradle >/dev/null 2>&1; then
+  exec gradle "$@"
+fi
+
+GRADLE_VERSION="8.14.3"
+CACHE_DIR="${HOME}/.gradle/manual-wrapper"
+DIST_DIR="$CACHE_DIR/gradle-${GRADLE_VERSION}"
+ZIP_FILE="$CACHE_DIR/gradle-${GRADLE_VERSION}-bin.zip"
+
+mkdir -p "$CACHE_DIR"
+
+if [ ! -x "$DIST_DIR/bin/gradle" ]; then
+  echo "Gradle wrapper jar not found. Downloading Gradle ${GRADLE_VERSION}..."
+  if command -v curl >/dev/null 2>&1; then
+    curl -L -o "$ZIP_FILE" "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -O "$ZIP_FILE" "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip"
+  else
+    echo "curl or wget is required to download Gradle."
+    exit 1
+  fi
+  unzip -q "$ZIP_FILE" -d "$CACHE_DIR"
+fi
+
+exec "$DIST_DIR/bin/gradle" "$@"
