@@ -47,6 +47,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.storetd.play.R
 import com.storetd.play.core.storage.LocalAccount
+import com.storetd.play.core.preload.PlaylistPreloader
 
 private data class HomeAction(
     val title: String,
@@ -71,6 +72,10 @@ fun HomeScreen(
     val context = LocalContext.current
     val account = LocalAccount.getAccount(context)
     val customerName = account.customerName.ifBlank { "cliente" }
+
+    LaunchedEffect(account.activationCode, account.playlistUrl) {
+        PlaylistPreloader.preloadAccount(context.applicationContext)
+    }
 
     val actions = listOf(
         HomeAction("TV en vivo", "Canales, categorías y zapping", "LIVE", onOpenLiveTv),

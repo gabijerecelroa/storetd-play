@@ -7,6 +7,7 @@ import com.storetd.play.core.cache.PlaylistDiskCache
 import com.storetd.play.core.cache.PlaylistMemoryCache
 import com.storetd.play.core.model.Channel
 import com.storetd.play.core.parser.M3uValidator
+import com.storetd.play.core.preload.PlaylistPreloader
 import com.storetd.play.core.repository.IptvRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -142,6 +143,7 @@ class LiveTvViewModel(
     fun refreshPlaylist(context: Context) {
         val url = _uiState.value.playlistUrl
         screenStateCache.remove(cacheKey(url, _uiState.value.contentMode))
+        PlaylistPreloader.clear(url)
         PlaylistMemoryCache.clear(url)
         PlaylistDiskCache.clear(context, url)
         loadPlaylistFrom(context, url, forceRefresh = true)
@@ -205,8 +207,14 @@ class LiveTvViewModel(
         )
 
         viewModelScope.launch(Dispatchers.IO) {
+            val preloadedChannels = if (!forceRefresh) {
+                PlaylistPreloader.awaitIfRunning(context, url)
+            } else {
+                null
+            }
+
             runCatching {
-                withTimeout(60000L) {
+                preloadedChannels ?: withTimeout(60000L) {
                     repository.loadPlaylistFromUrl(url)
                 }
             }.onSuccess { channels ->
