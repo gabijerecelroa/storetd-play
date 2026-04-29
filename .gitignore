@@ -42,3 +42,8 @@ backend/prisma/migrations/*/migration_lock.toml
 .idea/
 .vscode/
 *.iml
+
+# StoreTD signing files
+signing/
+*.jks
+*.keystore
