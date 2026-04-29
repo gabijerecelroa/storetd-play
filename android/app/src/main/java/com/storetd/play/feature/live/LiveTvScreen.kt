@@ -245,7 +245,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
         return
     }
 
-    val folders = remember(state.visibleChannels) { buildSeriesFolders(state.visibleChannels) }
+    val folders = buildSeriesFolders(state.visibleChannels)
     val selectedFolder = folders.firstOrNull { it.key == selectedSeriesKey }
 
     if (selectedFolder == null) {
@@ -445,7 +445,7 @@ private fun ContentControls(
 private fun CategoryRow(
     groups: List<String>,
     selectedGroup: String,
-    onGroupSelected: (String) -> Unit
+    onSelectGroup: (String) -> Unit
 ) {
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -455,7 +455,7 @@ private fun CategoryRow(
             TvCategoryChip(
                 label = group,
                 selected = group == selectedGroup,
-                onClick = { onGroupSelected(group) }
+                onClick = { onSelectGroup(group) }
             )
         }
     }
