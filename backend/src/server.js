@@ -202,6 +202,99 @@ app.get("/admin", (req, res) => {
   res.sendFile(path.join(__dirname, "..", "public", "admin.html"));
 });
 
+
+app.post("/auth/status", async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const { activationCode, deviceCode } = req.body || {};
+    const normalizedCode = normalizeCode(activationCode);
+
+    if (!normalizedCode) {
+      return res.status(400).json({
+        success: false,
+        allowed: false,
+        message: "Falta código de activación."
+      });
+    }
+
+    const { data: client, error: clientError } = await supabase
+      .from("clients")
+      .select("*")
+      .eq("activation_code", normalizedCode)
+      .maybeSingle();
+
+    if (clientError) throw clientError;
+
+    if (!client) {
+      return res.status(401).json({
+        success: true,
+        allowed: false,
+        message: "Código de activación inválido."
+      });
+    }
+
+    if (client.status === "Suspendida") {
+      return res.status(403).json({
+        success: true,
+        allowed: false,
+        message: "La cuenta está suspendida. Contacta a soporte."
+      });
+    }
+
+    if (client.status === "Vencida" || isExpired(client.expires_at)) {
+      return res.status(403).json({
+        success: true,
+        allowed: false,
+        message: "La cuenta está vencida. Renueva el servicio para continuar."
+      });
+    }
+
+    if (deviceCode) {
+      const { data: device, error: deviceError } = await supabase
+        .from("devices")
+        .select("*")
+        .eq("activation_code", normalizedCode)
+        .eq("device_code", String(deviceCode))
+        .maybeSingle();
+
+      if (deviceError) throw deviceError;
+
+      if (device && device.blocked) {
+        return res.status(403).json({
+          success: true,
+          allowed: false,
+          message: device.blocked_reason || "Este dispositivo fue bloqueado. Contacta a soporte."
+        });
+      }
+
+      if (device) {
+        await supabase
+          .from("devices")
+          .update({ last_seen_at: nowIso() })
+          .eq("activation_code", normalizedCode)
+          .eq("device_code", String(deviceCode));
+      }
+    }
+
+    res.json({
+      success: true,
+      allowed: true,
+      message: "Cuenta autorizada.",
+      client: dbClientToApi(client)
+    });
+  } catch (error) {
+    console.error("Auth status error:", error);
+
+    res.status(500).json({
+      success: false,
+      allowed: false,
+      message: "No se pudo validar la cuenta."
+    });
+  }
+});
+
+
 app.post("/auth/activate", async (req, res) => {
   if (!requireDb(res)) return;
 
