@@ -211,18 +211,24 @@ fun PlayerScreen(
             currentPositionMs = player.currentPosition.coerceAtLeast(0L)
             durationMs = if (player.duration > 0L) player.duration else 0L
 
-            if (isVodContent && durationMs > 0L && currentPositionMs > 3000L) {
+            if (isVodContent && durationMs > 0L && currentPositionMs > 5000L) {
                 saveTick += 1
 
-                if (saveTick >= 2) {
+                if (saveTick >= 5) {
                     saveTick = 0
 
-                    PlaybackProgressStore.save(
-                        context = context,
-                        channel = currentChannel,
-                        positionMs = currentPositionMs,
-                        durationMs = durationMs
-                    )
+                    val saveChannel = currentChannel
+                    val savePosition = currentPositionMs
+                    val saveDuration = durationMs
+
+                    withContext(Dispatchers.IO) {
+                        PlaybackProgressStore.save(
+                            context = context.applicationContext,
+                            channel = saveChannel,
+                            positionMs = savePosition,
+                            durationMs = saveDuration
+                        )
+                    }
                 }
             }
 
@@ -453,6 +459,21 @@ fun PlayerScreen(
     }
 
     BackHandler {
+        if (isVodContent && durationMs > 0L && currentPositionMs > 3000L) {
+            val saveChannel = currentChannel
+            val savePosition = currentPositionMs
+            val saveDuration = durationMs
+
+            scope.launch(Dispatchers.IO) {
+                PlaybackProgressStore.save(
+                    context = context.applicationContext,
+                    channel = saveChannel,
+                    positionMs = savePosition,
+                    durationMs = saveDuration
+                )
+            }
+        }
+
         onBack()
     }
 

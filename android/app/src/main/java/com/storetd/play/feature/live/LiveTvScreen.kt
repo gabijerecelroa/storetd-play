@@ -67,8 +67,6 @@ import java.text.Normalizer
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import androidx.compose.material3.LinearProgressIndicator
-import com.storetd.play.core.storage.PlaybackProgressStore
 
 private data class SeriesFolder(
     val key: String,
@@ -860,8 +858,6 @@ private fun ChannelRow(
                         )
                     }
                 }
-
-                PlaybackProgressBadge(streamUrl = channel.streamUrl)
             }
 
             Surface(
@@ -894,45 +890,7 @@ private fun ChannelRow(
 
 
 
-@Composable
-private fun PlaybackProgressBadge(
-    streamUrl: String
-) {
-    val context = LocalContext.current
-    val progress = remember(streamUrl) {
-        PlaybackProgressStore.get(context, streamUrl)
-    }
 
-    if (
-        progress != null &&
-        !progress.finished &&
-        progress.durationMs > 0L &&
-        progress.positionMs > 15000L
-    ) {
-        val fraction = (
-            progress.positionMs.toFloat() / progress.durationMs.toFloat()
-        ).coerceIn(0f, 1f)
-
-        Spacer(Modifier.height(8.dp))
-
-        Text(
-            text = "Continuar · ${progress.percent}%",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1
-        )
-
-        Spacer(Modifier.height(4.dp))
-
-        LinearProgressIndicator(
-            progress = { fraction },
-            modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.primary,
-            trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f)
-        )
-    }
-}
 
 private fun buildSeriesFolders(channels: List<Channel>): List<SeriesFolder> {
     if (channels.isEmpty()) return emptyList()
