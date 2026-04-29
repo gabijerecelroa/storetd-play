@@ -1,6 +1,5 @@
 package com.storetd.play.feature.home
 
-import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -37,9 +36,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.nativeKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -313,10 +313,10 @@ private fun TvHomeCard(
                     return@onPreviewKeyEvent false
                 }
 
-                when (event.nativeKeyEvent.keyCode) {
-                    AndroidKeyEvent.KEYCODE_DPAD_CENTER,
-                    AndroidKeyEvent.KEYCODE_ENTER,
-                    AndroidKeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                when (event.key) {
+                    Key.DirectionCenter,
+                    Key.Enter,
+                    Key.NumPadEnter -> {
                         action.onClick()
                         true
                     }

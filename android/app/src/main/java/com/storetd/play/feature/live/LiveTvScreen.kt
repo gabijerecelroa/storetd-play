@@ -3,7 +3,8 @@ package com.storetd.play.feature.live
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.input.key.nativeKeyEvent
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.draw.clip
@@ -12,7 +13,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
-import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
@@ -536,10 +536,10 @@ private fun SeriesFolderRow(
                     return@onPreviewKeyEvent false
                 }
 
-                when (event.nativeKeyEvent.keyCode) {
-                    AndroidKeyEvent.KEYCODE_DPAD_CENTER,
-                    AndroidKeyEvent.KEYCODE_ENTER,
-                    AndroidKeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                when (event.key) {
+                    Key.DirectionCenter,
+                    Key.Enter,
+                    Key.NumPadEnter -> {
                         onOpen()
                         true
                     }
@@ -701,10 +701,10 @@ private fun ChannelRow(
                     return@onPreviewKeyEvent false
                 }
 
-                when (event.nativeKeyEvent.keyCode) {
-                    AndroidKeyEvent.KEYCODE_DPAD_CENTER,
-                    AndroidKeyEvent.KEYCODE_ENTER,
-                    AndroidKeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                when (event.key) {
+                    Key.DirectionCenter,
+                    Key.Enter,
+                    Key.NumPadEnter -> {
                         onPlay()
                         true
                     }
