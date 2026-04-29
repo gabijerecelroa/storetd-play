@@ -5,4 +5,6 @@
     <color name="brand_background">#050505</color>
     <color name="brand_surface">#1F1F24</color>
     <color name="ic_launcher_background">#050505</color>
+    <color name="storetd_launcher_background">#050505</color>
+    <color name="storetd_brand_red">#E50914</color>
 </resources>

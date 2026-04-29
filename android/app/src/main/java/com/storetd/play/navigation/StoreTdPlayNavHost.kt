@@ -28,6 +28,7 @@ import com.storetd.play.core.storage.LocalLibrary
 import com.storetd.play.core.storage.SavedChannel
 import com.storetd.play.feature.account.AccountScreen
 import com.storetd.play.feature.auth.ActivationScreen
+import com.storetd.play.feature.branding.BrandSplashScreen
 import com.storetd.play.feature.epg.EpgScreen
 import com.storetd.play.feature.favorites.FavoritesScreen
 import com.storetd.play.feature.history.HistoryScreen
@@ -59,6 +60,10 @@ fun StoreTdPlayNavHost() {
 
     var securityMessage by remember {
         mutableStateOf<String?>(null)
+    }
+
+    var showStartupSplash by remember {
+        mutableStateOf(true)
     }
 
     val startDestination = remember {
@@ -100,6 +105,12 @@ fun checkAccountStatus() {
         reloadConfig()
         checkAccountStatus()
     }
+
+    LaunchedEffect("brand_splash") {
+        delay(1300L)
+        showStartupSplash = false
+    }
+
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -143,6 +154,14 @@ fun checkAccountStatus() {
                 "${Uri.encode(channel.group)}/" +
                 "${Uri.encode(channel.logoUrl ?: "-")}"
         )
+    }
+
+    if (showStartupSplash) {
+        BrandSplashScreen(
+            appName = appConfig.appName,
+            providerMessage = appConfig.providerMessage
+        )
+        return
     }
 
     securityMessage?.let { message ->
