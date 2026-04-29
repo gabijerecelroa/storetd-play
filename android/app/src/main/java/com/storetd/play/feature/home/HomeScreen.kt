@@ -63,6 +63,17 @@ private data class HomeAction(
 )
 
 
+
+private data class ContinueWatchingItem(
+    val streamUrl: String,
+    val title: String,
+    val group: String,
+    val positionMs: Long,
+    val durationMs: Long,
+    val percent: Int,
+    val updatedAtMs: Long
+)
+
 private data class ContinueWatchingSummary(
     val count: Int,
     val topTitle: String?,
@@ -84,11 +95,22 @@ private fun loadContinueWatchingSummary(context: Context): ContinueWatchingSumma
 }
 
 
-private fun loadContinueWatchingItems(context: Context): List<PlaybackProgress> {
+private fun loadContinueWatchingItems(context: Context): List<ContinueWatchingItem> {
     return PlaybackProgressStore
         .unfinished(context)
         .sortedByDescending { it.updatedAtMs }
         .take(10)
+        .map {
+            ContinueWatchingItem(
+                streamUrl = it.streamUrl,
+                title = it.title,
+                group = it.group,
+                positionMs = it.positionMs,
+                durationMs = it.durationMs,
+                percent = it.percent,
+                updatedAtMs = it.updatedAtMs
+            )
+        }
 }
 
 @Composable
@@ -263,7 +285,7 @@ fun HomeScreen(
 
 @Composable
 private fun ContinueWatchingRail(
-    items: List<PlaybackProgress>,
+    items: List<ContinueWatchingItem>,
     onOpenHistory: () -> Unit
 ) {
     Column(
@@ -280,7 +302,7 @@ private fun ContinueWatchingRail(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            items(items) { item ->
+            items(items = items, key = { it.streamUrl }) { item ->
                 ContinueWatchingCard(
                     item = item,
                     onClick = onOpenHistory
@@ -292,7 +314,7 @@ private fun ContinueWatchingRail(
 
 @Composable
 private fun ContinueWatchingCard(
-    item: PlaybackProgress,
+    item: ContinueWatchingItem,
     onClick: () -> Unit
 ) {
     val progressFraction = if (item.durationMs > 0L) {
