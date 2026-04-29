@@ -28,25 +28,30 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.storetd.play.R
+import com.storetd.play.core.storage.LocalAccount
 
 @Composable
 fun HomeScreen(
-    customerName: String,
-    onLiveTv: () -> Unit,
-    onMovies: () -> Unit,
-    onSeries: () -> Unit,
-    onFavorites: () -> Unit,
-    onHistory: () -> Unit,
-    onEpg: () -> Unit,
-    onAccount: () -> Unit,
-    onSettings: () -> Unit,
-    onSupport: () -> Unit
+    onOpenLiveTv: () -> Unit,
+    onOpenMovies: () -> Unit,
+    onOpenSeries: () -> Unit,
+    onOpenFavorites: () -> Unit,
+    onOpenHistory: () -> Unit,
+    onOpenEpg: () -> Unit,
+    onOpenAccount: () -> Unit,
+    onOpenSupport: () -> Unit,
+    onOpenSettings: () -> Unit,
+    config: Any? = null
 ) {
+    val context = LocalContext.current
+    val account = LocalAccount.getAccount(context)
+    val customerName = account.customerName
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -58,13 +63,13 @@ fun HomeScreen(
         item {
             HomeHeader(
                 customerName = customerName,
-                onSupport = onSupport
+                onSupport = onOpenSupport
             )
         }
 
         item {
             HeroCard(
-                onLiveTv = onLiveTv
+                onLiveTv = onOpenLiveTv
             )
         }
 
@@ -86,7 +91,7 @@ fun HomeScreen(
                     subtitle = "Canales, categorías y zapping",
                     badge = "LIVE",
                     modifier = Modifier.weight(1f),
-                    onClick = onLiveTv
+                    onClick = onOpenLiveTv
                 )
 
                 PremiumSectionCard(
@@ -94,7 +99,7 @@ fun HomeScreen(
                     subtitle = "Cine y contenido VOD",
                     badge = "VOD",
                     modifier = Modifier.weight(1f),
-                    onClick = onMovies
+                    onClick = onOpenMovies
                 )
             }
         }
@@ -109,7 +114,7 @@ fun HomeScreen(
                     subtitle = "Carpetas y capítulos",
                     badge = "SERIES",
                     modifier = Modifier.weight(1f),
-                    onClick = onSeries
+                    onClick = onOpenSeries
                 )
 
                 PremiumSectionCard(
@@ -117,7 +122,7 @@ fun HomeScreen(
                     subtitle = "Programación actual",
                     badge = "GUÍA",
                     modifier = Modifier.weight(1f),
-                    onClick = onEpg
+                    onClick = onOpenEpg
                 )
             }
         }
@@ -132,15 +137,15 @@ fun HomeScreen(
 
         item {
             QuickActionsCard(
-                onFavorites = onFavorites,
-                onHistory = onHistory
+                onFavorites = onOpenFavorites,
+                onHistory = onOpenHistory
             )
         }
 
         item {
             AccountAndSettingsCard(
-                onAccount = onAccount,
-                onSettings = onSettings
+                onAccount = onOpenAccount,
+                onSettings = onOpenSettings
             )
         }
 
@@ -239,7 +244,7 @@ private fun HeroCard(
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f)
                 )
 
-                Button(onClick = onLiveTv) {
+                Button(onClick = onOpenLiveTv) {
                     Text("Entrar ahora")
                 }
             }
