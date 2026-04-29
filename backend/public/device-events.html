@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>StoreTD Play Audit</title>
+  <style>
+    :root {
+      --bg: #050505;
+      --card: #1f1f24;
+      --card2: #2b2b33;
+      --text: #fff;
+      --muted: #b8b8c2;
+      --red: #e50914;
+      --border: #3a3a44;
+      --input: #08080a;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    header {
+      padding: 22px;
+      background: #0d0d0f;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    h1 {
+      margin: 0;
+      color: var(--red);
+      font-size: 28px;
+    }
+
+    main {
+      padding: 18px;
+      max-width: 1100px;
+      margin: auto;
+    }
+
+    .card, .event {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+
+    .event {
+      background: var(--card2);
+    }
+
+    label {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    input, select {
+      width: 100%;
+      background: var(--input);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+      font-size: 15px;
+    }
+
+    button {
+      background: var(--red);
+      color: white;
+      border: 0;
+      border-radius: 999px;
+      padding: 11px 16px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      margin: 4px 4px 4px 0;
+    }
+
+    button.secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      margin: 6px 0;
+      color: #ffd2d2;
+    }
+
+    .message {
+      padding: 12px;
+      border-radius: 12px;
+      background: #111;
+      border: 1px solid var(--border);
+      margin-bottom: 14px;
+    }
+
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #09090b;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      color: var(--muted);
+      overflow: auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    @media (max-width: 760px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>StoreTD Play Audit</h1>
+    <div class="muted">Auditoría de seguridad y dispositivos</div>
+  </header>
+
+  <main>
+    <div id="message"></div>
+
+    <section class="card">
+      <h2>Acceso admin</h2>
+
+      <label>Clave admin</label>
+      <input id="adminKey" type="password" placeholder="ADMIN_KEY" />
+
+      <button onclick="saveKey()">Guardar clave</button>
+      <button class="secondary" onclick="loadEvents()">Actualizar auditoría</button>
+      <button class="secondary" onclick="window.location.href='/admin/devices'">Dispositivos</button>
+      <button class="secondary" onclick="window.location.href='/admin'">Panel</button>
+    </section>
+
+    <section class="card">
+      <h2>Filtros</h2>
+
+      <div class="grid">
+        <div>
+          <label>Código cliente</label>
+          <input id="activationCode" placeholder="TEST1234" />
+        </div>
+
+        <div>
+          <label>Código dispositivo</label>
+          <input id="deviceCode" placeholder="ABC123..." />
+        </div>
+
+        <div>
+          <label>Tipo evento</label>
+          <select id="eventType">
+            <option value="">Todos</option>
+            <option value="device_blocked_or_updated">Bloqueo / actualización</option>
+            <option value="device_unblocked_or_updated">Desbloqueo / actualización</option>
+            <option value="device_unlinked">Desvinculación</option>
+            <option value="blocked_activation_attempt">Intento de activación bloqueado</option>
+            <option value="blocked_status_check">Validación bloqueada</option>
+          </select>
+        </div>
+      </div>
+
+      <button onclick="loadEvents()">Buscar</button>
+      <button class="secondary" onclick="clearFilters()">Limpiar filtros</button>
+    </section>
+
+    <section class="card">
+      <h2>Eventos</h2>
+      <div id="events"></div>
+    </section>
+  </main>
+
+  <script>
+    const adminKeyInput = document.getElementById("adminKey");
+    const messageBox = document.getElementById("message");
+    const eventsBox = document.getElementById("events");
+
+    adminKeyInput.value =
+      sessionStorage.getItem("storetd_admin_key") ||
+      localStorage.getItem("storetd_admin_key") ||
+      "";
+
+    if (adminKeyInput.value) {
+      loadEvents();
+    }
+
+    function getKey() {
+      return adminKeyInput.value.trim();
+    }
+
+    function saveKey() {
+      sessionStorage.setItem("storetd_admin_key", getKey());
+      localStorage.setItem("storetd_admin_key", getKey());
+      showMessage("Clave guardada.");
+    }
+
+    function showMessage(text) {
+      messageBox.innerHTML = text ? `<div class="message">${escapeHtml(text)}</div>` : "";
+    }
+
+    async function api(path) {
+      const response = await fetch(path, {
+        headers: {
+          "x-admin-key": getKey()
+        }
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.message || "Error de servidor");
+      }
+
+      return data;
+    }
+
+    async function loadEvents() {
+      try {
+        showMessage("Cargando auditoría...");
+
+        const params = new URLSearchParams();
+        const activationCode = document.getElementById("activationCode").value.trim();
+        const deviceCode = document.getElementById("deviceCode").value.trim();
+        const eventType = document.getElementById("eventType").value.trim();
+
+        if (activationCode) params.set("activationCode", activationCode);
+        if (deviceCode) params.set("deviceCode", deviceCode);
+        if (eventType) params.set("eventType", eventType);
+
+        params.set("limit", "250");
+
+        const data = await api(`/admin/api/device-events?${params.toString()}`);
+        renderEvents(data.events || []);
+        showMessage("Auditoría actualizada.");
+      } catch (error) {
+        showMessage(error.message);
+      }
+    }
+
+    function renderEvents(events) {
+      if (!events.length) {
+        eventsBox.innerHTML = "<p class='muted'>No hay eventos para mostrar.</p>";
+        return;
+      }
+
+      eventsBox.innerHTML = events.map((event) => {
+        return `
+          <div class="event">
+            <div class="badge">${escapeHtml(event.eventType)}</div>
+            <h3>${escapeHtml(event.message || "-")}</h3>
+
+            <div class="muted">Cliente: ${escapeHtml(event.activationCode || "-")}</div>
+            <div class="muted">Dispositivo: ${escapeHtml(event.deviceCode || "-")}</div>
+            <div class="muted">Fecha: ${escapeHtml(event.createdAt || "-")}</div>
+
+            <details style="margin-top:10px">
+              <summary>Metadata</summary>
+              <pre>${escapeHtml(JSON.stringify(event.metadata || {}, null, 2))}</pre>
+            </details>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function clearFilters() {
+      document.getElementById("activationCode").value = "";
+      document.getElementById("deviceCode").value = "";
+      document.getElementById("eventType").value = "";
+      loadEvents();
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+  </script>
+</body>
+</html>

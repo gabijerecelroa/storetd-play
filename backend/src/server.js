@@ -203,6 +203,44 @@ app.get("/admin", (req, res) => {
 });
 
 
+
+async function logDeviceEvent({
+  activationCode = "",
+  deviceCode = "",
+  eventType = "",
+  message = "",
+  metadata = {}
+}) {
+  try {
+    if (!supabase) return;
+
+    await supabase
+      .from("device_events")
+      .insert({
+        activation_code: normalizeCode(activationCode),
+        device_code: String(deviceCode || ""),
+        event_type: String(eventType || ""),
+        message: String(message || ""),
+        metadata: metadata || {}
+      });
+  } catch (error) {
+    console.error("Device audit log error:", error);
+  }
+}
+
+function dbDeviceEventToApi(row) {
+  return {
+    id: row.id,
+    activationCode: row.activation_code || "",
+    deviceCode: row.device_code || "",
+    eventType: row.event_type || "",
+    message: row.message || "",
+    metadata: row.metadata || {},
+    createdAt: row.created_at || ""
+  };
+}
+
+
 app.post("/auth/status", async (req, res) => {
   if (!requireDb(res)) return;
 
@@ -261,6 +299,16 @@ app.post("/auth/status", async (req, res) => {
       if (deviceError) throw deviceError;
 
       if (device && device.blocked) {
+        await logDeviceEvent({
+          activationCode: normalizedCode,
+          deviceCode,
+          eventType: "blocked_status_check",
+          message: device.blocked_reason || "Dispositivo bloqueado detectado en validación.",
+          metadata: {
+            source: "auth_status"
+          }
+        });
+
         return res.status(403).json({
           success: true,
           allowed: false,
@@ -342,6 +390,17 @@ app.post("/auth/activate", async (req, res) => {
     const existingDevice = devices.find((item) => item.device_code === deviceCode);
 
     if (existingDevice && existingDevice.blocked) {
+      await logDeviceEvent({
+        activationCode: normalizedCode,
+        deviceCode,
+        eventType: "blocked_activation_attempt",
+        message: existingDevice.blocked_reason || "Intento de activación desde dispositivo bloqueado.",
+        metadata: {
+          appVersion,
+          source: "auth_activate"
+        }
+      });
+
       return res.status(403).json({
         success: false,
         message: existingDevice.blocked_reason || "Este dispositivo fue bloqueado. Contacta a soporte."
@@ -1401,6 +1460,20 @@ app.put("/admin/api/devices/:activationCode/:deviceCode", requireAdmin, async (r
       });
     }
 
+    await logDeviceEvent({
+      activationCode,
+      deviceCode,
+      eventType: Boolean(req.body.blocked) ? "device_blocked_or_updated" : "device_unblocked_or_updated",
+      message: Boolean(req.body.blocked)
+        ? (String(req.body.blockedReason || "") || "Dispositivo bloqueado o actualizado por admin.")
+        : "Dispositivo desbloqueado o actualizado por admin.",
+      metadata: {
+        nickname: String(req.body.nickname || ""),
+        blocked: Boolean(req.body.blocked),
+        source: "admin_devices"
+      }
+    });
+
     res.json({
       success: true,
       message: "Dispositivo actualizado.",
@@ -1430,6 +1503,16 @@ app.delete("/admin/api/devices/:activationCode/:deviceCode", requireAdmin, async
 
     if (error) throw error;
 
+    await logDeviceEvent({
+      activationCode,
+      deviceCode,
+      eventType: "device_unlinked",
+      message: "Dispositivo desvinculado por admin.",
+      metadata: {
+        source: "admin_devices"
+      }
+    });
+
     res.json({
       success: true,
       message: "Dispositivo desvinculado."
@@ -1439,6 +1522,55 @@ app.delete("/admin/api/devices/:activationCode/:deviceCode", requireAdmin, async
     res.status(500).json({
       success: false,
       message: "No se pudo desvincular dispositivo."
+    });
+  }
+});
+
+
+
+app.get("/admin/device-events", (req, res) => {
+  res.sendFile(path.join(__dirname, "..", "public", "device-events.html"));
+});
+
+app.get("/admin/api/device-events", requireAdmin, async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    let query = supabase
+      .from("device_events")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(Math.min(Number(req.query.limit || 200), 500));
+
+    const activationCode = normalizeCode(req.query.activationCode || "");
+    const deviceCode = String(req.query.deviceCode || "").trim();
+    const eventType = String(req.query.eventType || "").trim();
+
+    if (activationCode) {
+      query = query.eq("activation_code", activationCode);
+    }
+
+    if (deviceCode) {
+      query = query.eq("device_code", deviceCode);
+    }
+
+    if (eventType) {
+      query = query.eq("event_type", eventType);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      events: (data || []).map(dbDeviceEventToApi)
+    });
+  } catch (error) {
+    console.error("Device events list error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudo cargar auditoría de dispositivos."
     });
   }
 });
