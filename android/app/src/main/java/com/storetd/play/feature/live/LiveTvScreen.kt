@@ -890,88 +890,127 @@ private fun ChannelRow(
 
 
 private fun buildSeriesFolders(channels: List<Channel>): List<SeriesFolder> {
+    if (channels.isEmpty()) return emptyList()
+
     return channels
         .groupBy { seriesFolderKey(it) }
-        .mapNotNull { (_, episodes) ->
-            val sortedEpisodes = episodes.sortedWith(
-                compareBy<Channel> { extractSeasonEpisode(it.name).first }
-                    .thenBy { extractSeasonEpisode(it.name).second }
-                    .thenBy { it.name }
-            )
+        .values
+        .mapNotNull { rawEpisodes ->
+            val cleanedEpisodes = rawEpisodes
+                .distinctBy { episodeUniqueKey(it) }
+                .sortedWith(
+                    compareBy<Channel> { episodeSeasonForSort(it) }
+                        .thenBy { episodeNumberForSort(it) }
+                        .thenBy { cleanEpisodeDisplayName(it.name).lowercase(Locale.getDefault()) }
+                        .thenBy { it.streamUrl }
+                )
 
-            val first = sortedEpisodes.firstOrNull() ?: return@mapNotNull null
+            val first = cleanedEpisodes.firstOrNull() ?: return@mapNotNull null
             val title = cleanSeriesTitle(first.name)
+                .ifBlank { cleanSeriesTitle(first.group) }
+                .ifBlank { first.group.ifBlank { first.name } }
+
+            val posterUrl = cleanedEpisodes
+                .firstOrNull { !it.logoUrl.isNullOrBlank() }
+                ?.logoUrl
+                ?: first.logoUrl
 
             SeriesFolder(
                 key = seriesFolderKey(first),
                 title = title,
-                group = first.group,
-                logoUrl = first.logoUrl,
-                episodes = sortedEpisodes
+            logoUrl = posterUrl,\n                episodes = cleanedEpisodes
             )
         }
-        .sortedBy { it.title.lowercase(Locale.getDefault()) }
+        .sortedBy { normalizeSeriesKey(it.title) }
 }
 
 private fun seriesFolderKey(channel: Channel): String {
-    val title = cleanSeriesTitle(channel.name)
-    return normalizeSeriesKey("${channel.group}|$title")
+    val cleanName = cleanSeriesTitle(channel.name)
+    val cleanGroup = cleanSeriesTitle(channel.group)
+
+    val source = when {
+        cleanName.length >= 3 -> cleanName
+        cleanGroup.length >= 3 -> cleanGroup
+        channel.name.isNotBlank() -> channel.name
+        else -> channel.group
+    }
+
+    return normalizeSeriesKey(source)
 }
 
 private fun cleanSeriesTitle(value: String): String {
-    var title = value.trim()
+    var text = value.trim()
+
+    if (text.isBlank()) return ""
+
+    text = text
+        .replace(Regex("(?i)\\bS\\s*\\d{1,2}\\s*E\\s*\\d{1,3}\\b.*"), "")
+        .replace(Regex("(?i)\\bT\\s*\\d{1,2}\\s*E\\s*\\d{1,3}\\b.*"), "")
+        .replace(Regex("(?i)\\b\\d{1,2}\\s*x\\s*\\d{1,3}\\b.*"), "")
+        .replace(Regex("(?i)\\btemporada\\s*\\d{1,2}\\b.*"), "")
+        .replace(Regex("(?i)\\bseason\\s*\\d{1,2}\\b.*"), "")
+        .replace(Regex("(?i)\\bcap[ií]tulo\\s*\\d{1,3}\\b.*"), "")
+        .replace(Regex("(?i)\\bepisodio\\s*\\d{1,3}\\b.*"), "")
+        .replace(Regex("(?i)\\bepisode\\s*\\d{1,3}\\b.*"), "")
+
+    text = text
+        .replace(Regex("(?i)\\s+-\\s+cap.*$"), "")
+        .replace(Regex("(?i)\\s+-\\s+ep.*$"), "")
+        .replace(Regex("(?i)\\s+\\[.*?\\]"), "")
+        .replace(Regex("(?i)\\s+\\(.*?\\)"), "")
+        .replace(Regex("\\s+"), " ")
+        .trim(' ', '-', '|', '.', ':', '_')
+
+    return text
+}
+
+private fun extractSeasonEpisode(value: String): Pair<Int, Int>? {
+    val normalized = normalizeSeriesKey(value)
 
     val patterns = listOf(
-        Regex("\\s*[-._ ]*s\\d{1,2}\\s*e\\d{1,3}.*$", RegexOption.IGNORE_CASE),
-        Regex("\\s*[-._ ]*\\d{1,2}x\\d{1,3}.*$", RegexOption.IGNORE_CASE),
-        Regex("\\s*[-._ ]*temporada\\s*\\d+.*$", RegexOption.IGNORE_CASE),
-        Regex("\\s*[-._ ]*season\\s*\\d+.*$", RegexOption.IGNORE_CASE),
-        Regex("\\s*[-._ ]*cap[ií]tulo\\s*\\d+.*$", RegexOption.IGNORE_CASE),
-        Regex("\\s*[-._ ]*episodio\\s*\\d+.*$", RegexOption.IGNORE_CASE),
-        Regex("\\s*[-._ ]*ep\\s*\\d+.*$", RegexOption.IGNORE_CASE)
+        Regex("\\bs\\s*(\\d{1,2})\\s*e\\s*(\\d{1,3})\\b"),
+        Regex("\\bt\\s*(\\d{1,2})\\s*e\\s*(\\d{1,3})\\b"),
+        Regex("\\b(\\d{1,2})\\s*x\\s*(\\d{1,3})\\b"),
+        Regex("\\btemporada\\s*(\\d{1,2}).*?capitulo\\s*(\\d{1,3})\\b"),
+        Regex("\\btemporada\\s*(\\d{1,2}).*?episodio\\s*(\\d{1,3})\\b"),
+        Regex("\\bseason\\s*(\\d{1,2}).*?episode\\s*(\\d{1,3})\\b")
     )
 
     for (pattern in patterns) {
-        title = title.replace(pattern, "").trim()
+        val match = pattern.find(normalized)
+
+        if (match != null) {
+            val season = match.groupValues[1].toIntOrNull() ?: 1
+            val episode = match.groupValues[2].toIntOrNull() ?: 0
+
+            return season to episode
+        }
     }
 
-    return title.ifBlank { value.trim() }
-}
+    val singleEpisodePatterns = listOf(
+        Regex("\\bcapitulo\\s*(\\d{1,3})\\b"),
+        Regex("\\bepisodio\\s*(\\d{1,3})\\b"),
+        Regex("\\bepisode\\s*(\\d{1,3})\\b"),
+        Regex("\\bep\\s*(\\d{1,3})\\b")
+    )
 
-private fun extractSeasonEpisode(value: String): Pair<Int, Int> {
-    val seasonEpisode = Regex("s(\\d{1,2})\\s*e(\\d{1,3})", RegexOption.IGNORE_CASE)
-        .find(value)
+    for (pattern in singleEpisodePatterns) {
+        val match = pattern.find(normalized)
 
-    if (seasonEpisode != null) {
-        val season = seasonEpisode.groupValues.getOrNull(1)?.toIntOrNull() ?: 0
-        val episode = seasonEpisode.groupValues.getOrNull(2)?.toIntOrNull() ?: 0
-        return season to episode
+        if (match != null) {
+            val episode = match.groupValues[1].toIntOrNull() ?: 0
+            return 1 to episode
+        }
     }
 
-    val xFormat = Regex("(\\d{1,2})x(\\d{1,3})", RegexOption.IGNORE_CASE)
-        .find(value)
-
-    if (xFormat != null) {
-        val season = xFormat.groupValues.getOrNull(1)?.toIntOrNull() ?: 0
-        val episode = xFormat.groupValues.getOrNull(2)?.toIntOrNull() ?: 0
-        return season to episode
-    }
-
-    val episodeOnly = Regex("(?:cap[ií]tulo|episodio|ep)\\s*(\\d{1,3})", RegexOption.IGNORE_CASE)
-        .find(value)
-
-    if (episodeOnly != null) {
-        val episode = episodeOnly.groupValues.getOrNull(1)?.toIntOrNull() ?: 0
-        return 0 to episode
-    }
-
-    return 0 to 0
+    return null
 }
 
 private fun normalizeSeriesKey(value: String): String {
     return Normalizer.normalize(value, Normalizer.Form.NFD)
         .replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
         .lowercase(Locale.getDefault())
+        .replace("&", " y ")
         .replace(Regex("[^a-z0-9]+"), " ")
         .replace(Regex("\\s+"), " ")
         .trim()
@@ -998,6 +1037,37 @@ private fun buildSectionPlaylistUrl(
 
     return "https://storetd-play-backend.onrender.com/playlist/proxy?code=$encodedCode&type=$type"
 }
+
+
+private fun episodeUniqueKey(channel: Channel): String {
+    val folderKey = seriesFolderKey(channel)
+    val seasonEpisode = extractSeasonEpisode(channel.name)
+    val urlKey = normalizeSeriesKey(channel.streamUrl)
+
+    return if (seasonEpisode != null) {
+        "$folderKey|s${seasonEpisode.first}e${seasonEpisode.second}|$urlKey"
+    } else {
+        "$folderKey|${normalizeSeriesKey(channel.name)}|$urlKey"
+    }
+}
+
+private fun episodeSeasonForSort(channel: Channel): Int {
+    return extractSeasonEpisode(channel.name)?.first ?: 999
+}
+
+private fun episodeNumberForSort(channel: Channel): Int {
+    return extractSeasonEpisode(channel.name)?.second ?: 9999
+}
+
+private fun cleanEpisodeDisplayName(value: String): String {
+    return value
+        .replace(Regex("(?i)\\bS\\s*(\\d{1,2})\\s*E\\s*(\\d{1,3})\\b"), "S$1 E$2")
+        .replace(Regex("(?i)\\bT\\s*(\\d{1,2})\\s*E\\s*(\\d{1,3})\\b"), "T$1 E$2")
+        .replace(Regex("(?i)\\b(\\d{1,2})\\s*x\\s*(\\d{1,3})\\b"), "$1x$2")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+}
+
 
 private fun formatLiveEpgTime(value: Long): String {
     return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(value))
