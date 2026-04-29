@@ -70,21 +70,7 @@ fun StoreTdPlayNavHost() {
         }
     }
 
-    LaunchedEffect(Unit) {
-        reloadConfig()
-        checkAccountStatus()
-    }
-
-    fun navigateAndClear(route: String) {
-        navController.navigate(route) {
-            popUpTo(0) {
-                inclusive = true
-            }
-            launchSingleTop = true
-        }
-    }
-
-    fun checkAccountStatus() {
+fun checkAccountStatus() {
         if (!LocalAccount.isActivated(context)) return
 
         scope.launch {
@@ -103,6 +89,22 @@ fun StoreTdPlayNavHost() {
             }
         }
     }
+
+    LaunchedEffect(Unit) {
+        reloadConfig()
+        checkAccountStatus()
+    }
+
+    fun navigateAndClear(route: String) {
+        navController.navigate(route) {
+            popUpTo(0) {
+                inclusive = true
+            }
+            launchSingleTop = true
+        }
+    }
+
+
 
 
     fun openPlayer(channel: SavedChannel) {
