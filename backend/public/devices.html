@@ -275,6 +275,12 @@
 
             <div class="muted">Código cliente: ${escapeHtml(device.activationCode)}</div>
             <div class="muted">Código dispositivo: ${escapeHtml(device.deviceCode)}</div>
+            <div class="muted">Nombre dispositivo: ${escapeHtml(device.deviceName || "-")}</div>
+            <div class="muted">Marca: ${escapeHtml(device.manufacturer || "-")}</div>
+            <div class="muted">Modelo: ${escapeHtml(device.model || "-")}</div>
+            <div class="muted">Brand: ${escapeHtml(device.brand || "-")}</div>
+            <div class="muted">Android: ${escapeHtml(device.androidVersion || "-")} / SDK ${escapeHtml(device.sdkInt || "-")}</div>
+            <div class="muted">Plataforma: ${escapeHtml(device.platform || "-")}</div>
             <div class="muted">Versión app: ${escapeHtml(device.appVersion || "-")}</div>
             <div class="muted">Creado: ${escapeHtml(device.createdAt || "-")}</div>
             <div class="muted">Último uso: ${escapeHtml(device.lastSeenAt || "-")}</div>

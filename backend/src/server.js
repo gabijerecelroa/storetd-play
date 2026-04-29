@@ -158,6 +158,18 @@ async function getDeviceRows(activationCode) {
   return data || [];
 }
 
+function buildDeviceInfoUpdate(input = {}) {
+  return {
+    device_name: String(input.deviceName || "").trim(),
+    manufacturer: String(input.manufacturer || "").trim(),
+    model: String(input.model || "").trim(),
+    brand: String(input.brand || "").trim(),
+    android_version: String(input.androidVersion || "").trim(),
+    sdk_int: Number(input.sdkInt || 0),
+    platform: String(input.platform || "android").trim() || "android"
+  };
+}
+
 function dbDeviceToApi(row) {
   return {
     id: row.id,
@@ -168,7 +180,14 @@ function dbDeviceToApi(row) {
     lastSeenAt: row.last_seen_at || "",
     blocked: Boolean(row.blocked),
     nickname: row.nickname || "",
-    blockedReason: row.blocked_reason || ""
+    blockedReason: row.blocked_reason || "",
+    deviceName: row.device_name || "",
+    manufacturer: row.manufacturer || "",
+    model: row.model || "",
+    brand: row.brand || "",
+    androidVersion: row.android_version || "",
+    sdkInt: Number(row.sdk_int || 0),
+    platform: row.platform || "android"
   };
 }
 
@@ -319,7 +338,10 @@ app.post("/auth/status", async (req, res) => {
       if (device) {
         await supabase
           .from("devices")
-          .update({ last_seen_at: nowIso() })
+          .update({
+            last_seen_at: nowIso(),
+            ...buildDeviceInfoUpdate(req.body || {})
+          })
           .eq("activation_code", normalizedCode)
           .eq("device_code", String(deviceCode));
       }

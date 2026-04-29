@@ -1,5 +1,6 @@
 package com.storetd.play.core.network
 
+import android.os.Build
 import com.storetd.play.BuildConfig
 import java.net.HttpURLConnection
 import java.net.URL
@@ -26,10 +27,26 @@ object AccountStatusApi {
         return runCatching {
             val url = URL("$baseUrl/auth/status")
             val connection = url.openConnection() as HttpURLConnection
+
+            val deviceName = listOf(
+                Build.MANUFACTURER,
+                Build.MODEL
+            )
+                .filter { it.isNotBlank() }
+                .joinToString(" ")
+                .trim()
+
             val body = """
                 {
                   "activationCode": "${escapeJson(activationCode)}",
-                  "deviceCode": "${escapeJson(deviceCode)}"
+                  "deviceCode": "${escapeJson(deviceCode)}",
+                  "deviceName": "${escapeJson(deviceName)}",
+                  "manufacturer": "${escapeJson(Build.MANUFACTURER ?: "")}",
+                  "model": "${escapeJson(Build.MODEL ?: "")}",
+                  "brand": "${escapeJson(Build.BRAND ?: "")}",
+                  "androidVersion": "${escapeJson(Build.VERSION.RELEASE ?: "")}",
+                  "sdkInt": ${Build.VERSION.SDK_INT},
+                  "platform": "android"
                 }
             """.trimIndent()
 
