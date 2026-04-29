@@ -906,6 +906,7 @@ private fun buildSeriesFolders(channels: List<Channel>): List<SeriesFolder> {
                 )
 
             val first = cleanedEpisodes.firstOrNull() ?: return@mapNotNull null
+
             val title = cleanSeriesTitle(first.name)
                 .ifBlank { cleanSeriesTitle(first.group) }
                 .ifBlank { first.group.ifBlank { first.name } }
@@ -918,7 +919,9 @@ private fun buildSeriesFolders(channels: List<Channel>): List<SeriesFolder> {
             SeriesFolder(
                 key = seriesFolderKey(first),
                 title = title,
-            logoUrl = posterUrl,\n                episodes = cleanedEpisodes
+                group = first.group.ifBlank { title },
+                logoUrl = posterUrl,
+                episodes = cleanedEpisodes
             )
         }
         .sortedBy { normalizeSeriesKey(it.title) }
