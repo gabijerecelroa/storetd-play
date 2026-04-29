@@ -360,8 +360,12 @@ fun PlayerScreen(
 
                     Key.DirectionUp,
                     Key.DirectionDown -> {
-                        showControls = true
-                        true
+                        if (showControls) {
+                            false
+                        } else {
+                            showControls = true
+                            true
+                        }
                     }
 
                     Key.DirectionCenter,

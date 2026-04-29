@@ -3,8 +3,8 @@ package com.storetd.play.feature.live
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.storetd.play.core.cache.PlaylistMemoryCache
 import com.storetd.play.core.cache.PlaylistDiskCache
+import com.storetd.play.core.cache.PlaylistMemoryCache
 import com.storetd.play.core.model.Channel
 import com.storetd.play.core.parser.M3uValidator
 import com.storetd.play.core.repository.IptvRepository
@@ -65,26 +65,17 @@ class LiveTvViewModel(
 
     fun setContentMode(mode: ContentMode) {
         val current = _uiState.value
-        val modeChanged = current.contentMode != mode
+        if (current.contentMode == mode) return
 
-        _uiState.value = current.copy(
+        _uiState.value = LiveTvUiState(
             contentMode = mode,
-            selectedGroup = "Todos",
-            searchQuery = "",
-            visibleChannels = if (modeChanged) emptyList() else current.visibleChannels,
-            totalVisibleCount = if (modeChanged) 0 else current.totalVisibleCount,
-            groups = if (modeChanged) listOf("Todos") else current.groups,
-            isFiltering = current.channels.isNotEmpty()
+            hideAdultContent = current.hideAdultContent
         )
-
-        if (current.channels.isNotEmpty() && !modeChanged) {
-            refreshVisibleContent()
-        }
     }
 
     fun setPlaylistUrl(value: String) {
         _uiState.value = _uiState.value.copy(
-            playlistUrl = value,
+            playlistUrl = value.trim(),
             errorMessage = null
         )
     }
@@ -116,38 +107,26 @@ class LiveTvViewModel(
 
     fun loadAssignedPlaylist(context: Context, url: String) {
         val cleanUrl = url.trim()
-        val current = _uiState.value
-        val urlChanged = current.playlistUrl != cleanUrl
+        val mode = _uiState.value.contentMode
+        val key = cacheKey(cleanUrl, mode)
 
-        if (urlChanged) {
-            _uiState.value = current.copy(
+        screenStateCache[key]?.let { cachedState ->
+            if (cachedState.channels.isNotEmpty()) {
+                _uiState.value = cachedState.copy(
+                    isLoading = false,
+                    isFiltering = false,
+                    loadedFromCache = true,
+                    errorMessage = null
+                )
+                return
+            }
+        }
+
+        val memoryCached = PlaylistMemoryCache.get(cleanUrl)
+        if (memoryCached != null && memoryCached.isNotEmpty()) {
+            _uiState.value = _uiState.value.copy(
                 playlistUrl = cleanUrl,
-                channels = emptyList(),
-                visibleChannels = emptyList(),
-                groups = listOf("Todos"),
-                totalVisibleCount = 0,
-                isFiltering = true,
-                errorMessage = null
-            )
-        }
-
-        val latest = _uiState.value
-
-        if (latest.channels.isNotEmpty() && latest.playlistUrl == cleanUrl) {
-            refreshVisibleContent()
-            return
-        }
-
-        if (loadInProgress) {
-            return
-        }
-
-        val cached = PlaylistMemoryCache.get(cleanUrl)
-
-        if (cached != null) {
-            _uiState.value = current.copy(
-                playlistUrl = cleanUrl,
-                channels = cached,
+                channels = memoryCached,
                 isLoading = false,
                 isFiltering = true,
                 loadedFromCache = true,
@@ -161,9 +140,11 @@ class LiveTvViewModel(
     }
 
     fun refreshPlaylist(context: Context) {
-        PlaylistMemoryCache.clear(_uiState.value.playlistUrl)
-        PlaylistDiskCache.clear(context, _uiState.value.playlistUrl)
-        loadPlaylistFrom(context, _uiState.value.playlistUrl, forceRefresh = true)
+        val url = _uiState.value.playlistUrl
+        screenStateCache.remove(cacheKey(url, _uiState.value.contentMode))
+        PlaylistMemoryCache.clear(url)
+        PlaylistDiskCache.clear(context, url)
+        loadPlaylistFrom(context, url, forceRefresh = true)
     }
 
     private fun loadPlaylistFrom(context: Context, urlValue: String, forceRefresh: Boolean) {
@@ -178,29 +159,27 @@ class LiveTvViewModel(
             return
         }
 
-        if (loadInProgress) {
-            return
-        }
+        if (loadInProgress) return
 
         if (!forceRefresh) {
-            val cached = PlaylistMemoryCache.get(url)
-            if (cached != null) {
-                _uiState.value = _uiState.value.copy(
-                    playlistUrl = url,
-                    channels = cached,
-                    isLoading = false,
-                    isFiltering = true,
-                    loadedFromCache = true,
-                    errorMessage = null
-                )
-                refreshVisibleContent()
-                return
+            PlaylistMemoryCache.get(url)?.let { cached ->
+                if (cached.isNotEmpty()) {
+                    _uiState.value = _uiState.value.copy(
+                        playlistUrl = url,
+                        channels = cached,
+                        isLoading = false,
+                        isFiltering = true,
+                        loadedFromCache = true,
+                        errorMessage = null
+                    )
+                    refreshVisibleContent()
+                    return
+                }
             }
 
             val diskCached = PlaylistDiskCache.load(context, url)
             if (diskCached.isNotEmpty()) {
                 PlaylistMemoryCache.save(url, diskCached)
-
                 _uiState.value = _uiState.value.copy(
                     playlistUrl = url,
                     channels = diskCached,
@@ -215,7 +194,6 @@ class LiveTvViewModel(
         }
 
         loadInProgress = true
-
         _uiState.value = _uiState.value.copy(
             playlistUrl = url,
             isLoading = true,
@@ -249,9 +227,8 @@ class LiveTvViewModel(
                 )
 
                 refreshVisibleContent()
-            }.onFailure { throwable ->
+            }.onFailure {
                 loadInProgress = false
-
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     isFiltering = false,
@@ -289,22 +266,10 @@ class LiveTvViewModel(
 
             val isProxySection = snapshot.playlistUrl.contains("/playlist/proxy", ignoreCase = true)
 
-            val rawModeFiltered = if (isProxySection) {
+            val modeFiltered = if (isProxySection) {
                 adultFiltered
             } else {
-                adultFiltered.filter {
-                    matchesContentMode(it, snapshot.contentMode)
-                }
-            }
-
-            val modeFiltered = if (
-                snapshot.contentMode == ContentMode.LiveTv &&
-                rawModeFiltered.isEmpty() &&
-                adultFiltered.isNotEmpty()
-            ) {
-                adultFiltered
-            } else {
-                rawModeFiltered
+                adultFiltered.filter { matchesContentMode(it, snapshot.contentMode) }
             }
 
             val groups = listOf("Todos") + modeFiltered
@@ -339,18 +304,45 @@ class LiveTvViewModel(
             }
 
             if (version == filterVersion) {
-                _uiState.value = _uiState.value.copy(
+                val nextState = _uiState.value.copy(
                     groups = groups,
                     selectedGroup = safeSelectedGroup,
                     visibleChannels = visible.take(600),
                     totalVisibleCount = visible.size,
                     isFiltering = false
                 )
+
+                _uiState.value = nextState
+                saveScreenState(nextState)
             }
         }
     }
 
+    private fun saveScreenState(state: LiveTvUiState) {
+        val url = state.playlistUrl.trim()
+        if (url.isBlank() || state.channels.isEmpty()) return
+
+        val key = cacheKey(url, state.contentMode)
+        screenStateCache[key] = state.copy(
+            isLoading = false,
+            isFiltering = false,
+            errorMessage = null
+        )
+
+        while (screenStateCache.size > MAX_SCREEN_CACHE) {
+            val firstKey = screenStateCache.keys.firstOrNull() ?: break
+            screenStateCache.remove(firstKey)
+        }
+    }
+
     companion object {
+        private const val MAX_SCREEN_CACHE = 12
+        private val screenStateCache = LinkedHashMap<String, LiveTvUiState>()
+
+        private fun cacheKey(url: String, mode: ContentMode): String {
+            return "${mode.name}|${url.trim()}"
+        }
+
         private val adultWords = listOf(
             "adult", "adulto", "adultos", "xxx", "+18", "18+", "hot",
             "erotic", "erotico", "erótica", "erotica", "porno", "porn",
@@ -359,9 +351,10 @@ class LiveTvViewModel(
         )
 
         private val movieWords = listOf(
-            "pelicula", "peliculas", "película", "películas", "movie", "movies",
-            "cine", "cinema", "film", "films", "estreno", "estrenos", "vod",
-            "accion", "acción", "terror", "comedia", "drama", "suspenso"
+            "pelicula", "peliculas", "película", "películas", "movie",
+            "movies", "cine", "cinema", "film", "films", "estreno",
+            "estrenos", "vod", "accion", "acción", "terror", "comedia",
+            "drama", "suspenso"
         )
 
         private val seriesWords = listOf(

@@ -41,7 +41,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -108,7 +107,7 @@ fun LiveTvScreen(
         }
     }
 
-    LaunchedEffect(state.selectedGroup, state.searchQuery) {
+    LaunchedEffect(state.selectedGroup) {
         selectedSeriesKey = null
     }
 
@@ -343,15 +342,14 @@ private fun ContentControls(
                 Text(if (state.isLoading) "Sincronizando..." else "Actualizar contenido")
             }
 
-            Spacer(Modifier.height(12.dp))
+            
+        Spacer(Modifier.height(10.dp))
+        Text(
+            text = "Navega con categorías y flechas del control remoto.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
+        )
 
-            OutlinedTextField(
-                value = state.searchQuery,
-                onValueChange = onSearchChange,
-                label = { Text("Buscar contenido o categoría") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
 
             Spacer(Modifier.height(12.dp))
 
@@ -398,14 +396,14 @@ private fun ContentControls(
             text = {
                 Column {
                     Text("Ingresa el PIN para mostrar categorías adultas.")
-                    Spacer(Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = pinValue,
-                        onValueChange = { pinValue = it.take(8) },
-                        label = { Text("PIN") },
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation()
-                    )
+                    
+        Spacer(Modifier.height(10.dp))
+        Text(
+            text = "Navega con categorías y flechas del control remoto.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
+        )
+
                     pinError?.let {
                         Spacer(Modifier.height(8.dp))
                         Text(it, color = MaterialTheme.colorScheme.error)
