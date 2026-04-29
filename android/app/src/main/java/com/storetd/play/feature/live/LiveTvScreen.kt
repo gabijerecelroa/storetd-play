@@ -895,39 +895,38 @@ private fun ChannelRow(
 private fun buildSeriesFolders(channels: List<Channel>): List<SeriesFolder> {
     if (channels.isEmpty()) return emptyList()
 
-    return channels
-        .groupBy { seriesFolderKey(it) }
+    val unique = channels.distinctBy { it.streamUrl }
+
+    return unique
+        .groupBy { fastSeriesFolderKey(it) }
         .values
-        .mapNotNull { rawEpisodes ->
-            val cleanedEpisodes = rawEpisodes
-                .distinctBy { episodeUniqueKey(it) }
-                .sortedWith(
-                    compareBy<Channel> { episodeSeasonForSort(it) }
-                        .thenBy { episodeNumberForSort(it) }
-                        .thenBy { cleanEpisodeDisplayName(it.name).lowercase(Locale.getDefault()) }
-                        .thenBy { it.streamUrl }
-                )
+        .mapNotNull { groupedEpisodes ->
+            val first = groupedEpisodes.firstOrNull() ?: return@mapNotNull null
 
-            val first = cleanedEpisodes.firstOrNull() ?: return@mapNotNull null
+            val folderKey = fastSeriesFolderKey(first)
+            val title = fastSeriesTitle(first)
 
-            val title = cleanSeriesTitle(first.name)
-                .ifBlank { cleanSeriesTitle(first.group) }
-                .ifBlank { first.group.ifBlank { first.name } }
-
-            val posterUrl = cleanedEpisodes
+            val posterUrl = groupedEpisodes
                 .firstOrNull { !it.logoUrl.isNullOrBlank() }
                 ?.logoUrl
                 ?: first.logoUrl
 
+            val episodes = groupedEpisodes
+                .distinctBy { it.streamUrl }
+                .sortedWith(
+                    compareBy<Channel> { fastEpisodeNumber(it.name) }
+                        .thenBy { it.name.lowercase() }
+                )
+
             SeriesFolder(
-                key = seriesFolderKey(first),
+                key = folderKey,
                 title = title,
                 group = first.group.ifBlank { title },
                 logoUrl = posterUrl,
-                episodes = cleanedEpisodes
+                episodes = episodes
             )
         }
-        .sortedBy { normalizeSeriesKey(it.title) }
+        .sortedBy { it.title.lowercase() }
 }
 
 private fun seriesFolderKey(channel: Channel): String {
@@ -1072,6 +1071,63 @@ private fun cleanEpisodeDisplayName(value: String): String {
         .replace(Regex("(?i)\\b(\\d{1,2})\\s*x\\s*(\\d{1,3})\\b"), "$1x$2")
         .replace(Regex("\\s+"), " ")
         .trim()
+}
+
+
+
+private fun fastSeriesFolderKey(channel: Channel): String {
+    val group = channel.group.trim()
+
+    if (group.isNotBlank()) {
+        return group.lowercase()
+            .replace(Regex("\\s+"), " ")
+            .trim()
+    }
+
+    return fastSeriesTitle(channel).lowercase()
+        .replace(Regex("\\s+"), " ")
+        .trim()
+}
+
+private fun fastSeriesTitle(channel: Channel): String {
+    val group = channel.group.trim()
+
+    if (
+        group.isNotBlank() &&
+        !group.equals("series", ignoreCase = true) &&
+        !group.equals("serie", ignoreCase = true)
+    ) {
+        return group
+    }
+
+    return channel.name
+        .replace(Regex("(?i)\\bS\\s*\\d{1,2}\\s*E\\s*\\d{1,3}\\b.*"), "")
+        .replace(Regex("(?i)\\b\\d{1,2}\\s*x\\s*\\d{1,3}\\b.*"), "")
+        .replace(Regex("(?i)\\bcap[ií]tulo\\s*\\d{1,3}\\b.*"), "")
+        .replace(Regex("(?i)\\bepisodio\\s*\\d{1,3}\\b.*"), "")
+        .replace(Regex("\\s+"), " ")
+        .trim(' ', '-', '|', '.', ':', '_')
+        .ifBlank { channel.name }
+}
+
+private fun fastEpisodeNumber(name: String): Int {
+    val patterns = listOf(
+        Regex("(?i)\\bS\\s*\\d{1,2}\\s*E\\s*(\\d{1,3})\\b"),
+        Regex("(?i)\\b\\d{1,2}\\s*x\\s*(\\d{1,3})\\b"),
+        Regex("(?i)\\bcap[ií]tulo\\s*(\\d{1,3})\\b"),
+        Regex("(?i)\\bepisodio\\s*(\\d{1,3})\\b"),
+        Regex("(?i)\\bep\\s*(\\d{1,3})\\b")
+    )
+
+    for (pattern in patterns) {
+        val match = pattern.find(name)
+
+        if (match != null) {
+            return match.groupValues[1].toIntOrNull() ?: 9999
+        }
+    }
+
+    return 9999
 }
 
 
