@@ -172,7 +172,7 @@ class LiveTvViewModel(
         loadPlaylistFrom(context, url, forceRefresh = true)
     }
 
-    private private fun loadPlaylistFrom(context: Context, urlValue: String, forceRefresh: Boolean) {
+    private fun loadPlaylistFrom(context: Context, urlValue: String, forceRefresh: Boolean) {
         val url = urlValue.trim()
 
         if (!M3uValidator.validateUrl(url)) {
