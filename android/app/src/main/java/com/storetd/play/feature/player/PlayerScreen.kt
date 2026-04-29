@@ -1,21 +1,16 @@
 package com.storetd.play.feature.player
 
-import androidx.compose.ui.input.key.type
-import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.foundation.focusable
 import android.content.res.Configuration
 import android.os.Build
 import android.view.View
 import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +26,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -50,9 +46,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -63,10 +67,10 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
-import com.storetd.play.core.network.ChannelReportApi
-import com.storetd.play.core.network.ChannelReportPayload
 import com.storetd.play.core.epg.EpgMatcher
 import com.storetd.play.core.epg.EpgProgram
+import com.storetd.play.core.network.ChannelReportApi
+import com.storetd.play.core.network.ChannelReportPayload
 import com.storetd.play.core.player.PlayerSession
 import com.storetd.play.core.storage.LocalAccount
 import com.storetd.play.core.storage.LocalLibrary
@@ -133,10 +137,10 @@ fun PlayerScreen(
     var retryAttempt by remember(currentChannel.streamUrl) { mutableStateOf(0) }
     var reconnectMessage by remember(currentChannel.streamUrl) { mutableStateOf<String?>(null) }
     var showControls by remember(currentChannel.streamUrl) { mutableStateOf(true) }
+    var selectedControlIndex by remember(currentChannel.streamUrl) { mutableStateOf(0) }
     var showReportDialog by remember { mutableStateOf(false) }
     var reportMessage by remember { mutableStateOf<String?>(null) }
     var isSendingReport by remember { mutableStateOf(false) }
-
     var isFavorite by remember(currentChannel.streamUrl) {
         mutableStateOf(LocalLibrary.isFavorite(context, currentChannel.streamUrl))
     }
@@ -148,7 +152,6 @@ fun PlayerScreen(
         val pair = withContext(Dispatchers.IO) {
             EpgMatcher.currentAndNext(context, currentChannel.name)
         }
-
         currentEpgProgram = pair.first
         nextEpgProgram = pair.second
     }
@@ -169,7 +172,7 @@ fun PlayerScreen(
         }
     }
 
-    LaunchedEffect(showControls, currentChannel.streamUrl) {
+    LaunchedEffect(showControls, currentChannel.streamUrl, selectedControlIndex) {
         if (showControls) {
             delay(12000)
             showControls = false
@@ -218,6 +221,7 @@ fun PlayerScreen(
     fun restartPlayback() {
         errorMessage = null
         showControls = true
+
         player.stop()
         player.clearMediaItems()
         player.setMediaItem(MediaItem.fromUri(currentChannel.streamUrl))
@@ -281,7 +285,7 @@ fun PlayerScreen(
                         streamUrl = currentChannel.streamUrl,
                         problemType = problemType,
                         playerError = errorMessage ?: "Sin error capturado",
-                        androidVersion = Build.VERSION.RELEASE ?: "unknown",
+                        androidVersion = Build.VERSION.RELEASE,
                         deviceModel = "${Build.MANUFACTURER} ${Build.MODEL}",
                         account = account
                     )
@@ -312,6 +316,7 @@ fun PlayerScreen(
         currentChannel = previous
         LocalLibrary.addHistory(context, previous)
         showControls = true
+        selectedControlIndex = 1
     }
 
     fun zapNext() {
@@ -319,6 +324,28 @@ fun PlayerScreen(
         currentChannel = next
         LocalLibrary.addHistory(context, next)
         showControls = true
+        selectedControlIndex = 2
+    }
+
+    fun activateSelectedControl() {
+        showControls = true
+
+        when (selectedControlIndex) {
+            0 -> togglePlayPause()
+            1 -> zapPrevious()
+            2 -> zapNext()
+            3 -> {
+                videoResizeMode = videoResizeMode.next()
+                showControls = true
+            }
+            4 -> toggleFavorite()
+            5 -> {
+                showControls = true
+                showReportDialog = true
+            }
+            6 -> retryPlayback()
+            7 -> onBack()
+        }
     }
 
     LaunchedEffect(currentChannel.streamUrl) {
@@ -327,7 +354,9 @@ fun PlayerScreen(
         }
     }
 
-    BackHandler { onBack() }
+    BackHandler {
+        onBack()
+    }
 
     Box(
         modifier = Modifier
@@ -350,25 +379,31 @@ fun PlayerScreen(
                         true
                     }
 
-                    Key.DirectionUp,
-                    Key.DirectionDown -> {
-                        if (showControls) {
-                            false
+                    Key.DirectionUp -> {
+                        showControls = true
+                        selectedControlIndex = if (selectedControlIndex <= 0) {
+                            7
                         } else {
-                            showControls = true
-                            true
+                            selectedControlIndex - 1
                         }
+                        true
+                    }
+
+                    Key.DirectionDown -> {
+                        showControls = true
+                        selectedControlIndex = (selectedControlIndex + 1) % 8
+                        true
                     }
 
                     Key.DirectionCenter,
                     Key.Enter,
                     Key.NumPadEnter -> {
                         if (showControls) {
-                            false
+                            activateSelectedControl()
                         } else {
                             showControls = true
-                            true
                         }
+                        true
                     }
 
                     else -> false
@@ -426,14 +461,15 @@ fun PlayerScreen(
         }
 
         if (showControls) {
-            Button(
-                modifier = Modifier.align(Alignment.Center),
+            PlayerCenterControl(
+                selected = selectedControlIndex == 0,
+                isPlaying = isPlaying,
                 onClick = {
+                    selectedControlIndex = 0
                     togglePlayPause()
-                }
-            ) {
-                Text(if (isPlaying) "Pausa" else "Play")
-            }
+                },
+                modifier = Modifier.align(Alignment.Center)
+            )
         }
 
         if (isBuffering) {
@@ -514,22 +550,40 @@ fun PlayerScreen(
                     canPrevious = PlayerSession.hasPrevious(),
                     canNext = PlayerSession.hasNext(),
                     resizeModeLabel = videoResizeMode.label,
-currentProgram = currentEpgProgram,
-nextProgram = nextEpgProgram,
+                    currentProgram = currentEpgProgram,
+                    nextProgram = nextEpgProgram,
                     isLandscape = isLandscape,
-                    onPrevious = ::zapPrevious,
-                    onNext = ::zapNext,
-                    onFavorite = ::toggleFavorite,
+                    selectedControlIndex = selectedControlIndex,
+                    onPrevious = {
+                        selectedControlIndex = 1
+                        zapPrevious()
+                    },
+                    onNext = {
+                        selectedControlIndex = 2
+                        zapNext()
+                    },
+                    onFavorite = {
+                        selectedControlIndex = 4
+                        toggleFavorite()
+                    },
                     onReport = {
+                        selectedControlIndex = 5
                         showControls = true
                         showReportDialog = true
                     },
-                    onRetry = ::retryPlayback,
+                    onRetry = {
+                        selectedControlIndex = 6
+                        retryPlayback()
+                    },
                     onChangeResizeMode = {
+                        selectedControlIndex = 3
                         videoResizeMode = videoResizeMode.next()
                         showControls = true
                     },
-                    onBack = onBack
+                    onBack = {
+                        selectedControlIndex = 7
+                        onBack()
+                    }
                 )
             }
         }
@@ -538,11 +592,52 @@ nextProgram = nextEpgProgram,
             ReportDialog(
                 isSending = isSendingReport,
                 onDismiss = {
-                    if (!isSendingReport) showReportDialog = false
+                    if (!isSendingReport) {
+                        showReportDialog = false
+                    }
                 },
                 onSend = ::sendReport
             )
         }
+    }
+}
+
+@Composable
+private fun PlayerCenterControl(
+    selected: Boolean,
+    isPlaying: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val shape = RoundedCornerShape(999.dp)
+
+    Surface(
+        modifier = modifier
+            .border(
+                width = if (selected) 4.dp else 1.dp,
+                color = if (selected) {
+                    MaterialTheme.colorScheme.onPrimary
+                } else {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.50f)
+                },
+                shape = shape
+            )
+            .clickable { onClick() },
+        color = if (selected) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.82f)
+        },
+        shape = shape,
+        shadowElevation = if (selected) 14.dp else 6.dp
+    ) {
+        Text(
+            text = if (isPlaying) "Pausa" else "Play",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onPrimary,
+            modifier = Modifier.padding(horizontal = 30.dp, vertical = 14.dp)
+        )
     }
 }
 
@@ -570,6 +665,7 @@ private fun ReportDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Selecciona el problema detectado.")
+
                 options.forEach { option ->
                     OutlinedButton(
                         onClick = { onSend(option) },
@@ -604,9 +700,10 @@ private fun PlayerBottomOverlay(
     canPrevious: Boolean,
     canNext: Boolean,
     resizeModeLabel: String,
-currentProgram: EpgProgram?,
-nextProgram: EpgProgram?,
-isLandscape: Boolean,
+    currentProgram: EpgProgram?,
+    nextProgram: EpgProgram?,
+    isLandscape: Boolean,
+    selectedControlIndex: Int,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onFavorite: () -> Unit,
@@ -632,10 +729,15 @@ isLandscape: Boolean,
                 )
 
                 Text(
-                    text = "${channel.group} · $resizeModeLabel",
+                    text = "${channel.group} · Vista: $resizeModeLabel",
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
+                )
+
+                PlayerEpgInfo(
+                    currentProgram = currentProgram,
+                    nextProgram = nextProgram
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -646,33 +748,13 @@ isLandscape: Boolean,
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    OutlinedButton(onClick = onPrevious, enabled = canPrevious) {
-                        Text("Ant.")
-                    }
-
-                    OutlinedButton(onClick = onNext, enabled = canNext) {
-                        Text("Sig.")
-                    }
-
-                    OutlinedButton(onClick = onChangeResizeMode) {
-                        Text("Vista")
-                    }
-
-                    Button(onClick = onFavorite) {
-                        Text(if (isFavorite) "Quitar" else "Fav.")
-                    }
-
-                    OutlinedButton(onClick = onReport) {
-                        Text("Reportar")
-                    }
-
-                    OutlinedButton(onClick = onRetry) {
-                        Text("Reint.")
-                    }
-
-                    Button(onClick = onBack) {
-                        Text("Volver")
-                    }
+                    PlayerControlChip("Ant.", selectedControlIndex == 1, canPrevious, onPrevious)
+                    PlayerControlChip("Sig.", selectedControlIndex == 2, canNext, onNext)
+                    PlayerControlChip("Vista", selectedControlIndex == 3, true, onChangeResizeMode)
+                    PlayerControlChip(if (isFavorite) "Quitar" else "Fav.", selectedControlIndex == 4, true, onFavorite)
+                    PlayerControlChip("Reportar", selectedControlIndex == 5, true, onReport)
+                    PlayerControlChip("Reint.", selectedControlIndex == 6, true, onRetry)
+                    PlayerControlChip("Volver", selectedControlIndex == 7, true, onBack)
                 }
             }
         } else {
@@ -694,44 +776,80 @@ isLandscape: Boolean,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+
+                    PlayerEpgInfo(
+                        currentProgram = currentProgram,
+                        nextProgram = nextProgram
+                    )
                 }
 
                 Spacer(modifier = Modifier.width(12.dp))
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = onPrevious, enabled = canPrevious) {
-                        Text("Ant.")
-                    }
-
-                    OutlinedButton(onClick = onNext, enabled = canNext) {
-                        Text("Sig.")
-                    }
-
-                    OutlinedButton(onClick = onChangeResizeMode) {
-                        Text("Vista")
-                    }
-
-                    Button(onClick = onFavorite) {
-                        Text(if (isFavorite) "Quitar" else "Fav.")
-                    }
-
-                    OutlinedButton(onClick = onReport) {
-                        Text("Reportar")
-                    }
-
-                    OutlinedButton(onClick = onRetry) {
-                        Text("Reint.")
-                    }
-
-                    Button(onClick = onBack) {
-                        Text("Volver")
-                    }
+                    PlayerControlChip("Ant.", selectedControlIndex == 1, canPrevious, onPrevious)
+                    PlayerControlChip("Sig.", selectedControlIndex == 2, canNext, onNext)
+                    PlayerControlChip("Vista", selectedControlIndex == 3, true, onChangeResizeMode)
+                    PlayerControlChip(if (isFavorite) "Quitar" else "Fav.", selectedControlIndex == 4, true, onFavorite)
+                    PlayerControlChip("Reportar", selectedControlIndex == 5, true, onReport)
+                    PlayerControlChip("Reint.", selectedControlIndex == 6, true, onRetry)
+                    PlayerControlChip("Volver", selectedControlIndex == 7, true, onBack)
                 }
             }
         }
     }
 }
 
+@Composable
+private fun PlayerControlChip(
+    label: String,
+    selected: Boolean,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(999.dp)
+
+    Surface(
+        modifier = Modifier
+            .border(
+                width = if (selected) 4.dp else 1.dp,
+                color = if (selected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f)
+                },
+                shape = shape
+            )
+            .clickable(enabled = enabled) { onClick() },
+        color = when {
+            !enabled -> MaterialTheme.colorScheme.surface.copy(alpha = 0.42f)
+            selected -> MaterialTheme.colorScheme.primary
+            else -> MaterialTheme.colorScheme.surface.copy(alpha = 0.78f)
+        },
+        shape = shape,
+        shadowElevation = if (selected) 12.dp else 3.dp,
+        border = BorderStroke(
+            1.dp,
+            if (selected) {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.70f)
+            } else {
+                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+            }
+        )
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            color = if (selected) {
+                MaterialTheme.colorScheme.onPrimary
+            } else {
+                MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else 0.45f)
+            },
+            modifier = Modifier.padding(horizontal = 22.dp, vertical = 12.dp),
+            maxLines = 1
+        )
+    }
+}
 
 @Composable
 private fun PlayerEpgInfo(
