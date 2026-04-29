@@ -44,6 +44,7 @@ data class LiveTvUiState(
     val channels: List<Channel> = emptyList(),
     val visibleChannels: List<Channel> = emptyList(),
     val groups: List<String> = listOf("Todos"),
+    val groupItems: Map<String, List<Channel>> = emptyMap(),
     val totalVisibleCount: Int = 0,
     val contentMode: ContentMode = ContentMode.LiveTv,
     val selectedGroup: String = "Todos",
@@ -84,6 +85,7 @@ class LiveTvViewModel(
     fun setSearchQuery(value: String) {
         _uiState.value = _uiState.value.copy(
             searchQuery = value,
+            selectedGroup = "Todos",
             isFiltering = true
         )
         refreshVisibleContent()
@@ -99,7 +101,24 @@ class LiveTvViewModel(
     }
 
     fun selectGroup(group: String) {
-        _uiState.value = _uiState.value.copy(
+        val current = _uiState.value
+
+        if (current.groupItems.isNotEmpty()) {
+            val safeGroup = if (current.groupItems.containsKey(group)) group else "Todos"
+            val visible = current.groupItems[safeGroup].orEmpty()
+
+            _uiState.value = current.copy(
+                selectedGroup = safeGroup,
+                visibleChannels = visible.take(MAX_VISIBLE_ITEMS),
+                totalVisibleCount = visible.size,
+                isFiltering = false
+            )
+
+            saveScreenState(_uiState.value)
+            return
+        }
+
+        _uiState.value = current.copy(
             selectedGroup = group,
             isFiltering = true
         )
@@ -142,10 +161,13 @@ class LiveTvViewModel(
 
     fun refreshPlaylist(context: Context) {
         val url = _uiState.value.playlistUrl
-        screenStateCache.remove(cacheKey(url, _uiState.value.contentMode))
+        val key = cacheKey(url, _uiState.value.contentMode)
+
+        screenStateCache.remove(key)
         PlaylistPreloader.clear(url)
         PlaylistMemoryCache.clear(url)
         PlaylistDiskCache.clear(context, url)
+
         loadPlaylistFrom(context, url, forceRefresh = true)
     }
 
@@ -203,6 +225,7 @@ class LiveTvViewModel(
             loadedFromCache = false,
             errorMessage = null,
             visibleChannels = emptyList(),
+            groupItems = emptyMap(),
             totalVisibleCount = 0
         )
 
@@ -242,6 +265,7 @@ class LiveTvViewModel(
                     isFiltering = false,
                     channels = emptyList(),
                     visibleChannels = emptyList(),
+                    groupItems = emptyMap(),
                     totalVisibleCount = 0,
                     errorMessage = "No se pudo sincronizar la lista. Toca Actualizar contenido o revisa la lista asignada."
                 )
@@ -257,6 +281,7 @@ class LiveTvViewModel(
             _uiState.value = snapshot.copy(
                 visibleChannels = emptyList(),
                 groups = listOf("Todos"),
+                groupItems = mapOf("Todos" to emptyList()),
                 totalVisibleCount = 0,
                 isFiltering = false
             )
@@ -280,43 +305,46 @@ class LiveTvViewModel(
                 adultFiltered.filter { matchesContentMode(it, snapshot.contentMode) }
             }
 
-            val groups = listOf("Todos") + modeFiltered
-                .asSequence()
-                .map { it.group.ifBlank { "Sin categoría" } }
-                .distinct()
-                .sorted()
-                .toList()
-
-            val safeSelectedGroup = if (snapshot.selectedGroup in groups) {
-                snapshot.selectedGroup
-            } else {
-                "Todos"
-            }
-
-            val groupFiltered = if (safeSelectedGroup == "Todos") {
-                modeFiltered
-            } else {
-                modeFiltered.filter { it.group == safeSelectedGroup }
-            }
-
             val query = snapshot.searchQuery.trim().lowercase(Locale.getDefault())
 
-            val visible = if (query.isBlank()) {
-                groupFiltered
+            val queryFiltered = if (query.isBlank()) {
+                modeFiltered
             } else {
-                groupFiltered.filter {
+                modeFiltered.filter {
                     it.name.lowercase(Locale.getDefault()).contains(query) ||
                         it.group.lowercase(Locale.getDefault()).contains(query) ||
                         it.tvgId.orEmpty().lowercase(Locale.getDefault()).contains(query)
                 }
             }
 
+            val grouped = queryFiltered.groupBy {
+                it.group.ifBlank { "Sin categoría" }
+            }
+
+            val groupNames = listOf("Todos") + grouped.keys.sorted()
+
+            val groupMap = LinkedHashMap<String, List<Channel>>()
+            groupMap["Todos"] = queryFiltered
+
+            grouped.keys.sorted().forEach { group ->
+                groupMap[group] = grouped[group].orEmpty()
+            }
+
+            val safeSelectedGroup = if (snapshot.selectedGroup in groupNames) {
+                snapshot.selectedGroup
+            } else {
+                "Todos"
+            }
+
+            val selectedItems = groupMap[safeSelectedGroup].orEmpty()
+
             if (version == filterVersion) {
                 val nextState = _uiState.value.copy(
-                    groups = groups,
+                    groups = groupNames,
+                    groupItems = groupMap,
                     selectedGroup = safeSelectedGroup,
-                    visibleChannels = visible.take(600),
-                    totalVisibleCount = visible.size,
+                    visibleChannels = selectedItems.take(MAX_VISIBLE_ITEMS),
+                    totalVisibleCount = selectedItems.size,
                     isFiltering = false
                 )
 
@@ -344,7 +372,9 @@ class LiveTvViewModel(
     }
 
     companion object {
+        private const val MAX_VISIBLE_ITEMS = 800
         private const val MAX_SCREEN_CACHE = 12
+
         private val screenStateCache = LinkedHashMap<String, LiveTvUiState>()
 
         private fun cacheKey(url: String, mode: ContentMode): String {

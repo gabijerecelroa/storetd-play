@@ -245,7 +245,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
         return
     }
 
-    val folders = buildSeriesFolders(state.visibleChannels)
+    val folders = remember(state.visibleChannels) { buildSeriesFolders(state.visibleChannels) }
     val selectedFolder = folders.firstOrNull { it.key == selectedSeriesKey }
 
     if (selectedFolder == null) {
@@ -445,29 +445,92 @@ private fun ContentControls(
 private fun CategoryRow(
     groups: List<String>,
     selectedGroup: String,
-    onSelectGroup: (String) -> Unit
+    onGroupSelected: (String) -> Unit
 ) {
-    Column {
-        Text("Categorías", style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.height(8.dp))
-
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(groups) { group ->
-                FilterChip(
-                    selected = group == selectedGroup,
-                    onClick = { onSelectGroup(group) },
-                    label = {
-                        Text(
-                            text = group,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                )
-            }
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        items(groups) { group ->
+            TvCategoryChip(
+                label = group,
+                selected = group == selectedGroup,
+                onClick = { onGroupSelected(group) }
+            )
         }
     }
 }
+
+@Composable
+private fun TvCategoryChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    var focused by remember { mutableStateOf(false) }
+    val active = selected || focused
+    val shape = RoundedCornerShape(999.dp)
+
+    Surface(
+        modifier = Modifier
+            .onFocusChanged { focused = it.isFocused || it.hasFocus }
+            .onPreviewKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) {
+                    return@onPreviewKeyEvent false
+                }
+
+                when (event.key) {
+                    Key.DirectionCenter,
+                    Key.Enter,
+                    Key.NumPadEnter -> {
+                        onClick()
+                        true
+                    }
+
+                    else -> false
+                }
+            }
+            .border(
+                width = if (active) 3.dp else 1.dp,
+                color = if (focused) {
+                    MaterialTheme.colorScheme.primary
+                } else if (selected) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f)
+                },
+                shape = shape
+            )
+            .focusable()
+            .clickable { onClick() },
+        color = if (focused) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)
+        } else if (selected) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.78f)
+        },
+        shape = shape,
+        border = BorderStroke(
+            1.dp,
+            if (active) {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.65f)
+            } else {
+                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f)
+            }
+        )
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+            maxLines = 1
+        )
+    }
+}
+
 
 @Composable
 private fun StatusBlock(
