@@ -171,7 +171,7 @@ fun PlayerScreen(
 
     LaunchedEffect(showControls, currentChannel.streamUrl) {
         if (showControls) {
-            delay(4500)
+            delay(12000)
             showControls = false
         }
     }
@@ -341,21 +341,13 @@ fun PlayerScreen(
 
                 when (event.key) {
                     Key.DirectionRight -> {
-                        if (showControls) {
-                            false
-                        } else {
-                            zapNext()
-                            true
-                        }
+                        zapNext()
+                        true
                     }
 
                     Key.DirectionLeft -> {
-                        if (showControls) {
-                            false
-                        } else {
-                            zapPrevious()
-                            true
-                        }
+                        zapPrevious()
+                        true
                     }
 
                     Key.DirectionUp,
