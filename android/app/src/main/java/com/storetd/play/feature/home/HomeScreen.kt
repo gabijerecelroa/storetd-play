@@ -49,6 +49,8 @@ import com.storetd.play.R
 import com.storetd.play.core.storage.LocalAccount
 import com.storetd.play.core.preload.PlaylistPreloader
 import com.storetd.play.ui.components.premiumStoreTdBackground
+import android.content.Context
+import com.storetd.play.core.storage.PlaybackProgressStore
 
 private data class HomeAction(
     val title: String,
@@ -56,6 +58,27 @@ private data class HomeAction(
     val badge: String,
     val onClick: () -> Unit
 )
+
+
+private data class ContinueWatchingSummary(
+    val count: Int,
+    val topTitle: String?,
+    val topPercent: Int
+)
+
+private fun loadContinueWatchingSummary(context: Context): ContinueWatchingSummary {
+    val items = PlaybackProgressStore
+        .unfinished(context)
+        .sortedByDescending { it.updatedAtMs }
+
+    val first = items.firstOrNull()
+
+    return ContinueWatchingSummary(
+        count = items.size,
+        topTitle = first?.title,
+        topPercent = first?.percent ?: 0
+    )
+}
 
 @Composable
 fun HomeScreen(
@@ -74,6 +97,44 @@ fun HomeScreen(
     val account = LocalAccount.getAccount(context)
     val customerName = account.customerName.ifBlank { "cliente" }
 
+    var continueSummary by remember {
+        mutableStateOf(loadContinueWatchingSummary(context))
+    }
+
+    LaunchedEffect(Unit) {
+        continueSummary = loadContinueWatchingSummary(context)
+    }
+
+    val recentTitle = if (continueSummary.count > 0) {
+        "Continuar viendo"
+    } else {
+        "Últimos vistos"
+    }
+
+    val recentDescription = if (continueSummary.count > 0) {
+        buildString {
+            append(
+                if (continueSummary.count == 1) {
+                    "1 pendiente"
+                } else {
+                    "${continueSummary.count} pendientes"
+                }
+            )
+
+            if (continueSummary.topPercent > 0) {
+                append(" · ${continueSummary.topPercent}%")
+            }
+
+            if (!continueSummary.topTitle.isNullOrBlank()) {
+                append(" · ")
+                append(continueSummary.topTitle!!.take(22))
+            }
+        }
+    } else {
+        "Continúa donde quedaste"
+    }
+
+
     LaunchedEffect(account.activationCode, account.playlistUrl) {
         PlaylistPreloader.preloadAccount(context.applicationContext)
     }
@@ -84,7 +145,7 @@ fun HomeScreen(
         HomeAction("Series", "Temporadas, carpetas y capítulos", "SERIES", onOpenSeries),
         HomeAction("Guía EPG", "Programación actual", "GUÍA", onOpenEpg),
         HomeAction("Favoritos", "Tus contenidos guardados", "FAV", onOpenFavorites),
-        HomeAction("Últimos vistos", "Continúa donde quedaste", "HIST", onOpenHistory),
+        HomeAction(recentTitle, recentDescription, "HIST", onOpenHistory),
         HomeAction("Mi cuenta", "Estado, vencimiento y dispositivo", "CUENTA", onOpenAccount),
         HomeAction("Configuración", "Caché, PIN parental y ajustes", "AJUSTES", onOpenSettings),
         HomeAction("Soporte", "Ayuda y contacto", "HELP", onOpenSupport)
