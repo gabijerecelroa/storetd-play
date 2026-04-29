@@ -36,6 +36,7 @@ import com.storetd.play.core.device.DeviceIdentity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.storetd.play.ui.components.premiumStoreTdBackground
 
 @Composable
 fun ActivationScreen(
@@ -62,7 +63,7 @@ fun ActivationScreen(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .premiumStoreTdBackground()
             .navigationBarsPadding()
             .padding(22.dp)
     ) {

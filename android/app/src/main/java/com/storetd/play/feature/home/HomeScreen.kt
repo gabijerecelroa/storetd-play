@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import com.storetd.play.R
 import com.storetd.play.core.storage.LocalAccount
 import com.storetd.play.core.preload.PlaylistPreloader
+import com.storetd.play.ui.components.premiumStoreTdBackground
 
 private data class HomeAction(
     val title: String,
@@ -92,7 +93,7 @@ fun HomeScreen(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .premiumStoreTdBackground()
             .navigationBarsPadding()
             .padding(24.dp)
     ) {
