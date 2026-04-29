@@ -56,6 +56,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.LinearProgressIndicator
 import com.storetd.play.core.storage.SavedChannel
+import androidx.compose.foundation.layout.Row
 
 private data class HomeAction(
     val title: String,
