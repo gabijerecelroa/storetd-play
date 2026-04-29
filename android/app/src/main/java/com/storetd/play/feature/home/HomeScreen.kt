@@ -51,6 +51,9 @@ import com.storetd.play.core.preload.PlaylistPreloader
 import com.storetd.play.ui.components.premiumStoreTdBackground
 import android.content.Context
 import com.storetd.play.core.storage.PlaybackProgressStore
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.width
 
 private data class HomeAction(
     val title: String,
@@ -80,6 +83,14 @@ private fun loadContinueWatchingSummary(context: Context): ContinueWatchingSumma
     )
 }
 
+
+private fun loadContinueWatchingItems(context: Context): List<PlaybackProgress> {
+    return PlaybackProgressStore
+        .unfinished(context)
+        .sortedByDescending { it.updatedAtMs }
+        .take(10)
+}
+
 @Composable
 fun HomeScreen(
     onOpenLiveTv: () -> Unit,
@@ -101,8 +112,14 @@ fun HomeScreen(
         mutableStateOf(loadContinueWatchingSummary(context))
     }
 
+    var continueItems by remember {
+        mutableStateOf(loadContinueWatchingItems(context))
+    }
+
+
     LaunchedEffect(Unit) {
         continueSummary = loadContinueWatchingSummary(context)
+        continueItems = loadContinueWatchingItems(context)
     }
 
     val recentTitle = if (continueSummary.count > 0) {
@@ -197,6 +214,13 @@ fun HomeScreen(
                 )
             }
 
+            if (continueItems.isNotEmpty()) {
+                ContinueWatchingRail(
+                    items = continueItems,
+                    onOpenHistory = onOpenHistory
+                )
+            }
+
             if (isTvWide) {
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(3),
@@ -232,6 +256,117 @@ fun HomeScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.62f)
             )
+        }
+    }
+}
+
+
+@Composable
+private fun ContinueWatchingRail(
+    items: List<PlaybackProgress>,
+    onOpenHistory: () -> Unit
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(
+            text = "Continuar viendo",
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onBackground,
+            fontWeight = FontWeight.Bold
+        )
+
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            items(items) { item ->
+                ContinueWatchingCard(
+                    item = item,
+                    onClick = onOpenHistory
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ContinueWatchingCard(
+    item: PlaybackProgress,
+    onClick: () -> Unit
+) {
+    val progressFraction = if (item.durationMs > 0L) {
+        (item.positionMs.toFloat() / item.durationMs.toFloat()).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+
+    Surface(
+        modifier = Modifier
+            .width(300.dp)
+            .height(124.dp)
+            .clickable { onClick() },
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.78f),
+        shape = RoundedCornerShape(22.dp),
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f)
+        ),
+        shadowElevation = 6.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(
+                    text = item.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Text(
+                    text = "${item.percent}% visto · ${item.group}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.76f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Column {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(7.dp)
+                        .background(
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f),
+                            RoundedCornerShape(999.dp)
+                        )
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(progressFraction)
+                            .height(7.dp)
+                            .background(
+                                MaterialTheme.colorScheme.primary,
+                                RoundedCornerShape(999.dp)
+                            )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = "Abrir últimos vistos",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 }
