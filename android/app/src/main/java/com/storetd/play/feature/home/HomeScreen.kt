@@ -244,7 +244,7 @@ private fun HeroCard(
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f)
                 )
 
-                Button(onClick = onOpenLiveTv) {
+                Button(onClick = onLiveTv) {
                     Text("Entrar ahora")
                 }
             }
