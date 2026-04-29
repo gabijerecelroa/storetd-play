@@ -174,10 +174,18 @@ fun PlayerScreen(
 
     LaunchedEffect(showControls, currentChannel.streamUrl, selectedControlIndex) {
         if (showControls) {
-            delay(12000)
+            delay(4000)
             showControls = false
         }
     }
+
+    LaunchedEffect(reportMessage) {
+        if (reportMessage != null) {
+            delay(3000)
+            reportMessage = null
+        }
+    }
+
 
     val player = remember(currentChannel.streamUrl) {
         ExoPlayer.Builder(context).build().apply {
