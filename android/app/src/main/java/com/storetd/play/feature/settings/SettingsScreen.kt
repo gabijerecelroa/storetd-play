@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -28,13 +30,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.storetd.play.BuildConfig
+import com.storetd.play.core.cache.AppCacheManager
 import com.storetd.play.core.parental.ParentalControl
+import com.storetd.play.core.storage.LocalAccount
 
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val account = LocalAccount.getAccount(context)
 
     var adultHidden by remember {
         mutableStateOf(ParentalControl.isAdultContentHidden(context))
@@ -44,12 +50,15 @@ fun SettingsScreen(
     var showUnlockDialog by remember { mutableStateOf(false) }
     var showChangePinDialog by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
+    var showClearContentDialog by remember { mutableStateOf(false) }
+    var showClearAllDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .navigationBarsPadding()
+            .verticalScroll(rememberScrollState())
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -59,10 +68,41 @@ fun SettingsScreen(
         )
 
         Text(
-            text = "Preferencias locales de la app.",
+            text = "Preferencias, seguridad y mantenimiento local.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.78f)
         )
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 4.dp,
+            shadowElevation = 8.dp,
+            shape = MaterialTheme.shapes.extraLarge
+        ) {
+            Column(
+                modifier = Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "Acerca de la app",
+                    style = MaterialTheme.typography.titleLarge
+                )
+
+                Text("App: StoreTD Play")
+                Text("Versión instalada: ${BuildConfig.VERSION_NAME}")
+                Text("Cliente: ${account.customerName.ifBlank { "Sin activar" }}")
+                Text("Código: ${account.activationCode.ifBlank { "-" }}")
+                Text("Estado: ${account.status.ifBlank { "-" }}")
+                Text("Vencimiento: ${account.expiresAt.ifBlank { "-" }}")
+
+                Text(
+                    text = "Reproductor privado para contenido autorizado. La configuración comercial y soporte se administran desde el panel.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
+                )
+            }
+        }
 
         Surface(
             modifier = Modifier.fillMaxWidth(),
@@ -149,6 +189,54 @@ fun SettingsScreen(
             }
         }
 
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 4.dp,
+            shadowElevation = 8.dp,
+            shape = MaterialTheme.shapes.extraLarge
+        ) {
+            Column(
+                modifier = Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "Mantenimiento local",
+                    style = MaterialTheme.typography.titleLarge
+                )
+
+                Text(
+                    text = "Usa estas opciones si cambiaste listas, EPG o si el contenido no se actualiza correctamente.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f)
+                )
+
+                Button(
+                    onClick = { showClearContentDialog = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Limpiar caché de contenido")
+                }
+
+                OutlinedButton(
+                    onClick = {
+                        AppCacheManager.clearEpgCache(context)
+                        message = "Caché de guía TV limpiada."
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Limpiar caché EPG")
+                }
+
+                OutlinedButton(
+                    onClick = { showClearAllDialog = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Limpiar toda la caché")
+                }
+            }
+        }
+
         if (message.isNotBlank()) {
             Text(
                 text = message,
@@ -157,7 +245,7 @@ fun SettingsScreen(
             )
         }
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.height(10.dp))
 
         OutlinedButton(
             onClick = onBack,
@@ -165,6 +253,8 @@ fun SettingsScreen(
         ) {
             Text("Volver")
         }
+
+        Spacer(modifier = Modifier.height(30.dp))
     }
 
     if (showUnlockDialog) {
@@ -210,6 +300,58 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showResetDialog = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
+    if (showClearContentDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearContentDialog = false },
+            title = { Text("Limpiar caché de contenido") },
+            text = {
+                Text("Se borrarán TV, Películas y Series guardadas localmente. Luego podrás tocar Actualizar contenido para sincronizar de nuevo.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        AppCacheManager.clearContentCache(context)
+                        message = "Caché de contenido limpiada."
+                        showClearContentDialog = false
+                    }
+                ) {
+                    Text("Limpiar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearContentDialog = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
+    if (showClearAllDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearAllDialog = false },
+            title = { Text("Limpiar toda la caché") },
+            text = {
+                Text("Se borrará la caché local de contenido y guía TV. No se cerrará sesión.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        AppCacheManager.clearAll(context)
+                        message = "Toda la caché local fue limpiada."
+                        showClearAllDialog = false
+                    }
+                ) {
+                    Text("Limpiar todo")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearAllDialog = false }) {
                     Text("Cancelar")
                 }
             }
