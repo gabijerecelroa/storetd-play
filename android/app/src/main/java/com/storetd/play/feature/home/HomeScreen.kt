@@ -192,7 +192,7 @@ private fun TvHomeCard(
 
     Surface(
         modifier = modifier
-            .height(142.dp)
+            .height(154.dp)
             .focusRequester(focusRequester)
             .onFocusChanged { focused = it.isFocused || it.hasFocus }
             .onPreviewKeyEvent { event ->
@@ -262,14 +262,6 @@ private fun TvHomeCard(
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.80f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
-            )
-
-            Text(
-                text = if (focused) "OK para abrir" else "Abrir",
-                style = MaterialTheme.typography.titleSmall,
-                color = if (focused) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold
-            )
-        }
+            )        }
     }
 }
