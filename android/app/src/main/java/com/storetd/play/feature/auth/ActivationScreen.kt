@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import com.storetd.play.R
 import com.storetd.play.core.network.ActivationApi
 import com.storetd.play.core.storage.LocalAccount
+import com.storetd.play.core.device.DeviceIdentity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
