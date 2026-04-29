@@ -45,7 +45,7 @@ android {
         buildConfigField(
             "String",
             "API_BASE_URL",
-            "\"${System.getenv("API_BASE_URL") ?: "https://api.example.com"}\""
+            "\"${System.getenv("API_BASE_URL") ?: "https://storetd-play-backend.onrender.com"}\""
         )
         buildConfigField(
             "String",
