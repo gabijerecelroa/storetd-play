@@ -224,6 +224,22 @@ fun checkAccountStatus() {
                 onOpenSeries = { navController.navigate(Routes.Series) },
                 onOpenFavorites = { navController.navigate(Routes.Favorites) },
                 onOpenHistory = { navController.navigate(Routes.History) },
+
+                onOpenContinueItem = { item ->
+                    PlayerSession.setQueue(
+                        channels = listOf(item),
+                        current = item
+                    )
+
+                    navController.navigate(
+                        Routes.Player.create(
+                            channelName = Uri.encode(item.name),
+                            streamUrl = Uri.encode(item.streamUrl),
+                            groupName = Uri.encode(item.group),
+                            logoUrl = Uri.encode(item.logoUrl.orEmpty())
+                        )
+                    )
+                },
                 onOpenEpg = { navController.navigate(Routes.Epg) },
                 onOpenAccount = { navController.navigate(Routes.Account) },
                 onOpenSupport = { navController.navigate(Routes.Support) },

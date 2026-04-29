@@ -55,6 +55,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.LinearProgressIndicator
+import com.storetd.play.core.storage.SavedChannel
 
 private data class HomeAction(
     val title: String,
@@ -121,6 +122,7 @@ fun HomeScreen(
     onOpenSeries: () -> Unit,
     onOpenFavorites: () -> Unit,
     onOpenHistory: () -> Unit,
+    onOpenContinueItem: (SavedChannel) -> Unit = { onOpenHistory() },
     onOpenEpg: () -> Unit,
     onOpenAccount: () -> Unit,
     onOpenSupport: () -> Unit,
@@ -240,7 +242,7 @@ fun HomeScreen(
             if (continueItems.isNotEmpty()) {
                 ContinueWatchingRail(
                     items = continueItems,
-                    onOpenHistory = onOpenHistory
+                    onOpenContinueItem = onOpenContinueItem
                 )
             }
 
@@ -287,7 +289,7 @@ fun HomeScreen(
 @Composable
 private fun ContinueWatchingRail(
     items: List<ContinueWatchingItem>,
-    onOpenHistory: () -> Unit
+    onOpenContinueItem: (SavedChannel) -> Unit
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -309,7 +311,18 @@ private fun ContinueWatchingRail(
             ) { item ->
                 ContinueWatchingCard(
                     item = item,
-                    onClick = onOpenHistory
+                    onClick = {
+                        onOpenContinueItem(
+                            SavedChannel(
+                                id = item.streamUrl.hashCode().toString(),
+                                name = item.title,
+                                streamUrl = item.streamUrl,
+                                logoUrl = null,
+                                group = item.group,
+                                tvgId = null
+                            )
+                        )
+                    }
                 )
             }
         }
