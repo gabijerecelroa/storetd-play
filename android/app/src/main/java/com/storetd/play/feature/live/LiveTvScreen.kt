@@ -1,5 +1,18 @@
 package com.storetd.play.feature.live
 
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.nativeKeyEvent
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.draw.clip
+import androidx.compose.material3.CardDefaults
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
+import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
@@ -510,26 +523,73 @@ private fun SeriesFolderRow(
     folder: SeriesFolder,
     onOpen: () -> Unit
 ) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(22.dp)
+
     Card(
+        onClick = onOpen,
         modifier = Modifier
             .fillMaxWidth()
+            .onFocusChanged { focused = it.isFocused || it.hasFocus }
+            .onPreviewKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) {
+                    return@onPreviewKeyEvent false
+                }
+
+                when (event.nativeKeyEvent.keyCode) {
+                    AndroidKeyEvent.KEYCODE_DPAD_CENTER,
+                    AndroidKeyEvent.KEYCODE_ENTER,
+                    AndroidKeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                        onOpen()
+                        true
+                    }
+
+                    else -> false
+                }
+            }
+            .border(
+                width = if (focused) 4.dp else 1.dp,
+                color = if (focused) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                },
+                shape = shape
+            )
+            .clip(shape)
             .focusable()
+            .clickable { onOpen() },
+        colors = CardDefaults.cardColors(
+            containerColor = if (focused) {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant
+            }
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (focused) 12.dp else 4.dp
+        ),
+        shape = shape
     ) {
-        Row(modifier = Modifier.padding(16.dp)) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+        ) {
             if (!folder.logoUrl.isNullOrBlank()) {
                 Image(
                     painter = rememberAsyncImagePainter(folder.logoUrl),
                     contentDescription = folder.title,
-                    modifier = Modifier.size(60.dp)
+                    modifier = Modifier.size(64.dp)
                 )
-            }
 
-            Spacer(Modifier.width(16.dp))
+                Spacer(Modifier.width(16.dp))
+            }
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = folder.title,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -550,15 +610,44 @@ private fun SeriesFolderRow(
                             label = { Text(folder.group) }
                         )
                     }
+
+                    item {
+                        AssistChip(
+                            onClick = {},
+                            label = { Text(if (focused) "OK para abrir" else "Carpeta") }
+                        )
+                    }
                 }
             }
 
-            Button(onClick = onOpen) {
-                Text("Abrir")
+            Surface(
+                color = if (focused) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.surface
+                },
+                border = BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.70f)
+                ),
+                shape = RoundedCornerShape(999.dp)
+            ) {
+                Text(
+                    text = "Abrir",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (focused) {
+                        MaterialTheme.colorScheme.onPrimary
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    },
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
+                )
             }
         }
     }
 }
+
 
 @Composable
 private fun SeriesFolderHeader(
@@ -591,6 +680,7 @@ private fun SeriesFolderHeader(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChannelRow(
     channel: Channel,
@@ -598,26 +688,73 @@ private fun ChannelRow(
     nextProgram: EpgProgram?,
     onPlay: () -> Unit
 ) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(22.dp)
+
     Card(
+        onClick = onPlay,
         modifier = Modifier
             .fillMaxWidth()
+            .onFocusChanged { focused = it.isFocused || it.hasFocus }
+            .onPreviewKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) {
+                    return@onPreviewKeyEvent false
+                }
+
+                when (event.nativeKeyEvent.keyCode) {
+                    AndroidKeyEvent.KEYCODE_DPAD_CENTER,
+                    AndroidKeyEvent.KEYCODE_ENTER,
+                    AndroidKeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                        onPlay()
+                        true
+                    }
+
+                    else -> false
+                }
+            }
+            .border(
+                width = if (focused) 4.dp else 1.dp,
+                color = if (focused) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                },
+                shape = shape
+            )
+            .clip(shape)
             .focusable()
+            .clickable { onPlay() },
+        colors = CardDefaults.cardColors(
+            containerColor = if (focused) {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant
+            }
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (focused) 12.dp else 4.dp
+        ),
+        shape = shape
     ) {
-        Row(modifier = Modifier.padding(16.dp)) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+        ) {
             if (!channel.logoUrl.isNullOrBlank()) {
                 Image(
                     painter = rememberAsyncImagePainter(channel.logoUrl),
                     contentDescription = channel.name,
-                    modifier = Modifier.size(56.dp)
+                    modifier = Modifier.size(64.dp)
                 )
-            }
 
-            Spacer(Modifier.width(16.dp))
+                Spacer(Modifier.width(16.dp))
+            }
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = channel.name,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -643,24 +780,53 @@ private fun ChannelRow(
                     )
                 }
 
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(8.dp))
 
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     item {
-                        AssistChip(onClick = {}, label = { Text(channel.group) })
+                        AssistChip(
+                            onClick = {},
+                            label = { Text(channel.group) }
+                        )
                     }
+
                     item {
-                        AssistChip(onClick = {}, label = { Text("Listo") })
+                        AssistChip(
+                            onClick = {},
+                            label = { Text(if (focused) "OK para ver" else "Listo") }
+                        )
                     }
                 }
             }
 
-            Button(onClick = onPlay) {
-                Text("Ver")
+            Surface(
+                color = if (focused) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.surface
+                },
+                border = BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.70f)
+                ),
+                shape = RoundedCornerShape(999.dp)
+            ) {
+                Text(
+                    text = "Ver",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (focused) {
+                        MaterialTheme.colorScheme.onPrimary
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    },
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
+                )
             }
         }
     }
 }
+
 
 private fun buildSeriesFolders(channels: List<Channel>): List<SeriesFolder> {
     return channels
