@@ -54,6 +54,7 @@ import com.storetd.play.core.storage.PlaybackProgressStore
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.LinearProgressIndicator
 
 private data class HomeAction(
     val title: String,
@@ -302,7 +303,10 @@ private fun ContinueWatchingRail(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            items(items = items, key = { it.streamUrl }) { item ->
+            items(
+                items = items,
+                key = { it.streamUrl }
+            ) { item ->
                 ContinueWatchingCard(
                     item = item,
                     onClick = onOpenHistory
@@ -311,6 +315,9 @@ private fun ContinueWatchingRail(
         }
     }
 }
+
+
+
 
 @Composable
 private fun ContinueWatchingCard(
@@ -360,25 +367,12 @@ private fun ContinueWatchingCard(
             }
 
             Column {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(7.dp)
-                        .background(
-                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f),
-                            RoundedCornerShape(999.dp)
-                        )
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(progressFraction)
-                            .height(7.dp)
-                            .background(
-                                MaterialTheme.colorScheme.primary,
-                                RoundedCornerShape(999.dp)
-                            )
-                    )
-                }
+                LinearProgressIndicator(
+                    progress = { progressFraction },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f)
+                )
 
                 Spacer(modifier = Modifier.height(6.dp))
 
@@ -392,6 +386,9 @@ private fun ContinueWatchingCard(
         }
     }
 }
+
+
+
 
 @Composable
 private fun TvHomeCard(
