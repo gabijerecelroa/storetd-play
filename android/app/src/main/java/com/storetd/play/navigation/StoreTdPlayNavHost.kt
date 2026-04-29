@@ -16,6 +16,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.storetd.play.core.network.AppConfigApi
+import com.storetd.play.core.network.AccountStatusApi
 import com.storetd.play.core.player.PlayerSession
 import com.storetd.play.core.storage.LocalAccount
 import com.storetd.play.core.storage.LocalAppConfig
@@ -33,6 +34,7 @@ import com.storetd.play.feature.live.LiveTvViewModel
 import com.storetd.play.feature.maintenance.MaintenanceScreen
 import com.storetd.play.feature.player.PlayerScreen
 import com.storetd.play.feature.settings.SettingsScreen
+import com.storetd.play.feature.security.SecurityBlockedScreen
 import com.storetd.play.feature.support.SupportScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -47,6 +49,10 @@ fun StoreTdPlayNavHost() {
 
     var appConfig by remember {
         mutableStateOf(LocalAppConfig.get(context))
+    }
+
+    var securityMessage by remember {
+        mutableStateOf<String?>(null)
     }
 
     val startDestination = remember {
@@ -66,6 +72,7 @@ fun StoreTdPlayNavHost() {
 
     LaunchedEffect(Unit) {
         reloadConfig()
+        checkAccountStatus()
     }
 
     fun navigateAndClear(route: String) {
@@ -77,6 +84,27 @@ fun StoreTdPlayNavHost() {
         }
     }
 
+    fun checkAccountStatus() {
+        if (!LocalAccount.isActivated(context)) return
+
+        scope.launch {
+            val account = LocalAccount.getAccount(context)
+
+            val result = withContext(Dispatchers.IO) {
+                AccountStatusApi.check(
+                    activationCode = account.activationCode,
+                    deviceCode = account.deviceCode
+                )
+            }
+
+            if (!result.allowed) {
+                LocalAccount.logout(context)
+                securityMessage = result.message
+            }
+        }
+    }
+
+
     fun openPlayer(channel: SavedChannel) {
         navController.navigate(
             "${Routes.Player}/" +
@@ -85,6 +113,17 @@ fun StoreTdPlayNavHost() {
                 "${Uri.encode(channel.group)}/" +
                 "${Uri.encode(channel.logoUrl ?: "-")}"
         )
+    }
+
+    securityMessage?.let { message ->
+        SecurityBlockedScreen(
+            message = message,
+            onContinue = {
+                securityMessage = null
+                navigateAndClear(Routes.Activation)
+            }
+        )
+        return
     }
 
     if (appConfig.maintenanceMode) {
