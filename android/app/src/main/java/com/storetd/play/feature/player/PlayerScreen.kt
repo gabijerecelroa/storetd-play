@@ -134,6 +134,8 @@ fun PlayerScreen(
     var errorMessage by remember(currentChannel.streamUrl) { mutableStateOf<String?>(null) }
     var isBuffering by remember(currentChannel.streamUrl) { mutableStateOf(false) }
     var isPlaying by remember(currentChannel.streamUrl) { mutableStateOf(true) }
+    var currentPositionMs by remember(currentChannel.streamUrl) { mutableStateOf(0L) }
+    var durationMs by remember(currentChannel.streamUrl) { mutableStateOf(0L) }
     var retryAttempt by remember(currentChannel.streamUrl) { mutableStateOf(0) }
     var reconnectMessage by remember(currentChannel.streamUrl) { mutableStateOf<String?>(null) }
     var showControls by remember(currentChannel.streamUrl) { mutableStateOf(true) }
@@ -143,6 +145,10 @@ fun PlayerScreen(
     var isSendingReport by remember { mutableStateOf(false) }
     var isFavorite by remember(currentChannel.streamUrl) {
         mutableStateOf(LocalLibrary.isFavorite(context, currentChannel.streamUrl))
+    }
+
+    val isVodContent = remember(currentChannel.name, currentChannel.group, currentChannel.streamUrl) {
+        isVodChannel(currentChannel)
     }
 
     var currentEpgProgram by remember(currentChannel.name) { mutableStateOf<EpgProgram?>(null) }
@@ -192,6 +198,14 @@ fun PlayerScreen(
             setMediaItem(MediaItem.fromUri(currentChannel.streamUrl))
             prepare()
             playWhenReady = true
+        }
+    }
+
+    LaunchedEffect(player, currentChannel.streamUrl) {
+        while (true) {
+            currentPositionMs = player.currentPosition.coerceAtLeast(0L)
+            durationMs = if (player.duration > 0L) player.duration else 0L
+            delay(500)
         }
     }
 
@@ -268,6 +282,22 @@ fun PlayerScreen(
         }
     }
 
+    fun seekBy(offsetMs: Long) {
+        showControls = true
+
+        val duration = if (player.duration > 0L) player.duration else 0L
+        val current = player.currentPosition.coerceAtLeast(0L)
+        val target = if (duration > 0L) {
+            (current + offsetMs).coerceIn(0L, duration)
+        } else {
+            (current + offsetMs).coerceAtLeast(0L)
+        }
+
+        player.seekTo(target)
+        currentPositionMs = target
+        durationMs = duration
+    }
+
     fun togglePlayPause() {
         showControls = true
 
@@ -340,8 +370,20 @@ fun PlayerScreen(
 
         when (selectedControlIndex) {
             0 -> togglePlayPause()
-            1 -> zapPrevious()
-            2 -> zapNext()
+            1 -> {
+                if (isVodContent) {
+                    seekBy(-10000L)
+                } else {
+                    zapPrevious()
+                }
+            }
+            2 -> {
+                if (isVodContent) {
+                    seekBy(30000L)
+                } else {
+                    zapNext()
+                }
+            }
             3 -> {
                 videoResizeMode = videoResizeMode.next()
                 showControls = true
@@ -378,12 +420,20 @@ fun PlayerScreen(
 
                 when (event.key) {
                     Key.DirectionRight -> {
-                        zapNext()
+                        if (isVodContent) {
+                            seekBy(30000L)
+                        } else {
+                            zapNext()
+                        }
                         true
                     }
 
                     Key.DirectionLeft -> {
-                        zapPrevious()
+                        if (isVodContent) {
+                            seekBy(-10000L)
+                        } else {
+                            zapPrevious()
+                        }
                         true
                     }
 
@@ -561,14 +611,25 @@ fun PlayerScreen(
                     currentProgram = currentEpgProgram,
                     nextProgram = nextEpgProgram,
                     isLandscape = isLandscape,
+                    isVodContent = isVodContent,
+                    currentPositionMs = currentPositionMs,
+                    durationMs = durationMs,
                     selectedControlIndex = selectedControlIndex,
                     onPrevious = {
                         selectedControlIndex = 1
-                        zapPrevious()
+                        if (isVodContent) {
+                            seekBy(-10000L)
+                        } else {
+                            zapPrevious()
+                        }
                     },
                     onNext = {
                         selectedControlIndex = 2
-                        zapNext()
+                        if (isVodContent) {
+                            seekBy(30000L)
+                        } else {
+                            zapNext()
+                        }
                     },
                     onFavorite = {
                         selectedControlIndex = 4
@@ -711,6 +772,9 @@ private fun PlayerBottomOverlay(
     currentProgram: EpgProgram?,
     nextProgram: EpgProgram?,
     isLandscape: Boolean,
+    isVodContent: Boolean,
+    currentPositionMs: Long,
+    durationMs: Long,
     selectedControlIndex: Int,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
@@ -743,6 +807,14 @@ private fun PlayerBottomOverlay(
                     overflow = TextOverflow.Ellipsis
                 )
 
+                if (isVodContent && durationMs > 0L) {
+                    PlayerProgressBar(
+                        currentPositionMs = currentPositionMs,
+                        durationMs = durationMs
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
+
                 PlayerEpgInfo(
                     currentProgram = currentProgram,
                     nextProgram = nextProgram
@@ -756,8 +828,8 @@ private fun PlayerBottomOverlay(
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    PlayerControlChip("Ant.", selectedControlIndex == 1, canPrevious, onPrevious)
-                    PlayerControlChip("Sig.", selectedControlIndex == 2, canNext, onNext)
+                    PlayerControlChip(if (isVodContent) "-10s" else "Ant.", selectedControlIndex == 1, if (isVodContent) currentPositionMs > 1000L else canPrevious, onPrevious)
+                    PlayerControlChip(if (isVodContent) "+30s" else "Sig.", selectedControlIndex == 2, if (isVodContent) durationMs <= 0L || currentPositionMs < durationMs - 1000L else canNext, onNext)
                     PlayerControlChip("Vista", selectedControlIndex == 3, true, onChangeResizeMode)
                     PlayerControlChip(if (isFavorite) "Quitar" else "Fav.", selectedControlIndex == 4, true, onFavorite)
                     PlayerControlChip("Reportar", selectedControlIndex == 5, true, onReport)
@@ -785,7 +857,15 @@ private fun PlayerBottomOverlay(
                         overflow = TextOverflow.Ellipsis
                     )
 
-                    PlayerEpgInfo(
+                    if (isVodContent && durationMs > 0L) {
+                    PlayerProgressBar(
+                        currentPositionMs = currentPositionMs,
+                        durationMs = durationMs
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
+
+                PlayerEpgInfo(
                         currentProgram = currentProgram,
                         nextProgram = nextProgram
                     )
@@ -794,8 +874,8 @@ private fun PlayerBottomOverlay(
                 Spacer(modifier = Modifier.width(12.dp))
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    PlayerControlChip("Ant.", selectedControlIndex == 1, canPrevious, onPrevious)
-                    PlayerControlChip("Sig.", selectedControlIndex == 2, canNext, onNext)
+                    PlayerControlChip(if (isVodContent) "-10s" else "Ant.", selectedControlIndex == 1, if (isVodContent) currentPositionMs > 1000L else canPrevious, onPrevious)
+                    PlayerControlChip(if (isVodContent) "+30s" else "Sig.", selectedControlIndex == 2, if (isVodContent) durationMs <= 0L || currentPositionMs < durationMs - 1000L else canNext, onNext)
                     PlayerControlChip("Vista", selectedControlIndex == 3, true, onChangeResizeMode)
                     PlayerControlChip(if (isFavorite) "Quitar" else "Fav.", selectedControlIndex == 4, true, onFavorite)
                     PlayerControlChip("Reportar", selectedControlIndex == 5, true, onReport)
@@ -859,6 +939,59 @@ private fun PlayerControlChip(
     }
 }
 
+
+@Composable
+private fun PlayerProgressBar(
+    currentPositionMs: Long,
+    durationMs: Long
+) {
+    val safeDuration = durationMs.coerceAtLeast(1L)
+    val progress = (currentPositionMs.toFloat() / safeDuration.toFloat()).coerceIn(0f, 1f)
+    val shape = RoundedCornerShape(999.dp)
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(7.dp)
+                .background(
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f),
+                    shape
+                )
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(progress)
+                    .height(7.dp)
+                    .background(
+                        MaterialTheme.colorScheme.primary,
+                        shape
+                    )
+            )
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = formatPlaybackTime(currentPositionMs),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.82f)
+            )
+
+            Text(
+                text = formatPlaybackTime(durationMs),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.82f)
+            )
+        }
+    }
+}
+
 @Composable
 private fun PlayerEpgInfo(
     currentProgram: EpgProgram?,
@@ -883,6 +1016,64 @@ private fun PlayerEpgInfo(
         )
     }
 }
+
+
+private fun isVodChannel(channel: SavedChannel): Boolean {
+    val group = channel.group.lowercase(Locale.getDefault())
+    val name = channel.name.lowercase(Locale.getDefault())
+    val url = channel.streamUrl.lowercase(Locale.getDefault())
+
+    val looksLiveGroup =
+        group.startsWith("tv ") ||
+            group.startsWith("tv |") ||
+            group.startsWith("tv 0") ||
+            group.contains("en vivo") ||
+            group.contains("canales")
+
+    if (looksLiveGroup) {
+        return false
+    }
+
+    val looksVodGroup =
+        group.contains("pelicula") ||
+            group.contains("película") ||
+            group.contains("movie") ||
+            group.contains("vod") ||
+            group.contains("cine") ||
+            group.contains("serie") ||
+            group.contains("series") ||
+            group.contains("temporada") ||
+            group.contains("capitulo") ||
+            group.contains("capítulo") ||
+            group.contains("anime")
+
+    val looksEpisode =
+        Regex("\\bs[0-9]{1,2}\\s*e[0-9]{1,3}\\b").containsMatchIn(name) ||
+            Regex("\\b[0-9]{1,2}x[0-9]{1,3}\\b").containsMatchIn(name)
+
+    val looksVodUrl =
+        url.contains(".mp4") ||
+            url.contains(".mkv") ||
+            url.contains(".avi") ||
+            url.contains(".mov") ||
+            url.contains(".webm")
+
+    return looksVodGroup || looksEpisode || looksVodUrl
+}
+
+private fun formatPlaybackTime(value: Long): String {
+    val totalSeconds = (value / 1000L).coerceAtLeast(0L)
+    val hours = totalSeconds / 3600L
+    val minutes = (totalSeconds % 3600L) / 60L
+    val seconds = totalSeconds % 60L
+
+    return if (hours > 0L) {
+        "%d:%02d:%02d".format(hours, minutes, seconds)
+    } else {
+        "%02d:%02d".format(minutes, seconds)
+    }
+}
+
 
 private fun formatPlayerEpgTime(value: Long): String {
     return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(value))
