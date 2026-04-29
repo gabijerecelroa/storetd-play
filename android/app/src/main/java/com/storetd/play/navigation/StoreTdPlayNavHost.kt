@@ -2,6 +2,7 @@ package com.storetd.play.navigation
 
 import android.net.Uri
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -10,6 +11,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -37,6 +41,7 @@ import com.storetd.play.feature.settings.SettingsScreen
 import com.storetd.play.feature.security.SecurityBlockedScreen
 import com.storetd.play.feature.support.SupportScreen
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -44,6 +49,7 @@ import kotlinx.coroutines.withContext
 fun StoreTdPlayNavHost() {
     val navController = rememberNavController()
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     val liveTvViewModel: LiveTvViewModel = viewModel()
 
@@ -94,6 +100,28 @@ fun checkAccountStatus() {
         reloadConfig()
         checkAccountStatus()
     }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(120000L)
+            checkAccountStatus()
+        }
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                checkAccountStatus()
+            }
+        }
+
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
 
     fun navigateAndClear(route: String) {
         navController.navigate(route) {
