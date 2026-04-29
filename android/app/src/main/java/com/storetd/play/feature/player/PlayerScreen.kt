@@ -74,6 +74,7 @@ import com.storetd.play.core.network.ChannelReportPayload
 import com.storetd.play.core.player.PlayerSession
 import com.storetd.play.core.storage.LocalAccount
 import com.storetd.play.core.storage.LocalLibrary
+import com.storetd.play.core.storage.PlaybackProgressStore
 import com.storetd.play.core.storage.SavedChannel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -151,6 +152,8 @@ fun PlayerScreen(
         isVodChannel(currentChannel)
     }
 
+    var hasRestoredVodProgress by remember(currentChannel.streamUrl) { mutableStateOf(false) }
+
     var currentEpgProgram by remember(currentChannel.name) { mutableStateOf<EpgProgram?>(null) }
     var nextEpgProgram by remember(currentChannel.name) { mutableStateOf<EpgProgram?>(null) }
 
@@ -201,11 +204,29 @@ fun PlayerScreen(
         }
     }
 
-    LaunchedEffect(player, currentChannel.streamUrl) {
+    LaunchedEffect(player, currentChannel.streamUrl, isVodContent) {
+        var saveTick = 0
+
         while (true) {
             currentPositionMs = player.currentPosition.coerceAtLeast(0L)
             durationMs = if (player.duration > 0L) player.duration else 0L
-            delay(500)
+
+            if (isVodContent && durationMs > 0L && currentPositionMs > 3000L) {
+                saveTick += 1
+
+                if (saveTick >= 2) {
+                    saveTick = 0
+
+                    PlaybackProgressStore.save(
+                        context = context,
+                        channel = currentChannel,
+                        positionMs = currentPositionMs,
+                        durationMs = durationMs
+                    )
+                }
+            }
+
+            delay(1000)
         }
     }
 
@@ -218,6 +239,33 @@ fun PlayerScreen(
                     retryAttempt = 0
                     reconnectMessage = null
                     errorMessage = null
+
+                    if (isVodContent && !hasRestoredVodProgress) {
+                        hasRestoredVodProgress = true
+
+                        val saved = PlaybackProgressStore.get(context, currentChannel.streamUrl)
+                        val duration = if (player.duration > 0L) {
+                            player.duration
+                        } else {
+                            saved?.durationMs ?: 0L
+                        }
+
+                        val position = saved?.positionMs ?: 0L
+
+                        if (
+                            saved != null &&
+                            !saved.finished &&
+                            duration > 0L &&
+                            position > 15000L &&
+                            position < duration - 15000L
+                        ) {
+                            player.seekTo(position)
+                            currentPositionMs = position
+                            durationMs = duration
+                            reconnectMessage = "Continuando desde ${formatPlaybackTime(position)}"
+                            showControls = true
+                        }
+                    }
                 }
             }
 
