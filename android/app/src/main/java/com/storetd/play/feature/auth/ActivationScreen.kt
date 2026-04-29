@@ -3,14 +3,15 @@ package com.storetd.play.feature.auth
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -31,7 +32,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.storetd.play.R
 import com.storetd.play.core.network.ActivationApi
-import com.storetd.play.core.storage.LocalAccount
 import com.storetd.play.core.device.DeviceIdentity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -59,135 +59,153 @@ fun ActivationScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 
-    Column(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .navigationBarsPadding()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
+            .padding(22.dp)
     ) {
-        Image(
-            painter = painterResource(id = R.drawable.ic_storetd_logo),
-            contentDescription = "StoreTD Play",
-            modifier = Modifier.size(110.dp)
-        )
+        val isTvWide = maxWidth >= 700.dp
+        val contentWidth = if (isTvWide) 0.82f else 1f
 
-        Spacer(modifier = Modifier.height(20.dp))
-
-        Text(
-            text = "StoreTD Play",
-            style = MaterialTheme.typography.headlineLarge,
-            color = MaterialTheme.colorScheme.primary
-        )
-
-        Text(
-            text = "Activa tu dispositivo para continuar",
-            style = MaterialTheme.typography.bodyLarge
-        )
-
-        Spacer(modifier = Modifier.height(28.dp))
-
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                OutlinedTextField(
-                    value = customerName,
-                    onValueChange = { customerName = it },
-                    label = { Text("Nombre del cliente") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoading
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(if (isTvWide) 12.dp else 16.dp)
+        ) {
+            item {
+                Image(
+                    painter = painterResource(id = R.drawable.ic_storetd_logo),
+                    contentDescription = "StoreTD Play",
+                    modifier = Modifier.size(if (isTvWide) 74.dp else 96.dp)
                 )
+            }
 
-                OutlinedTextField(
-                    value = activationCode,
-                    onValueChange = { activationCode = it.uppercase().take(20) },
-                    label = { Text("Codigo de activacion") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoading
+            item {
+                Text(
+                    text = "StoreTD Play",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.primary
                 )
+            }
 
-                errorMessage?.let {
-                    Text(
-                        text = it,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
+            item {
+                Text(
+                    text = "Activa tu dispositivo para continuar",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.86f)
+                )
+            }
 
-                if (isLoading) {
-                    CircularProgressIndicator()
-                }
+            item {
+                Card(modifier = Modifier.fillMaxWidth(contentWidth)) {
+                    Column(
+                        modifier = Modifier.padding(if (isTvWide) 18.dp else 20.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = customerName,
+                            onValueChange = { customerName = it },
+                            label = { Text("Nombre del cliente") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isLoading
+                        )
 
-                Button(
-                    onClick = {
-                        if (customerName.trim().length < 2) {
-                            errorMessage = "Ingresa el nombre del cliente."
-                            return@Button
+                        OutlinedTextField(
+                            value = activationCode,
+                            onValueChange = { activationCode = it.uppercase().take(20) },
+                            label = { Text("Código de activación") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isLoading
+                        )
+
+                        errorMessage?.let {
+                            Text(
+                                text = it,
+                                color = MaterialTheme.colorScheme.error
+                            )
                         }
 
-                        if (activationCode.trim().length < 4) {
-                            errorMessage = "El codigo debe tener al menos 4 caracteres."
-                            return@Button
+                        if (isLoading) {
+                            CircularProgressIndicator()
                         }
 
-                        isLoading = true
-                        errorMessage = null
+                        Button(
+                            onClick = {
+                                if (customerName.trim().length < 2) {
+                                    errorMessage = "Ingresa el nombre del cliente."
+                                    return@Button
+                                }
 
-                        scope.launch {
-                            val deviceCode = LocalAccount.getDeviceCode(context)
+                                if (activationCode.trim().length < 4) {
+                                    errorMessage = "El código debe tener al menos 4 caracteres."
+                                    return@Button
+                                }
 
-                            val result = withContext(Dispatchers.IO) {
-                                ActivationApi.activate(
-                                    customerName = customerName.trim(),
-                                    activationCode = activationCode.trim(),
-                                    deviceCode = deviceCode
-                                )
-                            }
+                                isLoading = true
+                                errorMessage = null
 
-                            isLoading = false
+                                scope.launch {
+                                    val deviceCode = DeviceIdentity.getOrCreateDeviceCode(context)
 
-                            if (result.success) {
-                                onActivate(
-                                    result.customerName ?: customerName.trim(),
-                                    result.activationCode ?: activationCode.trim(),
-                                    result.status ?: "Activa",
-                                    result.expiresAt ?: "",
-                                    result.playlistUrl ?: "",
-                                    result.epgUrl ?: "",
-                                    result.maxDevices ?: 1,
-                                    result.deviceCount ?: 1
-                                )
-                            } else {
-                                errorMessage = result.message
-                            }
+                                    val result = withContext(Dispatchers.IO) {
+                                        ActivationApi.activate(
+                                            customerName = customerName.trim(),
+                                            activationCode = activationCode.trim(),
+                                            deviceCode = deviceCode
+                                        )
+                                    }
+
+                                    isLoading = false
+
+                                    if (result.success) {
+                                        onActivate(
+                                            result.customerName ?: customerName.trim(),
+                                            result.activationCode ?: activationCode.trim(),
+                                            result.status ?: "Activa",
+                                            result.expiresAt ?: "",
+                                            result.playlistUrl ?: "",
+                                            result.epgUrl ?: "",
+                                            result.maxDevices ?: 1,
+                                            result.deviceCount ?: 1
+                                        )
+                                    } else {
+                                        errorMessage = result.message
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isLoading
+                        ) {
+                            Text("Activar con backend")
                         }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoading
-                ) {
-                    Text("Activar con backend")
-                }
 
-                OutlinedButton(
-                    onClick = onDemo,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoading
-                ) {
-                    Text("Entrar en modo demo")
+                        OutlinedButton(
+                            onClick = onDemo,
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isLoading
+                        ) {
+                            Text("Entrar en modo demo")
+                        }
+                    }
                 }
             }
+
+            item {
+                Text(
+                    text = "Esta app no incluye contenido. Usa solo listas autorizadas.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.62f),
+                    modifier = Modifier.fillMaxWidth(contentWidth)
+                )
+            }
+
+            item {
+                Spacer(modifier = Modifier.padding(bottom = 12.dp))
+            }
         }
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        Text(
-            text = "Esta app no incluye contenido. Usa solo listas autorizadas.",
-            style = MaterialTheme.typography.bodySmall
-        )
     }
 }

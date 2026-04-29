@@ -161,7 +161,7 @@ class LiveTvViewModel(
     }
 
     fun refreshPlaylist(context: Context) {
-        PlaylistMemoryCache.clear()
+        PlaylistMemoryCache.clear(_uiState.value.playlistUrl)
         PlaylistDiskCache.clear(context, _uiState.value.playlistUrl)
         loadPlaylistFrom(context, _uiState.value.playlistUrl, forceRefresh = true)
     }

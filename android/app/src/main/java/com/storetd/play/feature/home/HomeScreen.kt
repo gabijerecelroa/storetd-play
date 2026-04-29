@@ -9,20 +9,19 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,8 +37,8 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -73,18 +72,16 @@ fun HomeScreen(
     val account = LocalAccount.getAccount(context)
     val customerName = account.customerName.ifBlank { "cliente" }
 
-    val mainActions = listOf(
+    val actions = listOf(
         HomeAction("TV en vivo", "Canales, categorías y zapping", "LIVE", onOpenLiveTv),
         HomeAction("Películas", "Cine y contenido VOD", "VOD", onOpenMovies),
-        HomeAction("Series", "Temporadas, carpetas y capítulos", "SERIES", onOpenSeries)
-    )
-
-    val secondaryActions = listOf(
+        HomeAction("Series", "Temporadas, carpetas y capítulos", "SERIES", onOpenSeries),
         HomeAction("Guía EPG", "Programación actual", "GUÍA", onOpenEpg),
         HomeAction("Favoritos", "Tus contenidos guardados", "FAV", onOpenFavorites),
         HomeAction("Últimos vistos", "Continúa donde quedaste", "HIST", onOpenHistory),
-        HomeAction("Mi cuenta", "Estado y dispositivo", "CUENTA", onOpenAccount),
-        HomeAction("Configuración", "Caché, PIN y ajustes", "AJUSTES", onOpenSettings)
+        HomeAction("Mi cuenta", "Estado, vencimiento y dispositivo", "CUENTA", onOpenAccount),
+        HomeAction("Configuración", "Caché, PIN parental y ajustes", "AJUSTES", onOpenSettings),
+        HomeAction("Soporte", "Ayuda y contacto", "HELP", onOpenSupport)
     )
 
     BoxWithConstraints(
@@ -92,193 +89,81 @@ fun HomeScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .navigationBarsPadding()
-            .padding(22.dp)
+            .padding(24.dp)
     ) {
         val isTvWide = maxWidth >= 700.dp
 
-        LazyColumn(
+        Column(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            item {
-                Header(
-                    customerName = customerName,
-                    onOpenSupport = onOpenSupport
+            Column {
+                Image(
+                    painter = painterResource(id = R.drawable.ic_storetd_logo),
+                    contentDescription = "StoreTD Play",
+                    modifier = Modifier.size(if (isTvWide) 64.dp else 54.dp)
                 )
-            }
 
-            item {
-                HeroBanner()
-            }
+                Spacer(modifier = Modifier.height(8.dp))
 
-            item {
                 Text(
-                    text = "Principales",
-                    style = MaterialTheme.typography.titleLarge,
+                    text = "StoreTD Play",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
+                )
+
+                Text(
+                    text = "Bienvenido $customerName",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.86f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text = "Elegí una sección con el control remoto",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.92f)
                 )
             }
 
             if (isTvWide) {
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        mainActions.forEachIndexed { index, action ->
-                            TvHomeCard(
-                                action = action,
-                                large = true,
-                                requestInitialFocus = index == 0,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(3),
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(18.dp)
+                ) {
+                    items(actions) { action ->
+                        TvHomeCard(
+                            action = action,
+                            requestInitialFocus = action.title == "TV en vivo",
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
             } else {
-                items(mainActions.size) { index ->
-                    TvHomeCard(
-                        action = mainActions[index],
-                        large = true,
-                        requestInitialFocus = index == 0,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-
-            item {
-                Text(
-                    text = "Accesos",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            if (isTvWide) {
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        secondaryActions.take(3).forEach { action ->
-                            TvHomeCard(
-                                action = action,
-                                large = false,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    items(actions.size) { index ->
+                        TvHomeCard(
+                            action = actions[index],
+                            requestInitialFocus = index == 0,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
-
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        secondaryActions.drop(3).forEach { action ->
-                            TvHomeCard(
-                                action = action,
-                                large = false,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
-                }
-            } else {
-                items(secondaryActions.size) { index ->
-                    TvHomeCard(
-                        action = secondaryActions[index],
-                        large = false,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-
-            item {
-                Text(
-                    text = "StoreTD Play · Reproductor privado para contenido autorizado",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.62f),
-                    modifier = Modifier.padding(bottom = 20.dp)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun Header(
-    customerName: String,
-    onOpenSupport: () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Image(
-            painter = painterResource(id = R.drawable.ic_storetd_logo),
-            contentDescription = "StoreTD Play",
-            modifier = Modifier.size(64.dp)
-        )
-
-        Spacer(modifier = Modifier.width(14.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "StoreTD Play",
-                style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1
-            )
-
-            Text(
-                text = "Bienvenido $customerName",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.78f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-
-        OutlinedButton(onClick = onOpenSupport) {
-            Text("Soporte")
-        }
-    }
-}
-
-@Composable
-private fun HeroBanner() {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 115.dp),
-        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
-        shape = RoundedCornerShape(28.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(22.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Surface(
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.45f),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f)),
-                shape = RoundedCornerShape(14.dp)
-            ) {
-                Text(
-                    text = "Contenido autorizado",
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
-                )
             }
 
             Text(
-                text = "Elegí una sección con el control remoto",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
+                text = "StoreTD Play · Reproductor privado para contenido autorizado",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.62f)
             )
         }
     }
@@ -287,7 +172,6 @@ private fun HeroBanner() {
 @Composable
 private fun TvHomeCard(
     action: HomeAction,
-    large: Boolean,
     requestInitialFocus: Boolean = false,
     modifier: Modifier = Modifier
 ) {
@@ -297,30 +181,22 @@ private fun TvHomeCard(
 
     if (requestInitialFocus) {
         LaunchedEffect(Unit) {
-            runCatching {
-                focusRequester.requestFocus()
-            }
+            runCatching { focusRequester.requestFocus() }
         }
     }
 
     Surface(
         modifier = modifier
-            .height(if (large) 168.dp else 128.dp)
+            .height(142.dp)
             .focusRequester(focusRequester)
             .onFocusChanged { focused = it.isFocused || it.hasFocus }
             .onPreviewKeyEvent { event ->
-                if (event.type != KeyEventType.KeyDown) {
-                    return@onPreviewKeyEvent false
-                }
-
+                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 when (event.key) {
-                    Key.DirectionCenter,
-                    Key.Enter,
-                    Key.NumPadEnter -> {
+                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
                         action.onClick()
                         true
                     }
-
                     else -> false
                 }
             }
@@ -329,24 +205,28 @@ private fun TvHomeCard(
                 color = if (focused) {
                     MaterialTheme.colorScheme.primary
                 } else {
-                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f)
                 },
                 shape = shape
             )
             .focusable()
             .clickable { action.onClick() },
         color = if (focused) {
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.24f)
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
         } else {
             MaterialTheme.colorScheme.surfaceVariant
         },
         shadowElevation = if (focused) 14.dp else 5.dp,
         tonalElevation = if (focused) 8.dp else 2.dp,
-        shape = shape
+        shape = shape,
+        border = BorderStroke(
+            1.dp,
+            if (focused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+        )
     ) {
         Column(
             modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(7.dp)
         ) {
             Surface(
                 color = MaterialTheme.colorScheme.background.copy(alpha = 0.36f),
@@ -357,18 +237,16 @@ private fun TvHomeCard(
                     text = action.badge,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                 )
             }
 
             Text(
                 text = action.title,
-                style = if (large) {
-                    MaterialTheme.typography.headlineSmall
-                } else {
-                    MaterialTheme.typography.titleLarge
-                },
+                style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -376,16 +254,15 @@ private fun TvHomeCard(
             Text(
                 text = action.subtitle,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.76f),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.80f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
 
             Text(
                 text = if (focused) "OK para abrir" else "Abrir",
                 style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary,
+                color = if (focused) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold
             )
         }

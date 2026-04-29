@@ -1,5 +1,13 @@
 package com.storetd.play.feature.player
 
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.foundation.focusable
 import android.content.res.Configuration
 import android.os.Build
 import android.view.View
@@ -103,6 +111,7 @@ fun PlayerScreen(
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val scope = rememberCoroutineScope()
+    val playerFocusRequester = remember { FocusRequester() }
 
     var currentChannel by remember {
         mutableStateOf(
@@ -312,11 +321,63 @@ fun PlayerScreen(
         showControls = true
     }
 
+    LaunchedEffect(currentChannel.streamUrl) {
+        runCatching {
+            playerFocusRequester.requestFocus()
+        }
+    }
+
     BackHandler { onBack() }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .focusRequester(playerFocusRequester)
+            .focusable()
+            .onPreviewKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) {
+                    return@onPreviewKeyEvent false
+                }
+
+                when (event.key) {
+                    Key.DirectionRight -> {
+                        if (showControls) {
+                            false
+                        } else {
+                            zapNext()
+                            true
+                        }
+                    }
+
+                    Key.DirectionLeft -> {
+                        if (showControls) {
+                            false
+                        } else {
+                            zapPrevious()
+                            true
+                        }
+                    }
+
+                    Key.DirectionUp,
+                    Key.DirectionDown -> {
+                        showControls = true
+                        true
+                    }
+
+                    Key.DirectionCenter,
+                    Key.Enter,
+                    Key.NumPadEnter -> {
+                        if (showControls) {
+                            false
+                        } else {
+                            showControls = true
+                            true
+                        }
+                    }
+
+                    else -> false
+                }
+            }
             .background(MaterialTheme.colorScheme.background)
             .clickable {
                 showControls = !showControls
