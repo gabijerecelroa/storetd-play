@@ -27,6 +27,7 @@ jobs:
         run: |
           printf '%s' "${{ secrets.STORETD_KEYSTORE_BASE64 }}" | tr -d '\r\n ' | base64 -d > storetd-release.jks
           ls -lh storetd-release.jks
+          echo "STORETD_KEYSTORE_FILE=${GITHUB_WORKSPACE}/storetd-release.jks" >> "$GITHUB_ENV"
 
       - name: Make Gradle executable
         run: chmod +x ./gradlew

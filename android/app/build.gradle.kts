@@ -1,3 +1,4 @@
+import java.io.File
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,6 +6,19 @@ plugins {
 }
 
 android {
+    signingConfigs {
+        create("release") {
+            val envStoreFile = System.getenv("STORETD_KEYSTORE_FILE").orEmpty()
+            val fallbackStoreFile = File(rootProject.projectDir, "../storetd-release.jks").absolutePath
+            val selectedStoreFile = if (envStoreFile.isNotBlank()) envStoreFile else fallbackStoreFile
+
+            storeFile = File(selectedStoreFile)
+            storePassword = System.getenv("STORETD_KEYSTORE_PASSWORD").orEmpty()
+            keyAlias = System.getenv("STORETD_KEY_ALIAS").orEmpty()
+            keyPassword = System.getenv("STORETD_KEY_PASSWORD").orEmpty()
+        }
+    }
+
     namespace = "com.storetd.play"
     compileSdk = 36
 
@@ -44,18 +58,6 @@ android {
             "\"${System.getenv("SUPPORT_EMAIL") ?: "soporte@example.com"}\""
         )
         resValue("string", "app_name", System.getenv("APP_NAME") ?: "StoreTD Play")
-    }
-
-    signingConfigs {
-        create("release") {
-            val keystoreFile = file("release.keystore")
-            if (keystoreFile.exists()) {
-                storeFile = keystoreFile
-                storePassword = System.getenv("KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("KEY_ALIAS")
-                keyPassword = System.getenv("KEY_PASSWORD")
-            }
-        }
     }
 
     buildTypes {
