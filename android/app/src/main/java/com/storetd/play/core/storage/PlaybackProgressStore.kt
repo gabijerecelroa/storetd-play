@@ -70,7 +70,8 @@ object PlaybackProgressStore {
     }
 
     fun unfinished(context: Context): List<PlaybackProgress> {
-        return all(context).filter { !it.finished && it.positionMs > 15000L && it.durationMs > 0L }
+        return all(context)
+            .filter { !it.finished && it.positionMs > 15000L && it.durationMs > 0L }
     }
 
     fun all(context: Context): List<PlaybackProgress> {
