@@ -208,6 +208,19 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
     onClearSeries: () -> Unit,
     onPlay: (Channel, List<Channel>) -> Unit
 ) {
+    if (state.isLoading || state.isFiltering) {
+        item {
+            LoadingSectionCard(
+                text = if (state.isLoading) {
+                    "Sincronizando ${contentMode.title.lowercase(Locale.getDefault())}..."
+                } else {
+                    "Preparando ${contentMode.title.lowercase(Locale.getDefault())}..."
+                }
+            )
+        }
+        return
+    }
+
     if (contentMode != ContentMode.Series) {
         items(state.visibleChannels) { channel ->
             ChannelRow(
@@ -251,6 +264,24 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                 currentProgram = null,
                 nextProgram = null,
                 onPlay = { onPlay(episode, selectedFolder.episodes) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun LoadingSectionCard(
+    text: String
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            CircularProgressIndicator()
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyMedium
             )
         }
     }

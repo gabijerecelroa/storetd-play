@@ -65,15 +65,19 @@ class LiveTvViewModel(
 
     fun setContentMode(mode: ContentMode) {
         val current = _uiState.value
+        val modeChanged = current.contentMode != mode
 
         _uiState.value = current.copy(
             contentMode = mode,
             selectedGroup = "Todos",
             searchQuery = "",
+            visibleChannels = if (modeChanged) emptyList() else current.visibleChannels,
+            totalVisibleCount = if (modeChanged) 0 else current.totalVisibleCount,
+            groups = if (modeChanged) listOf("Todos") else current.groups,
             isFiltering = current.channels.isNotEmpty()
         )
 
-        if (current.channels.isNotEmpty()) {
+        if (current.channels.isNotEmpty() && !modeChanged) {
             refreshVisibleContent()
         }
     }
@@ -113,8 +117,23 @@ class LiveTvViewModel(
     fun loadAssignedPlaylist(context: Context, url: String) {
         val cleanUrl = url.trim()
         val current = _uiState.value
+        val urlChanged = current.playlistUrl != cleanUrl
 
-        if (current.channels.isNotEmpty() && current.playlistUrl == cleanUrl) {
+        if (urlChanged) {
+            _uiState.value = current.copy(
+                playlistUrl = cleanUrl,
+                channels = emptyList(),
+                visibleChannels = emptyList(),
+                groups = listOf("Todos"),
+                totalVisibleCount = 0,
+                isFiltering = true,
+                errorMessage = null
+            )
+        }
+
+        val latest = _uiState.value
+
+        if (latest.channels.isNotEmpty() && latest.playlistUrl == cleanUrl) {
             refreshVisibleContent()
             return
         }
