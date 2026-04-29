@@ -217,18 +217,24 @@ private fun HeroCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(1.75f)
+                .heightIn(min = 310.dp)
                 .clip(MaterialTheme.shapes.extraLarge)
                 .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.13f))
-                .padding(22.dp)
+                .padding(24.dp)
         ) {
             Column(
                 modifier = Modifier.align(Alignment.CenterStart),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 AssistChip(
                     onClick = {},
-                    label = { Text("Contenido autorizado") }
+                    label = {
+                        Text(
+                            text = "Contenido autorizado",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 )
 
                 Text(
