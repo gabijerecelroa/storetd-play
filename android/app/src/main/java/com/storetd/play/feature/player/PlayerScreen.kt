@@ -121,6 +121,8 @@ fun PlayerScreen(
     var errorMessage by remember(currentChannel.streamUrl) { mutableStateOf<String?>(null) }
     var isBuffering by remember(currentChannel.streamUrl) { mutableStateOf(false) }
     var isPlaying by remember(currentChannel.streamUrl) { mutableStateOf(true) }
+    var retryAttempt by remember(currentChannel.streamUrl) { mutableStateOf(0) }
+    var reconnectMessage by remember(currentChannel.streamUrl) { mutableStateOf<String?>(null) }
     var showControls by remember(currentChannel.streamUrl) { mutableStateOf(true) }
     var showReportDialog by remember { mutableStateOf(false) }
     var reportMessage by remember { mutableStateOf<String?>(null) }
@@ -177,6 +179,12 @@ fun PlayerScreen(
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 isBuffering = playbackState == Player.STATE_BUFFERING
+
+                if (playbackState == Player.STATE_READY) {
+                    retryAttempt = 0
+                    reconnectMessage = null
+                    errorMessage = null
+                }
             }
 
             override fun onIsPlayingChanged(playing: Boolean) {
@@ -185,6 +193,7 @@ fun PlayerScreen(
 
             override fun onPlayerError(error: PlaybackException) {
                 errorMessage = error.message ?: "No se pudo reproducir este canal."
+                reconnectMessage = "Detectamos un problema de reproducción."
                 showControls = true
             }
         }
@@ -197,7 +206,7 @@ fun PlayerScreen(
         }
     }
 
-    fun retryPlayback() {
+    fun restartPlayback() {
         errorMessage = null
         showControls = true
         player.stop()
@@ -205,6 +214,37 @@ fun PlayerScreen(
         player.setMediaItem(MediaItem.fromUri(currentChannel.streamUrl))
         player.prepare()
         player.playWhenReady = true
+    }
+
+    fun retryPlayback() {
+        retryAttempt = 0
+        reconnectMessage = "Reintentando reproducción..."
+        restartPlayback()
+    }
+
+    LaunchedEffect(errorMessage, currentChannel.streamUrl) {
+        if (errorMessage != null && retryAttempt < 3) {
+            val nextAttempt = retryAttempt + 1
+            retryAttempt = nextAttempt
+            reconnectMessage = "Reintentando automáticamente $nextAttempt/3..."
+            delay(1800L * nextAttempt)
+            restartPlayback()
+        } else if (errorMessage != null && retryAttempt >= 3) {
+            reconnectMessage = "No se pudo recuperar la reproducción. Prueba Reintentar o Siguiente."
+        }
+    }
+
+    LaunchedEffect(isBuffering, currentChannel.streamUrl) {
+        if (isBuffering && errorMessage == null && retryAttempt < 3) {
+            delay(16000L)
+
+            if (isBuffering && errorMessage == null) {
+                val nextAttempt = retryAttempt + 1
+                retryAttempt = nextAttempt
+                reconnectMessage = "El canal tarda en responder. Reintentando $nextAttempt/3..."
+                restartPlayback()
+            }
+        }
     }
 
     fun togglePlayPause() {
@@ -347,6 +387,20 @@ fun PlayerScreen(
             ) {
                 Text(
                     text = "Cargando...",
+                    modifier = Modifier.padding(14.dp),
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+
+        reconnectMessage?.let { message ->
+            Card(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(top = 154.dp)
+            ) {
+                Text(
+                    text = message,
                     modifier = Modifier.padding(14.dp),
                     color = MaterialTheme.colorScheme.primary
                 )
