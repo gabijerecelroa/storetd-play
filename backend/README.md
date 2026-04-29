@@ -1,6 +1,6 @@
 # StoreTD Play Backend
 
-Backend con activacion, panel admin, clientes, dispositivos, reportes, configuracion remota y EPG Proxy usando Supabase/PostgreSQL.
+Backend con activacion, panel admin, clientes, dispositivos, reportes, configuracion remota, EPG Proxy y Playlist Proxy usando Supabase/PostgreSQL.
 
 ## Variables requeridas
 
@@ -19,12 +19,26 @@ GET /
 GET /health
 GET /app/config
 GET /epg/proxy
+GET /playlist/proxy
 POST /auth/activate
 POST /reports/channel
 
 ## Panel admin
 
 /admin
+
+## Dispositivos
+
+/admin/devices
+
+Permite:
+
+- Ver dispositivos activados
+- Ver último uso
+- Agregar alias interno
+- Bloquear dispositivo
+- Desbloquear dispositivo
+- Desvincular dispositivo individual
 
 ## Configuracion comercial remota
 
@@ -45,6 +59,12 @@ POST /admin/api/clients
 PUT /admin/api/clients/:code
 DELETE /admin/api/clients/:code
 POST /admin/api/clients/:code/unlink-devices
+
+Dispositivos:
+
+GET /admin/api/devices
+PUT /admin/api/devices/:activationCode/:deviceCode
+DELETE /admin/api/devices/:activationCode/:deviceCode
 
 Reportes:
 

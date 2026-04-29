@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>StoreTD Play Devices</title>
+  <style>
+    :root {
+      --bg: #050505;
+      --card: #1f1f24;
+      --card2: #2c2c33;
+      --text: #ffffff;
+      --muted: #b8b8c2;
+      --red: #e50914;
+      --border: #3a3a44;
+      --input: #08080a;
+      --green: #1e8e3e;
+      --yellow: #d39e00;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    header {
+      padding: 22px;
+      background: #0d0d0f;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    h1 {
+      margin: 0;
+      color: var(--red);
+      font-size: 28px;
+    }
+
+    main {
+      padding: 18px;
+      max-width: 1100px;
+      margin: auto;
+    }
+
+    .card, .device {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+
+    .device {
+      background: var(--card2);
+    }
+
+    label {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    input, textarea {
+      width: 100%;
+      background: var(--input);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+      font-size: 15px;
+    }
+
+    textarea {
+      min-height: 70px;
+    }
+
+    button {
+      background: var(--red);
+      color: white;
+      border: 0;
+      border-radius: 999px;
+      padding: 11px 16px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      margin: 4px 4px 4px 0;
+    }
+
+    button.secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+    }
+
+    button.danger {
+      background: #9f1018;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      margin: 6px 0;
+    }
+
+    .badge.ok {
+      border-color: var(--green);
+    }
+
+    .badge.blocked {
+      border-color: var(--red);
+      color: #ffb3b3;
+    }
+
+    .message {
+      padding: 12px;
+      border-radius: 12px;
+      background: #111;
+      border: 1px solid var(--border);
+      margin-bottom: 14px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    @media (max-width: 760px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>StoreTD Play Devices</h1>
+    <div class="muted">Gestión de dispositivos autorizados</div>
+  </header>
+
+  <main>
+    <div id="message"></div>
+
+    <section class="card">
+      <h2>Acceso admin</h2>
+
+      <label>Clave admin</label>
+      <input id="adminKey" type="password" placeholder="ADMIN_KEY" />
+
+      <button onclick="saveKey()">Guardar clave</button>
+      <button class="secondary" onclick="loadDevices()">Actualizar dispositivos</button>
+      <button class="secondary" onclick="window.location.href='/admin'">Volver al panel</button>
+    </section>
+
+    <section class="card">
+      <h2>Buscar</h2>
+      <input id="search" oninput="renderDevices()" placeholder="Buscar por código, cliente, dispositivo o versión" />
+    </section>
+
+    <section class="card">
+      <h2>Dispositivos</h2>
+      <div id="devices"></div>
+    </section>
+  </main>
+
+  <script>
+    let devicesCache = [];
+
+    const adminKeyInput = document.getElementById("adminKey");
+    const messageBox = document.getElementById("message");
+    const devicesBox = document.getElementById("devices");
+    const searchInput = document.getElementById("search");
+
+    adminKeyInput.value =
+      sessionStorage.getItem("storetd_admin_key") ||
+      localStorage.getItem("storetd_admin_key") ||
+      "";
+
+    if (adminKeyInput.value) {
+      loadDevices();
+    }
+
+    function getKey() {
+      return adminKeyInput.value.trim();
+    }
+
+    function saveKey() {
+      sessionStorage.setItem("storetd_admin_key", getKey());
+      localStorage.setItem("storetd_admin_key", getKey());
+      showMessage("Clave guardada.");
+    }
+
+    function showMessage(text) {
+      messageBox.innerHTML = text ? `<div class="message">${escapeHtml(text)}</div>` : "";
+    }
+
+    async function api(path, options = {}) {
+      const response = await fetch(path, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-key": getKey(),
+          ...(options.headers || {})
+        }
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.message || "Error de servidor");
+      }
+
+      return data;
+    }
+
+    async function loadDevices() {
+      try {
+        showMessage("Cargando dispositivos...");
+        const data = await api("/admin/api/devices");
+        devicesCache = data.devices || [];
+        renderDevices();
+        showMessage("Dispositivos actualizados.");
+      } catch (error) {
+        showMessage(error.message);
+      }
+    }
+
+    function renderDevices() {
+      const query = normalize(searchInput.value || "");
+
+      const filtered = devicesCache.filter((device) => {
+        const text = normalize([
+          device.activationCode,
+          device.deviceCode,
+          device.appVersion,
+          device.nickname,
+          device.blockedReason
+        ].join(" "));
+
+        return !query || text.includes(query);
+      });
+
+      if (!filtered.length) {
+        devicesBox.innerHTML = "<p class='muted'>No hay dispositivos para mostrar.</p>";
+        return;
+      }
+
+      devicesBox.innerHTML = filtered.map((device, index) => {
+        return `
+          <div class="device">
+            <h3>
+              ${escapeHtml(device.nickname || "Dispositivo")}
+              <span class="badge ${device.blocked ? "blocked" : "ok"}">
+                ${device.blocked ? "Bloqueado" : "Activo"}
+              </span>
+            </h3>
+
+            <div class="muted">Código cliente: ${escapeHtml(device.activationCode)}</div>
+            <div class="muted">Código dispositivo: ${escapeHtml(device.deviceCode)}</div>
+            <div class="muted">Versión app: ${escapeHtml(device.appVersion || "-")}</div>
+            <div class="muted">Creado: ${escapeHtml(device.createdAt || "-")}</div>
+            <div class="muted">Último uso: ${escapeHtml(device.lastSeenAt || "-")}</div>
+
+            <div class="grid" style="margin-top:12px">
+              <div>
+                <label>Nombre interno / alias</label>
+                <input id="nickname-${index}" value="${escapeAttr(device.nickname || "")}" placeholder="TV living, celular cliente, etc." />
+              </div>
+
+              <div>
+                <label>Motivo de bloqueo</label>
+                <input id="reason-${index}" value="${escapeAttr(device.blockedReason || "")}" placeholder="Equipo perdido, abuso, cambio de cliente..." />
+              </div>
+            </div>
+
+            <button onclick='saveDevice(${index})'>Guardar</button>
+            <button class="secondary" onclick='toggleBlock(${index})'>
+              ${device.blocked ? "Desbloquear" : "Bloquear"}
+            </button>
+            <button class="danger" onclick='unlinkDevice(${index})'>Desvincular</button>
+          </div>
+        `;
+      }).join("");
+    }
+
+    async function saveDevice(index) {
+      const device = filteredDevice(index);
+
+      if (!device) return;
+
+      try {
+        await api(
+          `/admin/api/devices/${encodeURIComponent(device.activationCode)}/${encodeURIComponent(device.deviceCode)}`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              blocked: Boolean(device.blocked),
+              nickname: document.getElementById(`nickname-${index}`).value,
+              blockedReason: document.getElementById(`reason-${index}`).value
+            })
+          }
+        );
+
+        showMessage("Dispositivo guardado.");
+        loadDevices();
+      } catch (error) {
+        showMessage(error.message);
+      }
+    }
+
+    async function toggleBlock(index) {
+      const device = filteredDevice(index);
+
+      if (!device) return;
+
+      try {
+        await api(
+          `/admin/api/devices/${encodeURIComponent(device.activationCode)}/${encodeURIComponent(device.deviceCode)}`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              blocked: !device.blocked,
+              nickname: document.getElementById(`nickname-${index}`).value,
+              blockedReason: document.getElementById(`reason-${index}`).value || (!device.blocked ? "Dispositivo bloqueado por admin." : "")
+            })
+          }
+        );
+
+        showMessage(device.blocked ? "Dispositivo desbloqueado." : "Dispositivo bloqueado.");
+        loadDevices();
+      } catch (error) {
+        showMessage(error.message);
+      }
+    }
+
+    async function unlinkDevice(index) {
+      const device = filteredDevice(index);
+
+      if (!device) return;
+
+      if (!confirm("¿Desvincular este dispositivo? Podrá volver a activar si la cuenta tiene cupo.")) {
+        return;
+      }
+
+      try {
+        await api(
+          `/admin/api/devices/${encodeURIComponent(device.activationCode)}/${encodeURIComponent(device.deviceCode)}`,
+          { method: "DELETE" }
+        );
+
+        showMessage("Dispositivo desvinculado.");
+        loadDevices();
+      } catch (error) {
+        showMessage(error.message);
+      }
+    }
+
+    function filteredDevice(index) {
+      const query = normalize(searchInput.value || "");
+
+      const filtered = devicesCache.filter((device) => {
+        const text = normalize([
+          device.activationCode,
+          device.deviceCode,
+          device.appVersion,
+          device.nickname,
+          device.blockedReason
+        ].join(" "));
+
+        return !query || text.includes(query);
+      });
+
+      return filtered[index];
+    }
+
+    function normalize(value) {
+      return String(value || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value);
+    }
+  </script>
+</body>
+</html>

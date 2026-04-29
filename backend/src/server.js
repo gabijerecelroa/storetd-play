@@ -150,12 +150,26 @@ function groupReportsByChannel(reports) {
 async function getDeviceRows(activationCode) {
   const { data, error } = await supabase
     .from("devices")
-    .select("device_code")
+    .select("*")
     .eq("activation_code", activationCode)
     .order("last_seen_at", { ascending: false });
 
   if (error) throw error;
   return data || [];
+}
+
+function dbDeviceToApi(row) {
+  return {
+    id: row.id,
+    activationCode: row.activation_code || "",
+    deviceCode: row.device_code || "",
+    appVersion: row.app_version || "",
+    createdAt: row.created_at || "",
+    lastSeenAt: row.last_seen_at || "",
+    blocked: Boolean(row.blocked),
+    nickname: row.nickname || "",
+    blockedReason: row.blocked_reason || ""
+  };
 }
 
 app.get("/", (req, res) => {
@@ -232,7 +246,16 @@ app.post("/auth/activate", async (req, res) => {
     }
 
     const devices = await getDeviceRows(normalizedCode);
-    const alreadyRegistered = devices.some((item) => item.device_code === deviceCode);
+    const existingDevice = devices.find((item) => item.device_code === deviceCode);
+
+    if (existingDevice && existingDevice.blocked) {
+      return res.status(403).json({
+        success: false,
+        message: existingDevice.blocked_reason || "Este dispositivo fue bloqueado. Contacta a soporte."
+      });
+    }
+
+    const alreadyRegistered = Boolean(existingDevice);
     const maxDevices = Number(client.max_devices || 1);
 
     if (!alreadyRegistered && devices.length >= maxDevices) {
@@ -386,7 +409,8 @@ app.get("/admin/api/clients", requireAdmin, async (req, res) => {
         ...dbClientToApi(row),
         activationCode: code,
         deviceCount: devices.length,
-        devices: devices.map((item) => item.device_code)
+        devices: devices.map((item) => item.device_code),
+        deviceDetails: devices.map(dbDeviceToApi)
       });
     }
 
@@ -1223,6 +1247,106 @@ app.get("/playlist/proxy", async (req, res) => {
       "#EXTM3U\n# Error: no se pudo generar playlist proxy\n# " +
         String(error.message || "Error desconocido")
     );
+  }
+});
+
+
+
+app.get("/admin/devices", (req, res) => {
+  res.sendFile(path.join(__dirname, "..", "public", "devices.html"));
+});
+
+app.get("/admin/api/devices", requireAdmin, async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const { data, error } = await supabase
+      .from("devices")
+      .select("*")
+      .order("last_seen_at", { ascending: false });
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      devices: (data || []).map(dbDeviceToApi)
+    });
+  } catch (error) {
+    console.error("Devices list error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudieron cargar dispositivos."
+    });
+  }
+});
+
+app.put("/admin/api/devices/:activationCode/:deviceCode", requireAdmin, async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const activationCode = normalizeCode(req.params.activationCode);
+    const deviceCode = String(req.params.deviceCode || "");
+
+    const { data, error } = await supabase
+      .from("devices")
+      .update({
+        blocked: Boolean(req.body.blocked),
+        nickname: String(req.body.nickname || ""),
+        blocked_reason: String(req.body.blockedReason || "")
+      })
+      .eq("activation_code", activationCode)
+      .eq("device_code", deviceCode)
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (!data) {
+      return res.status(404).json({
+        success: false,
+        message: "Dispositivo no encontrado."
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Dispositivo actualizado.",
+      device: dbDeviceToApi(data)
+    });
+  } catch (error) {
+    console.error("Device update error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudo actualizar dispositivo."
+    });
+  }
+});
+
+app.delete("/admin/api/devices/:activationCode/:deviceCode", requireAdmin, async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const activationCode = normalizeCode(req.params.activationCode);
+    const deviceCode = String(req.params.deviceCode || "");
+
+    const { error } = await supabase
+      .from("devices")
+      .delete()
+      .eq("activation_code", activationCode)
+      .eq("device_code", deviceCode);
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      message: "Dispositivo desvinculado."
+    });
+  } catch (error) {
+    console.error("Device unlink error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudo desvincular dispositivo."
+    });
   }
 });
 
