@@ -68,6 +68,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.Alignment
 
 private data class SeriesFolder(
     val key: String,
@@ -83,8 +84,366 @@ fun LiveTvScreen(
     onBack: () -> Unit,
     onPlay: (Channel, List<Channel>) -> Unit,
     contentMode: ContentMode = ContentMode.LiveTv,
-    viewModel: LiveTvViewModel = viewModel()
-) {
+    viewModel: LiveTvViewModel = viewModel(),
+
+    onLoadMoreSeries: () -> Unit = {},) {
+    val context = LocalContext.current
+    val state by viewModel.uiState.collectAsState()
+
+    var selectedSeriesKey by remember(contentMode) { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(contentMode) {
+        selectedSeriesKey = null
+
+        viewModel.setContentMode(contentMode)
+        viewModel.setHideAdultContent(ParentalControl.isAdultContentHidden(context))
+
+        val account = LocalAccount.getAccount(context)
+        val assignedPlaylist = buildSectionPlaylistUrl(
+            activationCode = account.activationCode,
+            fallbackUrl = account.playlistUrl,
+            contentMode = contentMode
+        )
+
+        if (assignedPlaylist.isNotBlank()) {
+            viewModel.loadAssignedPlaylist(context, assignedPlaylist)
+        }
+    }
+
+    LaunchedEffect(state.selectedGroup) {
+        selectedSeriesKey = null
+    }
+
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .navigationBarsPadding()
+            .padding(20.dp)
+    ) {
+        val isCompact = maxWidth < 700.dp
+
+        if (isCompact) {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                item {
+                    ContentControls(
+                        state = state,
+                        mode = contentMode,
+                        onSearchChange = viewModel::setSearchQuery,
+                        onHideAdultChange = { hidden ->
+                            ParentalControl.setAdultContentHidden(context, hidden)
+                            viewModel.setHideAdultContent(hidden)
+                        },
+                        onRefresh = { viewModel.refreshPlaylist(context) },
+                        onBack = onBack
+                    )
+                }
+
+                item {
+                    CategoryRow(
+                        groups = state.groups,
+                        selectedGroup = state.selectedGroup,
+                        onSelectGroup = viewModel::selectGroup
+                    )
+                }
+
+                item {
+                    StatusBlock(state = state, mode = contentMode)
+                }
+
+                contentItems(
+                    state = state,
+                    contentMode = contentMode,
+                    selectedSeriesKey = selectedSeriesKey,
+                    onSelectSeries = { selectedSeriesKey = it },
+                    onClearSeries = { selectedSeriesKey = null },
+                    onPlay = onPlay,
+                        onLoadMoreSeries = onLoadMoreSeries,t androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.draw.clip
+import androidx.compose.material3.CardDefaults
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import coil.compose.rememberAsyncImagePainter
+import com.storetd.play.core.epg.EpgProgram
+import com.storetd.play.core.model.Channel
+import com.storetd.play.core.storage.LocalAccount
+import com.storetd.play.core.parental.ParentalControl
+import java.net.URLEncoder
+import java.text.Normalizer
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.Alignment
+
+private data class SeriesFolder(
+    val key: String,
+    val title: String,
+    val group: String,
+    val logoUrl: String?,
+    val episodes: List<Channel>
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LiveTvScreen(
+    onBack: () -> Unit,
+    onPlay: (Channel, List<Channel>) -> Unit,
+    contentMode: ContentMode = ContentMode.LiveTv,
+    viewModel: LiveTvViewModel = viewModel(),
+
+    onLoadMoreSeries: () -> Unit = {},) {
+    val context = LocalContext.current
+    val state by viewModel.uiState.collectAsState()
+
+    var selectedSeriesKey by remember(contentMode) { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(contentMode) {
+        selectedSeriesKey = null
+
+        viewModel.setContentMode(contentMode)
+        viewModel.setHideAdultContent(ParentalControl.isAdultContentHidden(context))
+
+        val account = LocalAccount.getAccount(context)
+        val assignedPlaylist = buildSectionPlaylistUrl(
+            activationCode = account.activationCode,
+            fallbackUrl = account.playlistUrl,
+            contentMode = contentMode
+        )
+
+        if (assignedPlaylist.isNotBlank()) {
+            viewModel.loadAssignedPlaylist(context, assignedPlaylist)
+        }
+    }
+
+    LaunchedEffect(state.selectedGroup) {
+        selectedSeriesKey = null
+    }
+
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .navigationBarsPadding()
+            .padding(20.dp)
+    ) {
+        val isCompact = maxWidth < 700.dp
+
+        if (isCompact) {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                item {
+                    ContentControls(
+                        state = state,
+                        mode = contentMode,
+                        onSearchChange = viewModel::setSearchQuery,
+                        onHideAdultChange = { hidden ->
+                            ParentalControl.setAdultContentHidden(context, hidden)
+                            viewModel.setHideAdultContent(hidden)
+                        },
+                        onRefresh = { viewModel.refreshPlaylist(context) },
+                        onBack = onBack
+                    )
+                }
+
+                item {
+                    CategoryRow(
+                        groups = state.groups,
+                        selectedGroup = state.selectedGroup,
+                        onSelectGroup = viewModel::selectGroup
+                    )
+                }
+
+                item {
+                    StatusBlock(state = state, mode = contentMode)
+                }
+
+                contentItems(
+                    state = state,
+                    contentMode = contentMode,
+                    selectedSeriesKey = selectedSeriesKey,
+                    onSelectSeries = { selectedSeriesKey = it },
+                    onClearSeries = { selectedSeriesKey = null },
+                    onPlay = onPlay
+                )
+            }
+        } else {
+            Row(modifier = Modifier.fillMaxSize()) {
+                Column(
+                    modifier = Modifier
+                        .width(360.dp)
+                        .fillMaxHeight()
+                ) {
+                    ContentControls(
+                        state = state,
+                        mode = contentMode,
+                        onSearchChange = viewModel::setSearchQuery,
+                        onHideAdultChange = { hidden ->
+                            ParentalControl.setAdultContentHidden(context, hidden)
+                            viewModel.setHideAdultContent(hidden)
+                        },
+                        onRefresh = { viewModel.refreshPlaylist(context) },
+                        onBack = onBack
+                    )
+
+                    Spacer(Modifier.height(24.dp))
+
+                    CategoryRow(
+                        groups = state.groups,
+                        selectedGroup = state.selectedGroup,
+                        onSelectGroup = viewModel::selectGroup
+                    )
+                }
+
+                Spacer(Modifier.width(24.dp))
+
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    item {
+                        StatusBlock(state = state, mode = contentMode)
+                    }
+
+                    contentItems(
+                        state = state,
+                        contentMode = contentMode,
+                        selectedSeriesKey = selectedSeriesKey,
+                        onSelectSeries = { selectedSeriesKey = it },
+                        onClearSeries = { selectedSeriesKey = null },
+                        onPlay = onPlay,
+                        onLoadMoreSeries = onLoadMoreSeries,cus.onFocusChanged
+import androidx.compose.ui.draw.clip
+import androidx.compose.material3.CardDefaults
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import coil.compose.rememberAsyncImagePainter
+import com.storetd.play.core.epg.EpgProgram
+import com.storetd.play.core.model.Channel
+import com.storetd.play.core.storage.LocalAccount
+import com.storetd.play.core.parental.ParentalControl
+import java.net.URLEncoder
+import java.text.Normalizer
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.Alignment
+
+private data class SeriesFolder(
+    val key: String,
+    val title: String,
+    val group: String,
+    val logoUrl: String?,
+    val episodes: List<Channel>
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LiveTvScreen(
+    onBack: () -> Unit,
+    onPlay: (Channel, List<Channel>) -> Unit,
+    contentMode: ContentMode = ContentMode.LiveTv,
+    viewModel: LiveTvViewModel = viewModel(),
+
+    onLoadMoreSeries: () -> Unit = {},) {
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
 
@@ -219,8 +578,9 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
     selectedSeriesKey: String?,
     onSelectSeries: (String) -> Unit,
     onClearSeries: () -> Unit,
-    onPlay: (Channel, List<Channel>) -> Unit
-) {
+    onPlay: (Channel, List<Channel>) -> Unit,
+
+    onLoadMoreSeries: () -> Unit,) {
     if (state.isLoading || state.isFiltering) {
         item {
             LoadingSectionCard(
@@ -376,7 +736,7 @@ private fun ContentControls(
                         onHideAdultChange(true)
                     }
                 },
-                        onLoadMoreSeries = viewModel::loadMoreSeriesFolders,
+                        onLoadMoreSeries = onLoadMoreSeries,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
