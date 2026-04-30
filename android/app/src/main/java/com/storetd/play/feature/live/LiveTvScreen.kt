@@ -67,6 +67,7 @@ import java.text.Normalizer
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.compose.foundation.layout.heightIn
 
 private data class SeriesFolder(
     val key: String,
@@ -445,21 +446,96 @@ private fun ContentControls(
 private fun CategoryRow(
     groups: List<String>,
     selectedGroup: String,
-    onSelectGroup: (String) -> Unit
+    onGroupSelected: (String) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.fillMaxWidth()
+    val visibleGroups = groups
+        .filter { it.isNotBlank() }
+        .distinct()
+
+    if (visibleGroups.isEmpty()) return
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.30f),
+        shape = RoundedCornerShape(26.dp),
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+        )
     ) {
-        items(groups) { group ->
-            TvCategoryChip(
-                label = group,
-                selected = group == selectedGroup,
-                onClick = { onSelectGroup(group) }
+        Column(
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Categorías",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold
             )
+
+            Text(
+                text = "Elegí una carpeta con el control remoto.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.70f)
+            )
+
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 360.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(visibleGroups) { group ->
+                    var focused by remember(group, selectedGroup) {
+                        mutableStateOf(false)
+                    }
+
+                    val selected = group == selectedGroup
+                    val active = selected || focused
+
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onFocusChanged { focused = it.isFocused }
+                            .focusable()
+                            .clickable { onGroupSelected(group) },
+                        color = if (active) {
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.95f)
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+                        },
+                        border = BorderStroke(
+                            if (active) 2.dp else 1.dp,
+                            if (active) {
+                                MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.95f)
+                            } else {
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f)
+                            }
+                        ),
+                        shape = RoundedCornerShape(999.dp),
+                        shadowElevation = if (focused) 8.dp else 0.dp
+                    ) {
+                        Text(
+                            text = group,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = if (active) {
+                                MaterialTheme.colorScheme.onPrimary
+                            } else {
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.90f)
+                            },
+                            fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold,
+                            maxLines = 2,
+                            modifier = Modifier.padding(horizontal = 18.dp, vertical = 13.dp)
+                        )
+                    }
+                }
+            }
         }
     }
 }
+
 
 @Composable
 private fun TvCategoryChip(
