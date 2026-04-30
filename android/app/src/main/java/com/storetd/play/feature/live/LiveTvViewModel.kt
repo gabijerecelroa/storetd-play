@@ -408,6 +408,99 @@ class LiveTvViewModel(
 
         private val screenStateCache = LinkedHashMap<String, LiveTvUiState>()
 
+        fun warmScreenStateCaches(
+            url: String,
+            channels: List<Channel>,
+            hideAdultContent: Boolean = true
+        ) {
+            val cleanUrl = url.trim()
+            if (cleanUrl.isBlank() || channels.isEmpty()) return
+
+            ContentMode.entries.forEach { mode ->
+                val cachedState = buildCachedScreenState(
+                    url = cleanUrl,
+                    channels = channels,
+                    mode = mode,
+                    hideAdultContent = hideAdultContent
+                )
+
+                synchronized(screenStateCache) {
+                    screenStateCache[cacheKey(cleanUrl, mode)] = cachedState
+
+                    while (screenStateCache.size > MAX_SCREEN_CACHE) {
+                        val firstKey = screenStateCache.keys.firstOrNull() ?: break
+                        screenStateCache.remove(firstKey)
+                    }
+                }
+            }
+        }
+
+        private fun buildCachedScreenState(
+            url: String,
+            channels: List<Channel>,
+            mode: ContentMode,
+            hideAdultContent: Boolean
+        ): LiveTvUiState {
+            val adultFiltered = if (hideAdultContent) {
+                channels.filterNot { isAdult(it) }
+            } else {
+                channels
+            }
+
+            val isProxySection = url.contains("/playlist/proxy", ignoreCase = true)
+
+            val modeFiltered = if (isProxySection) {
+                adultFiltered
+            } else {
+                adultFiltered.filter { matchesContentMode(it, mode) }
+            }
+
+            val cleanedContent = when (mode) {
+                ContentMode.Movies -> modeFiltered
+                    .distinctBy { channel ->
+                        channel.streamUrl.ifBlank {
+                            "${channel.name}|${channel.group}"
+                        }
+                    }
+                    .sortedBy { it.name.lowercase(Locale.getDefault()) }
+
+                else -> modeFiltered
+            }
+
+            val grouped = cleanedContent.groupBy {
+                it.group.ifBlank { "Sin categoría" }
+            }
+
+            val groupNames = listOf("Todos") + grouped.keys.sorted()
+
+            val groupMap = LinkedHashMap<String, List<Channel>>()
+            groupMap["Todos"] = cleanedContent
+
+            grouped.keys.sorted().forEach { group ->
+                groupMap[group] = grouped[group].orEmpty()
+            }
+
+            val selectedItems = groupMap["Todos"].orEmpty()
+
+            return LiveTvUiState(
+                playlistUrl = url,
+                channels = channels,
+                visibleChannels = selectedItems.take(MAX_VISIBLE_ITEMS),
+                groups = groupNames,
+                groupItems = groupMap,
+                totalVisibleCount = selectedItems.size,
+                contentMode = mode,
+                selectedGroup = "Todos",
+                searchQuery = "",
+                hideAdultContent = hideAdultContent,
+                isLoading = false,
+                isFiltering = false,
+                loadedFromCache = true,
+                errorMessage = null
+            )
+        }
+
+
         private fun cacheKey(url: String, mode: ContentMode): String {
             return "${mode.name}|${url.trim()}"
         }

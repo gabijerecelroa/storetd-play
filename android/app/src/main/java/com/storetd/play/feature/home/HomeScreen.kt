@@ -65,6 +65,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.storetd.play.feature.live.LiveTvViewModel
 
 private data class HomeAction(
     val title: String,
@@ -226,11 +227,22 @@ fun HomeScreen(
         val playlistUrl = account.playlistUrl.trim()
 
         if (playlistUrl.isNotBlank()) {
-            withContext(Dispatchers.IO) {
-                val diskCached = PlaylistDiskCache.load(context.applicationContext, playlistUrl)
+            val diskCached = withContext(Dispatchers.IO) {
+                val cached = PlaylistDiskCache.load(context.applicationContext, playlistUrl)
 
-                if (diskCached.isNotEmpty()) {
-                    PlaylistMemoryCache.save(playlistUrl, diskCached)
+                if (cached.isNotEmpty()) {
+                    PlaylistMemoryCache.save(playlistUrl, cached)
+                }
+
+                cached
+            }
+
+            if (diskCached.isNotEmpty()) {
+                withContext(Dispatchers.Default) {
+                    LiveTvViewModel.warmScreenStateCaches(
+                        url = playlistUrl,
+                        channels = diskCached
+                    )
                 }
             }
         }
