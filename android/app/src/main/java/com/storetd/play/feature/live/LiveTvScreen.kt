@@ -68,6 +68,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.Alignment
 
 private data class SeriesFolder(
     val key: String,
@@ -309,109 +310,59 @@ private fun ContentControls(
     onRefresh: () -> Unit,
     onBack: () -> Unit
 ) {
-    val context = LocalContext.current
-    var showPinDialog by remember { mutableStateOf(false) }
-    var pinValue by remember { mutableStateOf("") }
-    var pinError by remember { mutableStateOf<String?>(null) }
-
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 4.dp,
-        shadowElevation = 8.dp,
-        shape = MaterialTheme.shapes.extraLarge
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.52f),
+        shape = RoundedCornerShape(28.dp),
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.18f)
+        ),
+        shadowElevation = 4.dp
     ) {
-        Column(modifier = Modifier.padding(18.dp)) {
-            Text(
-                text = mode.title,
-                style = MaterialTheme.typography.headlineMedium
-            )
-
-            Text(
-                text = mode.subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f)
-            )
-
-            Spacer(Modifier.height(16.dp))
-
-
-            
-        Spacer(Modifier.height(10.dp))
-        Text(
-            text = "Navega con categorías y flechas del control remoto.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
-        )
-
-
-            Spacer(Modifier.height(12.dp))
-
-
-            Spacer(Modifier.height(12.dp))
-
-            OutlinedButton(
-                onClick = onBack,
-                modifier = Modifier.fillMaxWidth()
+        Row(
+            modifier = Modifier.padding(horizontal = 22.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
-                Text("Volver")
+                Text(
+                    text = contentMode.title,
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
+                )
+
+                Text(
+                    text = contentMode.subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.86f),
+                    maxLines = 1
+                )
+            }
+
+            Surface(
+                modifier = Modifier.clickable { onBack() },
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.34f),
+                shape = RoundedCornerShape(999.dp),
+                border = BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.30f)
+                )
+            ) {
+                Text(
+                    text = "Volver",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 28.dp, vertical = 10.dp)
+                )
             }
         }
-    }
-
-    if (showPinDialog) {
-        AlertDialog(
-            onDismissRequest = {
-                showPinDialog = false
-                pinValue = ""
-                pinError = null
-            },
-            title = { Text("Contenido adulto") },
-            text = {
-                Column {
-                    Text("Ingresa el PIN para mostrar categorías adultas.")
-                    
-        Spacer(Modifier.height(10.dp))
-        Text(
-            text = "Navega con categorías y flechas del control remoto.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
-        )
-
-                    pinError?.let {
-                        Spacer(Modifier.height(8.dp))
-                        Text(it, color = MaterialTheme.colorScheme.error)
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        if (ParentalControl.verifyPin(context, pinValue)) {
-                            onHideAdultChange(false)
-                            showPinDialog = false
-                            pinValue = ""
-                            pinError = null
-                        } else {
-                            pinError = "PIN incorrecto"
-                        }
-                    }
-                ) {
-                    Text("Aceptar")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        showPinDialog = false
-                        pinValue = ""
-                        pinError = null
-                    }
-                ) {
-                    Text("Cancelar")
-                }
-            }
-        )
     }
 }
 
@@ -471,7 +422,13 @@ private fun CategoryRow(
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .onFocusChanged { focused = it.isFocused }
+                            .onFocusChanged { focusState ->
+                                focused = focusState.isFocused
+
+                                if (focusState.isFocused && group != selectedGroup) {
+                                    onSelectGroup(group)
+                                }
+                            }
                             .focusable()
                             .clickable { onSelectGroup(group) },
                         color = if (active) {
