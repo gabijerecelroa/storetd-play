@@ -737,7 +737,17 @@ fun PlayerScreen(
                 onSend = ::sendReport
             )
         }
-    }
+    
+        if (showControls && !isLandscape) {
+            PlayerPortraitBackButton(
+                onBack = onBack,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .padding(top = 12.dp, end = 12.dp)
+            )
+        }
+}
 }
 
 @Composable
@@ -1147,3 +1157,30 @@ private fun formatPlaybackTime(value: Long): String {
 private fun formatPlayerEpgTime(value: Long): String {
     return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(value))
 }
+
+
+@Composable
+private fun PlayerPortraitBackButton(
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.clickable { onBack() },
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.96f),
+        shape = RoundedCornerShape(999.dp),
+        border = BorderStroke(
+            2.dp,
+            MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f)
+        ),
+        shadowElevation = 10.dp
+    ) {
+        Text(
+            text = "Volver",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onPrimary,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 22.dp, vertical = 12.dp)
+        )
+    }
+}
+
