@@ -126,6 +126,7 @@ class LiveTvViewModel(
     }
 
     fun loadAssignedPlaylist(context: Context, url: String) {
+        val appContext = context.applicationContext
         val cleanUrl = url.trim()
         val mode = _uiState.value.contentMode
         val key = cacheKey(cleanUrl, mode)
@@ -157,7 +158,27 @@ class LiveTvViewModel(
             }
         }
 
-        loadPlaylistFrom(context.applicationContext, cleanUrl, forceRefresh = false)
+        // Importante: al reabrir la app, la memoria puede haberse perdido.
+        // Leemos disco antes de mostrar spinner fuerte o descargar de internet.
+        val diskCached = PlaylistDiskCache.load(appContext, cleanUrl)
+
+        if (diskCached.isNotEmpty()) {
+            PlaylistMemoryCache.save(cleanUrl, diskCached)
+
+            _uiState.value = _uiState.value.copy(
+                playlistUrl = cleanUrl,
+                channels = diskCached,
+                isLoading = false,
+                isFiltering = true,
+                loadedFromCache = true,
+                errorMessage = null
+            )
+
+            refreshVisibleContent()
+            return
+        }
+
+        loadPlaylistFrom(appContext, cleanUrl, forceRefresh = false)
     }
 
     fun refreshPlaylist(context: Context) {
@@ -188,15 +209,18 @@ class LiveTvViewModel(
 
         loadInProgress = true
 
-        _uiState.value = _uiState.value.copy(
+        val currentBeforeLoad = _uiState.value
+        val hasVisibleCache = currentBeforeLoad.channels.isNotEmpty()
+
+        _uiState.value = currentBeforeLoad.copy(
             playlistUrl = url,
-            isLoading = true,
+            isLoading = !hasVisibleCache,
             isFiltering = false,
             loadedFromCache = false,
             errorMessage = null,
-            visibleChannels = emptyList(),
-            groupItems = emptyMap(),
-            totalVisibleCount = 0
+            visibleChannels = if (hasVisibleCache) currentBeforeLoad.visibleChannels else emptyList(),
+            groupItems = if (hasVisibleCache) currentBeforeLoad.groupItems else emptyMap(),
+            totalVisibleCount = if (hasVisibleCache) currentBeforeLoad.totalVisibleCount else 0
         )
 
         viewModelScope.launch(Dispatchers.IO) {
@@ -244,15 +268,26 @@ class LiveTvViewModel(
             }.onFailure {
                 loadInProgress = false
 
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    isFiltering = false,
-                    channels = emptyList(),
-                    visibleChannels = emptyList(),
-                    groupItems = emptyMap(),
-                    totalVisibleCount = 0,
-                    errorMessage = "No se pudo sincronizar la lista. Toca Actualizar contenido o revisa la lista asignada."
-                )
+                val current = _uiState.value
+
+                if (current.channels.isNotEmpty()) {
+                    _uiState.value = current.copy(
+                        isLoading = false,
+                        isFiltering = false,
+                        loadedFromCache = true,
+                        errorMessage = "No se pudo actualizar. Se muestra el contenido guardado."
+                    )
+                } else {
+                    _uiState.value = current.copy(
+                        isLoading = false,
+                        isFiltering = false,
+                        channels = emptyList(),
+                        visibleChannels = emptyList(),
+                        groupItems = emptyMap(),
+                        totalVisibleCount = 0,
+                        errorMessage = "No se pudo sincronizar la lista. Toca Actualizar contenido o revisa la lista asignada."
+                    )
+                }
             }
         }
     }
