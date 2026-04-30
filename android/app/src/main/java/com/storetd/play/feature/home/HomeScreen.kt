@@ -223,7 +223,9 @@ fun HomeScreen(
 
 
     LaunchedEffect(account.activationCode, account.playlistUrl) {
-        PlaylistPreloader.preloadAccount(context.applicationContext)
+        withContext(Dispatchers.IO) {
+            PlaylistPreloader.preloadAccount(context.applicationContext)
+        }
     }
 
     val actions = listOf(
