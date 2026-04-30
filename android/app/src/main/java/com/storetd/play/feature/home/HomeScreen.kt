@@ -165,7 +165,7 @@ fun HomeScreen(
                 PlaylistMemoryCache.clear(playlistUrl)
                 PlaylistDiskCache.clear(context.applicationContext, playlistUrl)
                 PlaylistPreloader.preload(
-                    appContext = context.applicationContext,
+                    context = context.applicationContext,
                     url = playlistUrl,
                     forceRefresh = true
                 )
