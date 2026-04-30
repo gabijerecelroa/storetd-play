@@ -335,13 +335,6 @@ private fun ContentControls(
 
             Spacer(Modifier.height(16.dp))
 
-            Button(
-                onClick = onRefresh,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !state.isLoading
-            ) {
-                Text(if (state.isLoading) "Sincronizando..." else "Actualizar contenido")
-            }
 
             
         Spacer(Modifier.height(10.dp))
@@ -354,26 +347,6 @@ private fun ContentControls(
 
             Spacer(Modifier.height(12.dp))
 
-            OutlinedButton(
-                onClick = {
-                    if (state.hideAdultContent) {
-                        pinValue = ""
-                        pinError = null
-                        showPinDialog = true
-                    } else {
-                        onHideAdultChange(true)
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    if (state.hideAdultContent) {
-                        "Adultos ocultos"
-                    } else {
-                        "Adultos visibles"
-                    }
-                )
-            }
 
             Spacer(Modifier.height(12.dp))
 
@@ -632,7 +605,7 @@ private fun StatusBlock(
 
         if (state.loadedFromCache && !state.isLoading && !state.isFiltering) {
             Text(
-                text = "Contenido cargado desde memoria. Usa Actualizar contenido si hubo cambios.",
+                text = "Contenido cargado desde caché.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.72f)
             )
@@ -965,9 +938,6 @@ private fun ChannelRow(
 }
 
 
-
-
-
 private fun buildSeriesFolders(channels: List<Channel>): List<SeriesFolder> {
     if (channels.isEmpty()) return emptyList()
 
@@ -1157,7 +1127,6 @@ private fun cleanEpisodeDisplayName(value: String): String {
         .replace(Regex("\\s+"), " ")
         .trim()
 }
-
 
 
 private fun fastSeriesFolderKey(channel: Channel): String {
