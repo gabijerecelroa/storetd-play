@@ -154,6 +154,7 @@ fun HomeScreen(
         if (globalRefreshRunning) return
 
         val playlistUrl = account.playlistUrl.trim()
+        val activationCode = account.activationCode.trim()
 
         if (playlistUrl.isBlank()) {
             globalRefreshMessage = "No hay lista asignada para actualizar"
@@ -164,34 +165,97 @@ fun HomeScreen(
         globalRefreshMessage = "Actualizando contenido..."
 
         refreshScope.launch {
-            withContext(Dispatchers.IO) {
+            val updatedItems = withContext(Dispatchers.IO) {
                 PlaylistPreloader.clear(playlistUrl)
                 PlaylistMemoryCache.clear(playlistUrl)
                 PlaylistDiskCache.clear(context.applicationContext, playlistUrl)
-                com.storetd.play.feature.live.ContentMode.values().forEach { mode ->
+
+                ContentMode.values().forEach { mode ->
                     PlaylistDiskCache.clear(
                         context.applicationContext,
                         LiveTvViewModel.sectionCacheKey(playlistUrl, mode)
                     )
                 }
-                PlaylistPreloader.preload(
-                    context = context.applicationContext,
-                    url = playlistUrl,
-                    forceRefresh = true
-                )
 
-                val refreshed = PlaylistDiskCache.load(context.applicationContext, playlistUrl)
-                if (refreshed.isNotEmpty()) {
-                    PlaylistMemoryCache.save(playlistUrl, refreshed)
-                    LiveTvViewModel.saveSectionDiskCaches(
+                val optimizedUpdated = if (activationCode.isNotBlank()) {
+                    runCatching {
+                        OptimizedContentApi.refreshContent(activationCode)
+                    }.getOrDefault(false)
+                } else {
+                    false
+                }
+
+                val optimizedSections = if (optimizedUpdated && activationCode.isNotBlank()) {
+                    runCatching {
+                        OptimizedContentApi.loadAllSections(activationCode)
+                    }.getOrDefault(emptyMap())
+                } else {
+                    emptyMap()
+                }
+
+                if (optimizedSections.isNotEmpty()) {
+                    val allItems = mutableListOf<Channel>()
+
+                    optimizedSections.forEach { entry ->
+                        val mode = when (entry.key) {
+                            "live" -> ContentMode.LiveTv
+                            "movies" -> ContentMode.Movies
+                            "series" -> ContentMode.Series
+                            else -> null
+                        }
+
+                        if (mode != null && entry.value.isNotEmpty()) {
+                            PlaylistDiskCache.save(
+                                context = context.applicationContext,
+                                url = LiveTvViewModel.sectionCacheKey(playlistUrl, mode),
+                                channels = entry.value
+                            )
+
+                            allItems.addAll(entry.value)
+                        }
+                    }
+
+                    if (allItems.isNotEmpty()) {
+                        PlaylistMemoryCache.save(playlistUrl, allItems)
+                        PlaylistDiskCache.save(context.applicationContext, playlistUrl, allItems)
+                    }
+
+                    allItems
+                } else {
+                    PlaylistPreloader.preload(
                         context = context.applicationContext,
                         url = playlistUrl,
-                        channels = refreshed
+                        forceRefresh = true
                     )
+
+                    val refreshed = PlaylistDiskCache.load(context.applicationContext, playlistUrl)
+
+                    if (refreshed.isNotEmpty()) {
+                        PlaylistMemoryCache.save(playlistUrl, refreshed)
+                        LiveTvViewModel.saveSectionDiskCaches(
+                            context = context.applicationContext,
+                            url = playlistUrl,
+                            channels = refreshed
+                        )
+                    }
+
+                    refreshed
                 }
             }
 
-            globalRefreshMessage = "Contenido actualizado"
+            if (updatedItems.isNotEmpty()) {
+                withContext(Dispatchers.Default) {
+                    LiveTvViewModel.warmScreenStateCaches(
+                        url = playlistUrl,
+                        channels = updatedItems
+                    )
+                }
+
+                globalRefreshMessage = "Contenido actualizado"
+            } else {
+                globalRefreshMessage = "No se pudo actualizar"
+            }
+
             delay(1800)
             globalRefreshRunning = false
             globalRefreshMessage = null

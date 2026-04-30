@@ -11,6 +11,23 @@ object OptimizedContentApi {
     private const val CONNECT_TIMEOUT_MS = 15000
     private const val READ_TIMEOUT_MS = 45000
 
+    fun refreshContent(activationCode: String): Boolean {
+        val code = activationCode.trim()
+        val base = BuildConfig.API_BASE_URL
+            .trim()
+            .trimEnd('/')
+
+        if (code.isBlank() || base.isBlank()) return false
+
+        val encodedCode = URLEncoder.encode(code, "UTF-8")
+        val requestUrl = "$base/api/content/refresh-app?code=$encodedCode"
+
+        val raw = postUrl(requestUrl)
+        val json = JSONObject(raw)
+
+        return json.optBoolean("success", false)
+    }
+
     fun loadAllSections(activationCode: String): Map<String, List<Channel>> {
         val code = activationCode.trim()
 
@@ -73,6 +90,37 @@ object OptimizedContentApi {
         }
 
         return items
+    }
+
+
+    private fun postUrl(requestUrl: String): String {
+        val connection = URL(requestUrl).openConnection() as HttpURLConnection
+
+        connection.connectTimeout = CONNECT_TIMEOUT_MS
+        connection.readTimeout = READ_TIMEOUT_MS
+        connection.requestMethod = "POST"
+        connection.doOutput = true
+        connection.setRequestProperty("Accept", "application/json")
+        connection.setRequestProperty("User-Agent", "StoreTD-Play-Android")
+
+        return try {
+            connection.outputStream.use { it.write(ByteArray(0)) }
+
+            val code = connection.responseCode
+
+            if (code !in 200..299) {
+                val errorText = connection.errorStream
+                    ?.bufferedReader()
+                    ?.use { it.readText() }
+                    .orEmpty()
+
+                throw IllegalStateException("HTTP $code $errorText")
+            }
+
+            connection.inputStream.bufferedReader().use { it.readText() }
+        } finally {
+            connection.disconnect()
+        }
     }
 
     private fun readUrl(requestUrl: String): String {
