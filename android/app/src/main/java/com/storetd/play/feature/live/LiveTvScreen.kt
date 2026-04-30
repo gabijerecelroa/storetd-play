@@ -446,7 +446,7 @@ private fun ContentControls(
 private fun CategoryRow(
     groups: List<String>,
     selectedGroup: String,
-    onGroupSelected: (String) -> Unit,
+    onSelectGroup: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val visibleGroups = groups
@@ -500,7 +500,7 @@ private fun CategoryRow(
                             .fillMaxWidth()
                             .onFocusChanged { focused = it.isFocused }
                             .focusable()
-                            .clickable { onGroupSelected(group) },
+                            .clickable { onSelectGroup(group) },
                         color = if (active) {
                             MaterialTheme.colorScheme.primary.copy(alpha = 0.95f)
                         } else {
