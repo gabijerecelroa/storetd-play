@@ -8,8 +8,8 @@ import java.net.URL
 import java.net.URLEncoder
 
 object OptimizedContentApi {
-    private const val CONNECT_TIMEOUT_MS = 15000
-    private const val READ_TIMEOUT_MS = 45000
+    private const val CONNECT_TIMEOUT_MS = 8000
+    private const val READ_TIMEOUT_MS = 15000
 
     fun refreshContent(activationCode: String): Boolean {
         val code = activationCode.trim()
