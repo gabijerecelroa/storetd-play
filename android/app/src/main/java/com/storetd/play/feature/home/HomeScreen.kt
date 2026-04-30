@@ -162,103 +162,86 @@ fun HomeScreen(
         }
 
         globalRefreshRunning = true
-        globalRefreshMessage = "Actualizando contenido..."
+        globalRefreshMessage = "Iniciando actualización..."
 
         refreshScope.launch {
-            val updatedItems = withContext(Dispatchers.IO) {
-                PlaylistPreloader.clear(playlistUrl)
-                PlaylistMemoryCache.clear(playlistUrl)
-                PlaylistDiskCache.clear(context.applicationContext, playlistUrl)
-
-                ContentMode.values().forEach { mode ->
-                    PlaylistDiskCache.clear(
-                        context.applicationContext,
-                        LiveTvViewModel.sectionCacheKey(playlistUrl, mode)
-                    )
-                }
-
-                val optimizedUpdated = if (activationCode.isNotBlank()) {
+            val started = withContext(Dispatchers.IO) {
+                if (activationCode.isNotBlank()) {
                     runCatching {
                         OptimizedContentApi.refreshContent(activationCode)
                     }.getOrDefault(false)
                 } else {
                     false
                 }
+            }
 
-                val optimizedSections = if (optimizedUpdated && activationCode.isNotBlank()) {
-                    runCatching {
-                        OptimizedContentApi.loadAllSections(activationCode)
-                    }.getOrDefault(emptyMap())
-                } else {
-                    emptyMap()
-                }
+            if (started) {
+                globalRefreshMessage = "Actualización iniciada en backend"
+                delay(1600)
+                globalRefreshRunning = false
+                globalRefreshMessage = null
 
-                if (optimizedSections.isNotEmpty()) {
-                    val allItems = mutableListOf<Channel>()
+                // Tomar la versión nueva en segundo plano sin bloquear la app.
+                refreshScope.launch {
+                    delay(25000)
 
-                    optimizedSections.forEach { entry ->
-                        val mode = when (entry.key) {
-                            "live" -> ContentMode.LiveTv
-                            "movies" -> ContentMode.Movies
-                            "series" -> ContentMode.Series
-                            else -> null
+                    val updatedItems = withContext(Dispatchers.IO) {
+                        val optimizedSections = if (activationCode.isNotBlank()) {
+                            runCatching {
+                                OptimizedContentApi.loadAllSections(activationCode)
+                            }.getOrDefault(emptyMap())
+                        } else {
+                            emptyMap()
                         }
 
-                        if (mode != null && entry.value.isNotEmpty()) {
-                            PlaylistDiskCache.save(
-                                context = context.applicationContext,
-                                url = LiveTvViewModel.sectionCacheKey(playlistUrl, mode),
-                                channels = entry.value
+                        if (optimizedSections.isNotEmpty()) {
+                            val allItems = mutableListOf<Channel>()
+
+                            optimizedSections.forEach { entry ->
+                                val mode = when (entry.key) {
+                                    "live" -> ContentMode.LiveTv
+                                    "movies" -> ContentMode.Movies
+                                    "series" -> ContentMode.Series
+                                    else -> null
+                                }
+
+                                if (mode != null && entry.value.isNotEmpty()) {
+                                    PlaylistDiskCache.save(
+                                        context = context.applicationContext,
+                                        url = LiveTvViewModel.sectionCacheKey(playlistUrl, mode),
+                                        channels = entry.value
+                                    )
+
+                                    allItems.addAll(entry.value)
+                                }
+                            }
+
+                            if (allItems.isNotEmpty()) {
+                                PlaylistMemoryCache.save(playlistUrl, allItems)
+                                PlaylistDiskCache.save(context.applicationContext, playlistUrl, allItems)
+                            }
+
+                            allItems
+                        } else {
+                            emptyList()
+                        }
+                    }
+
+                    if (updatedItems.isNotEmpty()) {
+                        withContext(Dispatchers.Default) {
+                            LiveTvViewModel.warmScreenStateCaches(
+                                url = playlistUrl,
+                                channels = updatedItems
                             )
-
-                            allItems.addAll(entry.value)
                         }
                     }
-
-                    if (allItems.isNotEmpty()) {
-                        PlaylistMemoryCache.save(playlistUrl, allItems)
-                        PlaylistDiskCache.save(context.applicationContext, playlistUrl, allItems)
-                    }
-
-                    allItems
-                } else {
-                    PlaylistPreloader.preload(
-                        context = context.applicationContext,
-                        url = playlistUrl,
-                        forceRefresh = true
-                    )
-
-                    val refreshed = PlaylistDiskCache.load(context.applicationContext, playlistUrl)
-
-                    if (refreshed.isNotEmpty()) {
-                        PlaylistMemoryCache.save(playlistUrl, refreshed)
-                        LiveTvViewModel.saveSectionDiskCaches(
-                            context = context.applicationContext,
-                            url = playlistUrl,
-                            channels = refreshed
-                        )
-                    }
-
-                    refreshed
                 }
-            }
-
-            if (updatedItems.isNotEmpty()) {
-                withContext(Dispatchers.Default) {
-                    LiveTvViewModel.warmScreenStateCaches(
-                        url = playlistUrl,
-                        channels = updatedItems
-                    )
-                }
-
-                globalRefreshMessage = "Contenido actualizado"
             } else {
-                globalRefreshMessage = "No se pudo actualizar"
+                globalRefreshMessage = "Backend no respondió. Se mantiene el contenido guardado."
+                delay(1800)
+                globalRefreshRunning = false
+                globalRefreshMessage = null
             }
-
-            delay(1800)
-            globalRefreshRunning = false
-            globalRefreshMessage = null
         }
     }
 
@@ -308,70 +291,21 @@ fun HomeScreen(
 
     LaunchedEffect(account.activationCode, account.playlistUrl) {
         val playlistUrl = account.playlistUrl.trim()
-        val activationCode = account.activationCode.trim()
 
         if (playlistUrl.isNotBlank()) {
             val diskCached = withContext(Dispatchers.IO) {
-                val optimizedSections = if (activationCode.isNotBlank()) {
-                    runCatching {
-                        OptimizedContentApi.loadAllSections(activationCode)
-                    }.getOrDefault(emptyMap())
-                } else {
-                    emptyMap()
+                val cached = PlaylistDiskCache.load(context.applicationContext, playlistUrl)
+
+                if (cached.isNotEmpty()) {
+                    PlaylistMemoryCache.save(playlistUrl, cached)
+                    LiveTvViewModel.saveSectionDiskCaches(
+                        context = context.applicationContext,
+                        url = playlistUrl,
+                        channels = cached
+                    )
                 }
 
-                if (optimizedSections.isNotEmpty()) {
-                    val allItems = mutableListOf<Channel>()
-
-                    optimizedSections.forEach { entry ->
-                        val mode = when (entry.key) {
-                            "live" -> ContentMode.LiveTv
-                            "movies" -> ContentMode.Movies
-                            "series" -> ContentMode.Series
-                            else -> null
-                        }
-
-                        if (mode != null && entry.value.isNotEmpty()) {
-                            PlaylistDiskCache.save(
-                                context = context.applicationContext,
-                                url = LiveTvViewModel.sectionCacheKey(playlistUrl, mode),
-                                channels = entry.value
-                            )
-
-                            allItems.addAll(entry.value)
-                        }
-                    }
-
-                    if (allItems.isNotEmpty()) {
-                        PlaylistMemoryCache.save(playlistUrl, allItems)
-                        PlaylistDiskCache.save(context.applicationContext, playlistUrl, allItems)
-                    }
-
-                    allItems
-                } else {
-                    var cached = PlaylistDiskCache.load(context.applicationContext, playlistUrl)
-
-                    if (cached.isEmpty()) {
-                        PlaylistPreloader.preload(
-                            context = context.applicationContext,
-                            url = playlistUrl,
-                            forceRefresh = false
-                        )
-
-                        cached = PlaylistDiskCache.load(context.applicationContext, playlistUrl)
-                    }
-
-                    if (cached.isNotEmpty()) {
-                        PlaylistMemoryCache.save(playlistUrl, cached)
-                        LiveTvViewModel.saveSectionDiskCaches(
-                            context = context.applicationContext,
-                            url = playlistUrl,
-                            channels = cached
-                        )
-                    }
-
-                    cached
-                }
+                cached
             }
 
             if (diskCached.isNotEmpty()) {

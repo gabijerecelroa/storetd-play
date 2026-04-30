@@ -20,7 +20,7 @@ object OptimizedContentApi {
         if (code.isBlank() || base.isBlank()) return false
 
         val encodedCode = URLEncoder.encode(code, "UTF-8")
-        val requestUrl = "$base/api/content/refresh-app?code=$encodedCode"
+        val requestUrl = "$base/api/content/refresh-app?code=$encodedCode&async=1"
 
         val raw = postUrl(requestUrl)
         val json = JSONObject(raw)
@@ -68,7 +68,7 @@ object OptimizedContentApi {
         }
 
         val encodedCode = URLEncoder.encode(activationCode.trim(), "UTF-8")
-        val requestUrl = "$base/api/content/$safeSection?code=$encodedCode"
+        val requestUrl = "$base/api/content/$safeSection?code=$encodedCode&autoRefresh=0"
 
         val raw = readUrl(requestUrl)
         val json = JSONObject(raw)
