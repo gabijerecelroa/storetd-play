@@ -247,6 +247,18 @@ fun HomeScreen(
     ) {
         val isTvWide = maxWidth >= 700.dp
 
+        if (isTvWide) {
+            HomeGlobalRefreshCard(
+                isRefreshing = globalRefreshRunning,
+                message = globalRefreshMessage,
+                onRefresh = { refreshAllContentFromHome() },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 10.dp, end = 8.dp)
+                    .fillMaxWidth(0.34f)
+            )
+        }
+
         Column(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(18.dp)
@@ -283,13 +295,15 @@ fun HomeScreen(
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.92f)
                 )
 
-                Spacer(modifier = Modifier.height(14.dp))
+                if (!isTvWide) {
+                    Spacer(modifier = Modifier.height(14.dp))
 
-                HomeGlobalRefreshCard(
-                    isRefreshing = globalRefreshRunning,
-                    message = globalRefreshMessage,
-                    onRefresh = { refreshAllContentFromHome() }
-                )
+                    HomeGlobalRefreshCard(
+                        isRefreshing = globalRefreshRunning,
+                        message = globalRefreshMessage,
+                        onRefresh = { refreshAllContentFromHome() }
+                    )
+                }
             }
 
             if (continueItems.isNotEmpty()) {
@@ -344,11 +358,11 @@ fun HomeScreen(
 private fun HomeGlobalRefreshCard(
     isRefreshing: Boolean,
     message: String?,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = modifier
             .clickable(enabled = !isRefreshing) { onRefresh() },
         color = MaterialTheme.colorScheme.primary.copy(alpha = if (isRefreshing) 0.72f else 0.95f),
         shape = RoundedCornerShape(24.dp),
