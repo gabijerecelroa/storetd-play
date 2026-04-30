@@ -1603,6 +1603,32 @@ app.get("/admin/api/device-events", requireAdmin, async (req, res) => {
 
 
 
+
+app.post("/api/content/refresh-app", async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const activationCode = normalizeCode(req.body?.activationCode || req.query.code);
+
+    if (!activationCode) {
+      return res.status(400).json({
+        success: false,
+        message: "Falta activationCode o code."
+      });
+    }
+
+    const result = await refreshContentCacheForClient(activationCode);
+    res.status(result.success ? 200 : 400).json(result);
+  } catch (error) {
+    console.error("App content refresh error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudo actualizar el contenido desde la app.",
+      error: error.message
+    });
+  }
+});
+
 app.post("/api/content/refresh", requireAdmin, async (req, res) => {
   if (!requireDb(res)) return;
 
