@@ -257,6 +257,259 @@ function splitSections(items) {
   return sections;
 }
 
+
+function slugKey(value) {
+  return normalizeText(value)
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function cleanSeriesTitle(value, fallbackGroup = "") {
+  let title = String(value || "").trim();
+
+  title = title
+    .replace(/^series\s*[|:/-]\s*/i, "")
+    .replace(/^serie\s*[|:/-]\s*/i, "")
+    .replace(/^temporadas\s*[|:/-]\s*/i, "")
+    .replace(/^cap[ií]tulos\s*[|:/-]\s*/i, "");
+
+  title = title
+    .replace(/\bS\s*\d{1,2}\s*E\s*\d{1,3}\b.*$/i, "")
+    .replace(/\bT\s*\d{1,2}\s*E\s*\d{1,3}\b.*$/i, "")
+    .replace(/\b\d{1,2}\s*x\s*\d{1,3}\b.*$/i, "")
+    .replace(/\btemporada\s*\d{1,2}\b.*$/i, "")
+    .replace(/\bseason\s*\d{1,2}\b.*$/i, "")
+    .replace(/\bcap[ií]tulo\s*\d{1,3}\b.*$/i, "")
+    .replace(/\bepisodio\s*\d{1,3}\b.*$/i, "")
+    .replace(/\bepisode\s*\d{1,3}\b.*$/i, "")
+    .replace(/\bep\s*\d{1,3}\b.*$/i, "")
+    .replace(/\[[^\]]*\]/g, "")
+    .replace(/\([^)]*\)/g, "")
+    .replace(/\b(latino|castellano|subtitulado|dual audio|hd|fhd|4k|1080p|720p)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^[\s\-|.:_]+|[\s\-|.:_]+$/g, "");
+
+  if (title.length >= 3 && !looksLikeGenericSeriesGroup(title)) {
+    return title;
+  }
+
+  if (fallbackGroup && !looksLikeGenericSeriesGroup(fallbackGroup)) {
+    return fallbackGroup;
+  }
+
+  return String(value || fallbackGroup || "Sin título").trim();
+}
+
+function looksLikeGenericSeriesGroup(value) {
+  const text = normalizeText(value);
+
+  return text === "series" ||
+    text === "serie" ||
+    text.startsWith("series |") ||
+    text.startsWith("series|") ||
+    text.startsWith("serie |") ||
+    text.startsWith("serie|") ||
+    text.startsWith("series ") ||
+    text.includes("animadas") ||
+    text.includes("anime") ||
+    text.includes("netflix") ||
+    text.includes("hbo") ||
+    text.includes("max") ||
+    text.includes("disney") ||
+    text.includes("prime") ||
+    text.includes("paramount") ||
+    text.includes("amc+") ||
+    text.includes("adultos") ||
+    text.includes("infantil") ||
+    text.includes("documental") ||
+    text.includes("latinas");
+}
+
+function episodeSeason(name) {
+  const text = String(name || "");
+
+  const patterns = [
+    /\bS\s*(\d{1,2})\s*E\s*\d{1,3}\b/i,
+    /\bT\s*(\d{1,2})\s*E\s*\d{1,3}\b/i,
+    /\b(\d{1,2})\s*x\s*\d{1,3}\b/i,
+    /\btemporada\s*(\d{1,2})\b/i,
+    /\bseason\s*(\d{1,2})\b/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) return Number(match[1]) || 1;
+  }
+
+  return 1;
+}
+
+function episodeNumber(name) {
+  const text = String(name || "");
+
+  const patterns = [
+    /\bS\s*\d{1,2}\s*E\s*(\d{1,3})\b/i,
+    /\bT\s*\d{1,2}\s*E\s*(\d{1,3})\b/i,
+    /\b\d{1,2}\s*x\s*(\d{1,3})\b/i,
+    /\bcap[ií]tulo\s*(\d{1,3})\b/i,
+    /\bepisodio\s*(\d{1,3})\b/i,
+    /\bepisode\s*(\d{1,3})\b/i,
+    /\bep\s*(\d{1,3})\b/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) return Number(match[1]) || 9999;
+  }
+
+  return 9999;
+}
+
+function buildSeriesFoldersPayload({ activationCode, playlistUrl, items }) {
+  const foldersMap = new Map();
+
+  for (const item of items) {
+    const title = cleanSeriesTitle(item.name, item.group);
+    const key = slugKey(title) || slugKey(item.group) || slugKey(item.name);
+
+    if (!key) continue;
+
+    if (!foldersMap.has(key)) {
+      foldersMap.set(key, {
+        key,
+        title,
+        group: item.group || "Series",
+        posterUrl: item.logoUrl || null,
+        episodeCount: 0,
+        episodes: []
+      });
+    }
+
+    const folder = foldersMap.get(key);
+
+    if (!folder.posterUrl && item.logoUrl) {
+      folder.posterUrl = item.logoUrl;
+    }
+
+    folder.episodes.push({
+      id: item.id || slugKey(`${item.name}|${item.streamUrl}`),
+      name: item.name,
+      streamUrl: item.streamUrl,
+      logoUrl: null,
+      group: folder.title,
+      tvgId: item.tvgId || null,
+      season: episodeSeason(item.name),
+      episode: episodeNumber(item.name)
+    });
+  }
+
+  const folders = Array.from(foldersMap.values())
+    .map((folder) => {
+      const unique = new Map();
+
+      for (const episode of folder.episodes) {
+        const key = episode.streamUrl || `${episode.name}|${episode.season}|${episode.episode}`;
+        if (!unique.has(key)) unique.set(key, episode);
+      }
+
+      folder.episodes = Array.from(unique.values()).sort((a, b) => {
+        return (a.season - b.season) ||
+          (a.episode - b.episode) ||
+          String(a.name).localeCompare(String(b.name));
+      });
+
+      folder.episodeCount = folder.episodes.length;
+      return folder;
+    })
+    .filter((folder) => folder.episodeCount > 0)
+    .sort((a, b) => String(a.title).localeCompare(String(b.title)));
+
+  return {
+    section: "series-folders",
+    activationCode,
+    playlistUrlMasked: maskUrl(playlistUrl),
+    updatedAt: new Date().toISOString(),
+    folderCount: folders.length,
+    itemCount: folders.reduce((sum, folder) => sum + folder.episodeCount, 0),
+    folders
+  };
+}
+
+function buildMovieCategoriesPayload({ activationCode, playlistUrl, items }) {
+  const categoryMap = new Map();
+
+  for (const item of items) {
+    const title = item.group || "Sin categoría";
+    const key = slugKey(title) || "sin-categoria";
+
+    if (!categoryMap.has(key)) {
+      categoryMap.set(key, {
+        key,
+        title,
+        itemCount: 0,
+        items: []
+      });
+    }
+
+    categoryMap.get(key).items.push(item);
+  }
+
+  const categories = Array.from(categoryMap.values())
+    .map((category) => {
+      const unique = new Map();
+
+      for (const item of category.items) {
+        const key = item.streamUrl || `${item.name}|${item.group}`;
+        if (!unique.has(key)) unique.set(key, item);
+      }
+
+      category.items = Array.from(unique.values())
+        .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+
+      category.itemCount = category.items.length;
+      return category;
+    })
+    .filter((category) => category.itemCount > 0)
+    .sort((a, b) => String(a.title).localeCompare(String(b.title)));
+
+  return {
+    section: "movie-categories",
+    activationCode,
+    playlistUrlMasked: maskUrl(playlistUrl),
+    updatedAt: new Date().toISOString(),
+    categoryCount: categories.length,
+    itemCount: categories.reduce((sum, category) => sum + category.itemCount, 0),
+    categories
+  };
+}
+
+async function saveRawPayloadCache({ activationCode, playlistUrl, section, payload }) {
+  const itemCount =
+    Number(payload.itemCount || payload.folderCount || payload.categoryCount || 0);
+
+  const { error } = await supabase
+    .from(CACHE_TABLE)
+    .upsert(
+      {
+        activation_code: normalizeCode(activationCode),
+        playlist_url: playlistUrl,
+        section,
+        payload,
+        item_count: itemCount,
+        updated_at: new Date().toISOString()
+      },
+      {
+        onConflict: "activation_code,section"
+      }
+    );
+
+  if (error) throw error;
+
+  return payload;
+}
+
+
 async function saveSectionCache({ activationCode, playlistUrl, section, items }) {
   const payload = buildPayload({
     activationCode,
@@ -302,7 +555,19 @@ async function refreshContentCacheForClient(activationCode) {
   const parsed = parseM3u(raw);
   const sections = splitSections(parsed);
 
-  const [live, movies, series] = await Promise.all([
+  const seriesFoldersPayload = buildSeriesFoldersPayload({
+    activationCode: code,
+    playlistUrl: client.playlist_url,
+    items: sections.series
+  });
+
+  const movieCategoriesPayload = buildMovieCategoriesPayload({
+    activationCode: code,
+    playlistUrl: client.playlist_url,
+    items: sections.movies
+  });
+
+  const [live, movies, series, seriesFolders, movieCategories] = await Promise.all([
     saveSectionCache({
       activationCode: code,
       playlistUrl: client.playlist_url,
@@ -320,6 +585,18 @@ async function refreshContentCacheForClient(activationCode) {
       playlistUrl: client.playlist_url,
       section: "series",
       items: sections.series
+    }),
+    saveRawPayloadCache({
+      activationCode: code,
+      playlistUrl: client.playlist_url,
+      section: "series-folders",
+      payload: seriesFoldersPayload
+    }),
+    saveRawPayloadCache({
+      activationCode: code,
+      playlistUrl: client.playlist_url,
+      section: "movie-categories",
+      payload: movieCategoriesPayload
     })
   ]);
 
@@ -329,7 +606,9 @@ async function refreshContentCacheForClient(activationCode) {
     counts: {
       live: live.itemCount,
       movies: movies.itemCount,
-      series: series.itemCount
+      series: series.itemCount,
+      seriesFolders: seriesFolders.folderCount,
+      movieCategories: movieCategories.categoryCount
     },
     updatedAt: new Date().toISOString()
   };
@@ -339,7 +618,7 @@ async function getCachedContentSection({ activationCode, section, autoRefresh = 
   const code = normalizeCode(activationCode);
   const safeSection = String(section || "").toLowerCase();
 
-  if (!["live", "movies", "series"].includes(safeSection)) {
+  if (!["live", "movies", "series", "series-folders", "movie-categories"].includes(safeSection)) {
     return {
       success: false,
       status: 400,
