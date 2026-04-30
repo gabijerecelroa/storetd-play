@@ -226,9 +226,9 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
         item {
             LoadingSectionCard(
                 text = if (state.isLoading) {
-                    "Sincronizando ${contentMode.title.lowercase(Locale.getDefault())}..."
+                    "Sincronizando ${mode.title.lowercase(Locale.getDefault())}..."
                 } else {
-                    "Preparando ${contentMode.title.lowercase(Locale.getDefault())}..."
+                    "Preparando ${mode.title.lowercase(Locale.getDefault())}..."
                 }
             )
         }
@@ -330,7 +330,7 @@ private fun ContentControls(
                 verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
                 Text(
-                    text = contentMode.title,
+                    text = mode.title,
                     style = MaterialTheme.typography.headlineSmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                     fontWeight = FontWeight.Bold,
@@ -338,7 +338,7 @@ private fun ContentControls(
                 )
 
                 Text(
-                    text = contentMode.subtitle,
+                    text = mode.subtitle,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.86f),
                     maxLines = 1
