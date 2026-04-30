@@ -244,7 +244,19 @@ fun HomeScreen(
 
         if (playlistUrl.isNotBlank()) {
             val diskCached = withContext(Dispatchers.IO) {
-                val cached = PlaylistDiskCache.load(context.applicationContext, playlistUrl)
+                var cached = PlaylistDiskCache.load(context.applicationContext, playlistUrl)
+
+                if (cached.isEmpty()) {
+                    // Primera instalación / primer ingreso:
+                    // preparar la lista automáticamente desde el Home.
+                    PlaylistPreloader.preload(
+                        context = context.applicationContext,
+                        url = playlistUrl,
+                        forceRefresh = false
+                    )
+
+                    cached = PlaylistDiskCache.load(context.applicationContext, playlistUrl)
+                }
 
                 if (cached.isNotEmpty()) {
                     PlaylistMemoryCache.save(playlistUrl, cached)
