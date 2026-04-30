@@ -3,6 +3,10 @@ const cors = require("cors");
 const path = require("path");
 const { supabase, isDatabaseConfigured } = require("./db");
 const { getAppConfig, updateAppConfig } = require("./appConfig");
+const {
+  refreshContentCacheForClient,
+  getCachedContentSection
+} = require("./playlistContent");
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -1593,6 +1597,75 @@ app.get("/admin/api/device-events", requireAdmin, async (req, res) => {
     res.status(500).json({
       success: false,
       message: "No se pudo cargar auditoría de dispositivos."
+    });
+  }
+});
+
+
+
+app.post("/api/content/refresh", requireAdmin, async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const activationCode = normalizeCode(req.body?.activationCode || req.query.code);
+
+    if (!activationCode) {
+      return res.status(400).json({
+        success: false,
+        message: "Falta activationCode."
+      });
+    }
+
+    const result = await refreshContentCacheForClient(activationCode);
+    res.status(result.success ? 200 : 400).json(result);
+  } catch (error) {
+    console.error("Content refresh error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudo actualizar el contenido.",
+      error: error.message
+    });
+  }
+});
+
+app.get("/api/content/:section", async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const activationCode = normalizeCode(req.query.code);
+    const section = String(req.params.section || "").toLowerCase();
+
+    if (!activationCode) {
+      return res.status(400).json({
+        success: false,
+        message: "Falta code."
+      });
+    }
+
+    const result = await getCachedContentSection({
+      activationCode,
+      section,
+      autoRefresh: req.query.autoRefresh !== "0"
+    });
+
+    if (!result.success) {
+      return res.status(result.status || 500).json({
+        success: false,
+        message: result.message
+      });
+    }
+
+    res.json({
+      success: true,
+      fromCache: result.fromCache,
+      ...result.payload
+    });
+  } catch (error) {
+    console.error("Content section error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudo obtener contenido optimizado.",
+      error: error.message
     });
   }
 });
