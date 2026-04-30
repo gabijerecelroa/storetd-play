@@ -482,7 +482,15 @@ fun PlayerScreen(
             .fillMaxSize()
             .focusRequester(playerFocusRequester)
             .focusable()
-            .onPreviewKeyEvent { event ->
+            .onPreviewKeyEvent {
+        PlayerFloatingBackButton(
+            onBack = onBack,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .padding(top = 14.dp, end = 14.dp)
+        )
+ event ->
                 if (event.type != KeyEventType.KeyDown) {
                     return@onPreviewKeyEvent false
                 }
@@ -1147,3 +1155,34 @@ private fun formatPlaybackTime(value: Long): String {
 private fun formatPlayerEpgTime(value: Long): String {
     return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(value))
 }
+
+
+@Composable
+private fun PlayerFloatingBackButton(
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.clickable { onBack() },
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.78f),
+        shape = RoundedCornerShape(999.dp),
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f)
+        ),
+        shadowElevation = 8.dp
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Volver",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
