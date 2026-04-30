@@ -226,9 +226,9 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
         item {
             LoadingSectionCard(
                 text = if (state.isLoading) {
-                    "Sincronizando ${mode.title.lowercase(Locale.getDefault())}..."
+                    "Sincronizando ${state.contentMode.title.lowercase(Locale.getDefault())}..."
                 } else {
-                    "Preparando ${mode.title.lowercase(Locale.getDefault())}..."
+                    "Preparando ${state.contentMode.title.lowercase(Locale.getDefault())}..."
                 }
             )
         }
