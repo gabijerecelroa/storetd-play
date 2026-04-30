@@ -103,11 +103,19 @@ object OptimizedContentApi {
     }
 
     private fun parseChannel(obj: JSONObject): Channel {
+        val name = readString(obj, "name", "title").ifBlank { "Sin nombre" }
+        val streamUrl = readString(obj, "streamUrl", "stream_url", "url")
+        val group = readString(obj, "group", "category").ifBlank { "Sin categoría" }
+        val id = readString(obj, "id").ifBlank {
+            "$name|$streamUrl".hashCode().toString()
+        }
+
         return Channel(
-            name = readString(obj, "name", "title").ifBlank { "Sin nombre" },
-            streamUrl = readString(obj, "streamUrl", "stream_url", "url"),
+            id = id,
+            name = name,
+            streamUrl = streamUrl,
             logoUrl = readNullableString(obj, "logoUrl", "logo_url", "logo"),
-            group = readString(obj, "group", "category").ifBlank { "Sin categoría" },
+            group = group,
             tvgId = readNullableString(obj, "tvgId", "tvg_id")
         )
     }
