@@ -67,6 +67,7 @@ import java.text.Normalizer
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.compose.ui.text.style.TextAlign
 
 private data class SeriesFolder(
     val key: String,
@@ -256,11 +257,23 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
             )
         }
 
-        items(folders) { folder ->
+        val visibleFolders = folders.take(state.seriesFolderLimit)
+
+        items(visibleFolders) { folder ->
             SeriesFolderRow(
                 folder = folder,
                 onOpen = { onSelectSeries(folder.key) }
             )
+        }
+
+        if (folders.size > visibleFolders.size) {
+            item {
+                SeriesLoadMoreCard(
+                    visibleCount = visibleFolders.size,
+                    totalCount = folders.size,
+                    onClick = onLoadMoreSeries
+                )
+            }
         }
     } else {
         item {
@@ -363,6 +376,7 @@ private fun ContentControls(
                         onHideAdultChange(true)
                     }
                 },
+                        onLoadMoreSeries = viewModel::loadMoreSeriesFolders,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
@@ -574,6 +588,48 @@ private fun StatusBlock(
                 text = mode.emptyMessage,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f)
+            )
+        }
+    }
+}
+
+
+@Composable
+private fun SeriesLoadMoreCard(
+    visibleCount: Int,
+    totalCount: Int,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
+        shape = RoundedCornerShape(22.dp),
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
+        ),
+        shadowElevation = 4.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "Cargar más series",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
+
+            Text(
+                text = "$visibleCount de $totalCount visibles",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                textAlign = TextAlign.Center
             )
         }
     }

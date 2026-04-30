@@ -48,6 +48,7 @@ data class LiveTvUiState(
     val totalVisibleCount: Int = 0,
     val contentMode: ContentMode = ContentMode.LiveTv,
     val selectedGroup: String = "Todos",
+    val seriesFolderLimit: Int = 80,
     val searchQuery: String = "",
     val hideAdultContent: Boolean = true,
     val isLoading: Boolean = false,
@@ -82,10 +83,17 @@ class LiveTvViewModel(
         )
     }
 
+    fun loadMoreSeriesFolders() {
+        _uiState.value = _uiState.value.copy(
+            seriesFolderLimit = (_uiState.value.seriesFolderLimit + 80).coerceAtMost(5000)
+        )
+    }
+
     fun setSearchQuery(value: String) {
         _uiState.value = _uiState.value.copy(
             searchQuery = value,
             selectedGroup = "Todos",
+                    seriesFolderLimit = 80,
             isFiltering = true
         )
         refreshVisibleContent()
@@ -95,6 +103,7 @@ class LiveTvViewModel(
         _uiState.value = _uiState.value.copy(
             hideAdultContent = value,
             selectedGroup = "Todos",
+                    seriesFolderLimit = 80,
             isFiltering = true
         )
         refreshVisibleContent()
@@ -120,6 +129,7 @@ class LiveTvViewModel(
 
         _uiState.value = current.copy(
             selectedGroup = group,
+            seriesFolderLimit = 80,
             isFiltering = true
         )
         refreshVisibleContent()
@@ -232,6 +242,7 @@ class LiveTvViewModel(
                     isLoading = false,
                     channels = channels,
                     selectedGroup = "Todos",
+                    seriesFolderLimit = 80,
                     loadedFromCache = !forceRefresh,
                     errorMessage = if (channels.isEmpty()) {
                         "La lista asignada no contiene contenido."
