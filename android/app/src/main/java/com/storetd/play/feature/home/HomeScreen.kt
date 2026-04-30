@@ -165,11 +165,27 @@ fun HomeScreen(
                 PlaylistPreloader.clear(playlistUrl)
                 PlaylistMemoryCache.clear(playlistUrl)
                 PlaylistDiskCache.clear(context.applicationContext, playlistUrl)
+                com.storetd.play.feature.live.ContentMode.values().forEach { mode ->
+                    PlaylistDiskCache.clear(
+                        context.applicationContext,
+                        LiveTvViewModel.sectionCacheKey(playlistUrl, mode)
+                    )
+                }
                 PlaylistPreloader.preload(
                     context = context.applicationContext,
                     url = playlistUrl,
                     forceRefresh = true
                 )
+
+                val refreshed = PlaylistDiskCache.load(context.applicationContext, playlistUrl)
+                if (refreshed.isNotEmpty()) {
+                    PlaylistMemoryCache.save(playlistUrl, refreshed)
+                    LiveTvViewModel.saveSectionDiskCaches(
+                        context = context.applicationContext,
+                        url = playlistUrl,
+                        channels = refreshed
+                    )
+                }
             }
 
             globalRefreshMessage = "Contenido actualizado"
@@ -232,6 +248,11 @@ fun HomeScreen(
 
                 if (cached.isNotEmpty()) {
                     PlaylistMemoryCache.save(playlistUrl, cached)
+                    LiveTvViewModel.saveSectionDiskCaches(
+                        context = context.applicationContext,
+                        url = playlistUrl,
+                        channels = cached
+                    )
                 }
 
                 cached

@@ -143,6 +143,26 @@ class LiveTvViewModel(
             }
         }
 
+        // Primero intentamos cargar la sección ya filtrada desde disco.
+        // Esto acelera mucho cuando Android mata el proceso en celular/TV.
+        val sectionDiskCached = PlaylistDiskCache.load(
+            appContext,
+            sectionCacheKey(cleanUrl, mode)
+        )
+
+        if (sectionDiskCached.isNotEmpty()) {
+            val cachedState = buildCachedScreenState(
+                url = cleanUrl,
+                channels = sectionDiskCached,
+                mode = mode,
+                hideAdultContent = false
+            )
+
+            _uiState.value = cachedState
+            saveScreenState(cachedState)
+            return
+        }
+
         PlaylistMemoryCache.get(cleanUrl)?.let { memoryCached ->
             if (memoryCached.isNotEmpty()) {
                 _uiState.value = _uiState.value.copy(
@@ -158,23 +178,28 @@ class LiveTvViewModel(
             }
         }
 
-        // Importante: al reabrir la app, la memoria puede haberse perdido.
-        // Leemos disco antes de mostrar spinner fuerte o descargar de internet.
+        // Si no hay caché de sección, usamos la lista completa guardada y dejamos
+        // preparadas las secciones para las próximas entradas.
         val diskCached = PlaylistDiskCache.load(appContext, cleanUrl)
 
         if (diskCached.isNotEmpty()) {
             PlaylistMemoryCache.save(cleanUrl, diskCached)
-
-            _uiState.value = _uiState.value.copy(
-                playlistUrl = cleanUrl,
+            saveSectionDiskCaches(
+                context = appContext,
+                url = cleanUrl,
                 channels = diskCached,
-                isLoading = false,
-                isFiltering = true,
-                loadedFromCache = true,
-                errorMessage = null
+                hideAdultContent = _uiState.value.hideAdultContent
             )
 
-            refreshVisibleContent()
+            val cachedState = buildCachedScreenState(
+                url = cleanUrl,
+                channels = diskCached,
+                mode = mode,
+                hideAdultContent = _uiState.value.hideAdultContent
+            )
+
+            _uiState.value = cachedState
+            saveScreenState(cachedState)
             return
         }
 
@@ -186,6 +211,11 @@ class LiveTvViewModel(
         val key = cacheKey(url, _uiState.value.contentMode)
 
         screenStateCache.remove(key)
+        ContentMode.values().forEach { mode ->
+            screenStateCache.remove(cacheKey(url, mode))
+            PlaylistDiskCache.clear(context, sectionCacheKey(url, mode))
+        }
+
         PlaylistPreloader.clear(url)
         PlaylistMemoryCache.clear(url)
         PlaylistDiskCache.clear(context, url)
@@ -250,6 +280,12 @@ class LiveTvViewModel(
                 if (channels.isNotEmpty()) {
                     PlaylistMemoryCache.save(url, channels)
                     PlaylistDiskCache.save(context, url, channels)
+                    saveSectionDiskCaches(
+                        context = context,
+                        url = url,
+                        channels = channels,
+                        hideAdultContent = _uiState.value.hideAdultContent
+                    )
                 }
 
                 _uiState.value = _uiState.value.copy(
@@ -407,6 +443,85 @@ class LiveTvViewModel(
         private const val MAX_SCREEN_CACHE = 12
 
         private val screenStateCache = LinkedHashMap<String, LiveTvUiState>()
+
+        fun sectionCacheKey(url: String, mode: ContentMode): String {
+            return "section|${mode.name}|${url.trim()}"
+        }
+
+        fun saveSectionDiskCaches(
+            context: Context,
+            url: String,
+            channels: List<Channel>,
+            hideAdultContent: Boolean = true
+        ) {
+            val cleanUrl = url.trim()
+            if (cleanUrl.isBlank() || channels.isEmpty()) return
+
+            ContentMode.values().forEach { mode ->
+                val sectionChannels = buildSectionChannels(
+                    url = cleanUrl,
+                    channels = channels,
+                    mode = mode,
+                    hideAdultContent = hideAdultContent
+                )
+
+                if (sectionChannels.isNotEmpty()) {
+                    PlaylistDiskCache.save(
+                        context = context,
+                        url = sectionCacheKey(cleanUrl, mode),
+                        channels = sectionChannels
+                    )
+
+                    val state = buildCachedScreenState(
+                        url = cleanUrl,
+                        channels = sectionChannels,
+                        mode = mode,
+                        hideAdultContent = false
+                    )
+
+                    screenStateCache[cacheKey(cleanUrl, mode)] = state
+                }
+            }
+
+            while (screenStateCache.size > MAX_SCREEN_CACHE) {
+                val firstKey = screenStateCache.keys.firstOrNull() ?: break
+                screenStateCache.remove(firstKey)
+            }
+        }
+
+        private fun buildSectionChannels(
+            url: String,
+            channels: List<Channel>,
+            mode: ContentMode,
+            hideAdultContent: Boolean
+        ): List<Channel> {
+            val adultFiltered = if (hideAdultContent) {
+                channels.filterNot { isAdult(it) }
+            } else {
+                channels
+            }
+
+            val isProxySection = url.contains("/playlist/proxy", ignoreCase = true)
+
+            val modeFiltered = if (isProxySection) {
+                adultFiltered
+            } else {
+                adultFiltered.filter { matchesContentMode(it, mode) }
+            }
+
+            return when (mode) {
+                ContentMode.Movies -> modeFiltered
+                    .distinctBy { channel ->
+                        channel.streamUrl.ifBlank {
+                            "${channel.name}|${channel.group}"
+                        }
+                    }
+                    .sortedBy { it.name.lowercase(Locale.getDefault()) }
+
+                else -> modeFiltered
+            }
+        }
+
 
         fun warmScreenStateCaches(
             url: String,
