@@ -1617,6 +1617,28 @@ app.post("/api/content/refresh-app", async (req, res) => {
       });
     }
 
+    const runAsync =
+      req.query.async === "1" ||
+      req.body?.async === true ||
+      req.body?.async === "1";
+
+    if (runAsync) {
+      refreshContentCacheForClient(activationCode)
+        .then((result) => {
+          console.log("Async content refresh finished:", activationCode, result);
+        })
+        .catch((error) => {
+          console.error("Async content refresh error:", activationCode, error);
+        });
+
+      return res.json({
+        success: true,
+        accepted: true,
+        message: "Actualización iniciada en segundo plano.",
+        activationCode
+      });
+    }
+
     const result = await refreshContentCacheForClient(activationCode);
     res.status(result.success ? 200 : 400).json(result);
   } catch (error) {
