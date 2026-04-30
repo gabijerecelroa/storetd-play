@@ -223,8 +223,16 @@ fun HomeScreen(
 
 
     LaunchedEffect(account.activationCode, account.playlistUrl) {
-        withContext(Dispatchers.IO) {
-            PlaylistPreloader.preloadAccount(context.applicationContext)
+        val playlistUrl = account.playlistUrl.trim()
+
+        if (playlistUrl.isNotBlank()) {
+            withContext(Dispatchers.IO) {
+                val diskCached = PlaylistDiskCache.load(context.applicationContext, playlistUrl)
+
+                if (diskCached.isNotEmpty()) {
+                    PlaylistMemoryCache.save(playlistUrl, diskCached)
+                }
+            }
         }
     }
 
