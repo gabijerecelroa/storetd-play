@@ -69,6 +69,7 @@ import java.util.Date
 import java.util.Locale
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.Alignment
+import androidx.activity.compose.BackHandler
 
 private data class SeriesFolder(
     val key: String,
@@ -86,6 +87,8 @@ fun LiveTvScreen(
     contentMode: ContentMode = ContentMode.LiveTv,
     viewModel: LiveTvViewModel = viewModel()
 ) {
+    BackHandler(enabled = true) { onBack() }
+
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
 
