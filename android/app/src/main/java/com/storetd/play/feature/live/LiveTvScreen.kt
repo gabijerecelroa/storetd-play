@@ -70,6 +70,7 @@ import java.util.Locale
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.Alignment
 import androidx.activity.compose.BackHandler
+import androidx.compose.ui.input.key.onKeyEvent
 
 private data class SeriesFolder(
     val key: String,
@@ -427,9 +428,20 @@ private fun CategoryRow(
                             .fillMaxWidth()
                             .onFocusChanged { focusState ->
                                 focused = focusState.isFocused
-
-                                if (focusState.isFocused && group != selectedGroup) {
+                            }
+                            .onKeyEvent { event ->
+                                if (
+                                    event.type == KeyEventType.KeyDown &&
+                                    (
+                                        event.key == Key.DirectionCenter ||
+                                            event.key == Key.Enter ||
+                                            event.key == Key.NumPadEnter
+                                    )
+                                ) {
                                     onSelectGroup(group)
+                                    true
+                                } else {
+                                    false
                                 }
                             }
                             .focusable()
