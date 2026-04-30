@@ -1500,6 +1500,20 @@ private fun cleanEpisodeDisplayName(value: String): String {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 private fun fastSeriesFolderKey(channel: Channel): String {
     return fastSeriesTitle(channel)
         .lowercase(Locale.getDefault())
@@ -1514,16 +1528,12 @@ private fun fastSeriesTitle(channel: Channel): String {
     val rawGroup = channel.group.trim()
 
     var title = rawName
-
-    // Quitar prefijos de categorías que vienen metidos en el nombre.
-    title = title
         .replace(Regex("(?i)^series\\s*[|:/-]\\s*"), "")
         .replace(Regex("(?i)^serie\\s*[|:/-]\\s*"), "")
         .replace(Regex("(?i)^temporadas\\s*[|:/-]\\s*"), "")
         .replace(Regex("(?i)^capitulos\\s*[|:/-]\\s*"), "")
         .replace(Regex("(?i)^capítulos\\s*[|:/-]\\s*"), "")
 
-    // Si el nombre empieza igual que la categoría, quitarlo.
     if (rawGroup.isNotBlank()) {
         title = title.replace(
             Regex("^" + Regex.escape(rawGroup) + "\\s*[|:/-]\\s*", RegexOption.IGNORE_CASE),
@@ -1531,14 +1541,10 @@ private fun fastSeriesTitle(channel: Channel): String {
         )
     }
 
-    // Quitar tags comunes.
     title = title
         .replace(Regex("(?i)\\b(latino|castellano|subtitulado|dual audio|hd|fhd|4k|1080p|720p)\\b"), "")
         .replace(Regex("(?i)\\[[^\\]]*\\]"), "")
         .replace(Regex("(?i)\\([^)]*\\)"), "")
-
-    // Quitar temporada/capítulo y todo lo posterior.
-    title = title
         .replace(Regex("(?i)\\bS\\s*\\d{1,2}\\s*E\\s*\\d{1,3}\\b.*"), "")
         .replace(Regex("(?i)\\bT\\s*\\d{1,2}\\s*E\\s*\\d{1,3}\\b.*"), "")
         .replace(Regex("(?i)\\b\\d{1,2}\\s*x\\s*\\d{1,3}\\b.*"), "")
@@ -1548,19 +1554,14 @@ private fun fastSeriesTitle(channel: Channel): String {
         .replace(Regex("(?i)\\bepisodio\\s*\\d{1,3}\\b.*"), "")
         .replace(Regex("(?i)\\bepisode\\s*\\d{1,3}\\b.*"), "")
         .replace(Regex("(?i)\\bep\\s*\\d{1,3}\\b.*"), "")
-
-    // Quitar separadores finales.
-    title = title
         .replace(Regex("(?i)\\s+[-|:]\\s+(cap[ií]tulo|episodio|episode|ep|s\\d|t\\d|\\d+x).*$"), "")
         .replace(Regex("\\s+"), " ")
         .trim(' ', '-', '|', '.', ':', '_')
 
-    // Muy importante: NO usar grupos genéricos como carpeta.
     if (title.length >= 3 && !looksLikeGenericSeriesGroup(title)) {
         return title
     }
 
-    // Solo usamos grupo como último recurso si no es genérico.
     if (rawGroup.isNotBlank() && !looksLikeGenericSeriesGroup(rawGroup)) {
         return rawGroup
     }
@@ -1569,28 +1570,6 @@ private fun fastSeriesTitle(channel: Channel): String {
         .replace(Regex("\\s+"), " ")
         .trim(' ', '-', '|', '.', ':', '_')
 }
-
-private fun fastEpisodeNumber(name: String): Int {
-    val patterns = listOf(
-        Regex("(?i)\\bS\\s*\\d{1,2}\\s*E\\s*(\\d{1,3})\\b"),
-        Regex("(?i)\\bT\\s*\\d{1,2}\\s*E\\s*(\\d{1,3})\\b"),
-        Regex("(?i)\\b\\d{1,2}\\s*x\\s*(\\d{1,3})\\b"),
-        Regex("(?i)\\bcap[ií]tulo\\s*(\\d{1,3})\\b"),
-        Regex("(?i)\\bepisodio\\s*(\\d{1,3})\\b"),
-        Regex("(?i)\\bepisode\\s*(\\d{1,3})\\b"),
-        Regex("(?i)\\bep\\s*(\\d{1,3})\\b")
-    )
-
-    for (pattern in patterns) {
-        val match = pattern.find(name)
-        if (match != null) {
-            return match.groupValues[1].toIntOrNull() ?: 9999
-        }
-    }
-
-    return 9999
-}
-
 
 private fun looksLikeGenericSeriesGroup(value: String): Boolean {
     val normalized = value
@@ -1634,12 +1613,35 @@ private fun fastEpisodeSeason(name: String): Int {
 
     for (pattern in patterns) {
         val match = pattern.find(name)
+
         if (match != null) {
             return match.groupValues[1].toIntOrNull() ?: 1
         }
     }
 
     return 1
+}
+
+private fun fastEpisodeNumber(name: String): Int {
+    val patterns = listOf(
+        Regex("(?i)\\bS\\s*\\d{1,2}\\s*E\\s*(\\d{1,3})\\b"),
+        Regex("(?i)\\bT\\s*\\d{1,2}\\s*E\\s*(\\d{1,3})\\b"),
+        Regex("(?i)\\b\\d{1,2}\\s*x\\s*(\\d{1,3})\\b"),
+        Regex("(?i)\\bcap[ií]tulo\\s*(\\d{1,3})\\b"),
+        Regex("(?i)\\bepisodio\\s*(\\d{1,3})\\b"),
+        Regex("(?i)\\bepisode\\s*(\\d{1,3})\\b"),
+        Regex("(?i)\\bep\\s*(\\d{1,3})\\b")
+    )
+
+    for (pattern in patterns) {
+        val match = pattern.find(name)
+
+        if (match != null) {
+            return match.groupValues[1].toIntOrNull() ?: 9999
+        }
+    }
+
+    return 9999
 }
 
 private fun fastEpisodeKey(name: String): String {
