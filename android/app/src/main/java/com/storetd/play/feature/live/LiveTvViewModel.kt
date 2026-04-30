@@ -16,6 +16,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import java.text.Normalizer
 import java.util.Locale
+import com.storetd.play.core.network.OptimizedContentApi
+import com.storetd.play.core.storage.LocalAccount
 
 enum class ContentMode(
     val title: String,
@@ -143,8 +145,8 @@ class LiveTvViewModel(
             }
         }
 
-        // Primero intentamos cargar la sección ya filtrada desde disco.
-        // Esto acelera mucho cuando Android mata el proceso en celular/TV.
+        // 1) Primero cargar la sección ya filtrada desde disco.
+        // Esto es lo más rápido cuando la app ya preparó caché.
         val sectionDiskCached = PlaylistDiskCache.load(
             appContext,
             sectionCacheKey(cleanUrl, mode)
@@ -163,6 +165,42 @@ class LiveTvViewModel(
             return
         }
 
+        // 2) Si no hay caché local de sección, intentar backend optimizado directo.
+        // Así no dependemos de que el Home haya terminado de preparar todo.
+        val activationCode = LocalAccount
+            .getAccount(appContext)
+            .activationCode
+            .trim()
+
+        if (activationCode.isNotBlank()) {
+            val optimizedSection = runCatching {
+                OptimizedContentApi.loadSection(
+                    activationCode = activationCode,
+                    section = optimizedSectionName(mode)
+                )
+            }.getOrDefault(emptyList())
+
+            if (optimizedSection.isNotEmpty()) {
+                PlaylistDiskCache.save(
+                    context = appContext,
+                    url = sectionCacheKey(cleanUrl, mode),
+                    channels = optimizedSection
+                )
+
+                val optimizedState = buildCachedScreenState(
+                    url = cleanUrl,
+                    channels = optimizedSection,
+                    mode = mode,
+                    hideAdultContent = false
+                )
+
+                _uiState.value = optimizedState
+                saveScreenState(optimizedState)
+                return
+            }
+        }
+
+        // 3) Si el backend no responde o no tiene caché, usar RAM.
         PlaylistMemoryCache.get(cleanUrl)?.let { memoryCached ->
             if (memoryCached.isNotEmpty()) {
                 _uiState.value = _uiState.value.copy(
@@ -178,8 +216,7 @@ class LiveTvViewModel(
             }
         }
 
-        // Si no hay caché de sección, usamos la lista completa guardada y dejamos
-        // preparadas las secciones para las próximas entradas.
+        // 4) Si no hay RAM, usar lista completa guardada en disco y preparar secciones.
         val diskCached = PlaylistDiskCache.load(appContext, cleanUrl)
 
         if (diskCached.isNotEmpty()) {
@@ -203,6 +240,7 @@ class LiveTvViewModel(
             return
         }
 
+        // 5) Último respaldo: descargar/parsing local como antes.
         loadPlaylistFrom(appContext, cleanUrl, forceRefresh = false)
     }
 
@@ -443,6 +481,14 @@ class LiveTvViewModel(
         private const val MAX_SCREEN_CACHE = 12
 
         private val screenStateCache = LinkedHashMap<String, LiveTvUiState>()
+
+        fun optimizedSectionName(mode: ContentMode): String {
+            return when (mode) {
+                ContentMode.LiveTv -> "live"
+                ContentMode.Movies -> "movies"
+                ContentMode.Series -> "series"
+            }
+        }
 
         fun sectionCacheKey(url: String, mode: ContentMode): String {
             return "section|${mode.name}|${url.trim()}"
