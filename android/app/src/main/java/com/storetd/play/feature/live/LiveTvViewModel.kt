@@ -336,14 +336,26 @@ class LiveTvViewModel(
                 }
             }
 
-            val grouped = queryFiltered.groupBy {
+            val cleanedContent = when (snapshot.contentMode) {
+                ContentMode.Movies -> queryFiltered
+                    .distinctBy { channel ->
+                        channel.streamUrl.ifBlank {
+                            "${channel.name}|${channel.group}"
+                        }
+                    }
+                    .sortedBy { it.name.lowercase(Locale.getDefault()) }
+
+                else -> queryFiltered
+            }
+
+            val grouped = cleanedContent.groupBy {
                 it.group.ifBlank { "Sin categoría" }
             }
 
             val groupNames = listOf("Todos") + grouped.keys.sorted()
 
             val groupMap = LinkedHashMap<String, List<Channel>>()
-            groupMap["Todos"] = queryFiltered
+            groupMap["Todos"] = cleanedContent
 
             grouped.keys.sorted().forEach { group ->
                 groupMap[group] = grouped[group].orEmpty()
