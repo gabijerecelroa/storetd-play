@@ -67,8 +67,6 @@ import java.text.Normalizer
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.Alignment
 
 private data class SeriesFolder(
     val key: String,
@@ -84,366 +82,8 @@ fun LiveTvScreen(
     onBack: () -> Unit,
     onPlay: (Channel, List<Channel>) -> Unit,
     contentMode: ContentMode = ContentMode.LiveTv,
-    viewModel: LiveTvViewModel = viewModel(),
-
-    onLoadMoreSeries: () -> Unit = {},) {
-    val context = LocalContext.current
-    val state by viewModel.uiState.collectAsState()
-
-    var selectedSeriesKey by remember(contentMode) { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(contentMode) {
-        selectedSeriesKey = null
-
-        viewModel.setContentMode(contentMode)
-        viewModel.setHideAdultContent(ParentalControl.isAdultContentHidden(context))
-
-        val account = LocalAccount.getAccount(context)
-        val assignedPlaylist = buildSectionPlaylistUrl(
-            activationCode = account.activationCode,
-            fallbackUrl = account.playlistUrl,
-            contentMode = contentMode
-        )
-
-        if (assignedPlaylist.isNotBlank()) {
-            viewModel.loadAssignedPlaylist(context, assignedPlaylist)
-        }
-    }
-
-    LaunchedEffect(state.selectedGroup) {
-        selectedSeriesKey = null
-    }
-
-    BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .navigationBarsPadding()
-            .padding(20.dp)
-    ) {
-        val isCompact = maxWidth < 700.dp
-
-        if (isCompact) {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.fillMaxSize()
-            ) {
-                item {
-                    ContentControls(
-                        state = state,
-                        mode = contentMode,
-                        onSearchChange = viewModel::setSearchQuery,
-                        onHideAdultChange = { hidden ->
-                            ParentalControl.setAdultContentHidden(context, hidden)
-                            viewModel.setHideAdultContent(hidden)
-                        },
-                        onRefresh = { viewModel.refreshPlaylist(context) },
-                        onBack = onBack
-                    )
-                }
-
-                item {
-                    CategoryRow(
-                        groups = state.groups,
-                        selectedGroup = state.selectedGroup,
-                        onSelectGroup = viewModel::selectGroup
-                    )
-                }
-
-                item {
-                    StatusBlock(state = state, mode = contentMode)
-                }
-
-                contentItems(
-                    state = state,
-                    contentMode = contentMode,
-                    selectedSeriesKey = selectedSeriesKey,
-                    onSelectSeries = { selectedSeriesKey = it },
-                    onClearSeries = { selectedSeriesKey = null },
-                    onPlay = onPlay,
-                        onLoadMoreSeries = onLoadMoreSeries,t androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.draw.clip
-import androidx.compose.material3.CardDefaults
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.border
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.focusable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
-import coil.compose.rememberAsyncImagePainter
-import com.storetd.play.core.epg.EpgProgram
-import com.storetd.play.core.model.Channel
-import com.storetd.play.core.storage.LocalAccount
-import com.storetd.play.core.parental.ParentalControl
-import java.net.URLEncoder
-import java.text.Normalizer
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.Alignment
-
-private data class SeriesFolder(
-    val key: String,
-    val title: String,
-    val group: String,
-    val logoUrl: String?,
-    val episodes: List<Channel>
-)
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun LiveTvScreen(
-    onBack: () -> Unit,
-    onPlay: (Channel, List<Channel>) -> Unit,
-    contentMode: ContentMode = ContentMode.LiveTv,
-    viewModel: LiveTvViewModel = viewModel(),
-
-    onLoadMoreSeries: () -> Unit = {},) {
-    val context = LocalContext.current
-    val state by viewModel.uiState.collectAsState()
-
-    var selectedSeriesKey by remember(contentMode) { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(contentMode) {
-        selectedSeriesKey = null
-
-        viewModel.setContentMode(contentMode)
-        viewModel.setHideAdultContent(ParentalControl.isAdultContentHidden(context))
-
-        val account = LocalAccount.getAccount(context)
-        val assignedPlaylist = buildSectionPlaylistUrl(
-            activationCode = account.activationCode,
-            fallbackUrl = account.playlistUrl,
-            contentMode = contentMode
-        )
-
-        if (assignedPlaylist.isNotBlank()) {
-            viewModel.loadAssignedPlaylist(context, assignedPlaylist)
-        }
-    }
-
-    LaunchedEffect(state.selectedGroup) {
-        selectedSeriesKey = null
-    }
-
-    BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .navigationBarsPadding()
-            .padding(20.dp)
-    ) {
-        val isCompact = maxWidth < 700.dp
-
-        if (isCompact) {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.fillMaxSize()
-            ) {
-                item {
-                    ContentControls(
-                        state = state,
-                        mode = contentMode,
-                        onSearchChange = viewModel::setSearchQuery,
-                        onHideAdultChange = { hidden ->
-                            ParentalControl.setAdultContentHidden(context, hidden)
-                            viewModel.setHideAdultContent(hidden)
-                        },
-                        onRefresh = { viewModel.refreshPlaylist(context) },
-                        onBack = onBack
-                    )
-                }
-
-                item {
-                    CategoryRow(
-                        groups = state.groups,
-                        selectedGroup = state.selectedGroup,
-                        onSelectGroup = viewModel::selectGroup
-                    )
-                }
-
-                item {
-                    StatusBlock(state = state, mode = contentMode)
-                }
-
-                contentItems(
-                    state = state,
-                    contentMode = contentMode,
-                    selectedSeriesKey = selectedSeriesKey,
-                    onSelectSeries = { selectedSeriesKey = it },
-                    onClearSeries = { selectedSeriesKey = null },
-                    onPlay = onPlay
-                )
-            }
-        } else {
-            Row(modifier = Modifier.fillMaxSize()) {
-                Column(
-                    modifier = Modifier
-                        .width(360.dp)
-                        .fillMaxHeight()
-                ) {
-                    ContentControls(
-                        state = state,
-                        mode = contentMode,
-                        onSearchChange = viewModel::setSearchQuery,
-                        onHideAdultChange = { hidden ->
-                            ParentalControl.setAdultContentHidden(context, hidden)
-                            viewModel.setHideAdultContent(hidden)
-                        },
-                        onRefresh = { viewModel.refreshPlaylist(context) },
-                        onBack = onBack
-                    )
-
-                    Spacer(Modifier.height(24.dp))
-
-                    CategoryRow(
-                        groups = state.groups,
-                        selectedGroup = state.selectedGroup,
-                        onSelectGroup = viewModel::selectGroup
-                    )
-                }
-
-                Spacer(Modifier.width(24.dp))
-
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    item {
-                        StatusBlock(state = state, mode = contentMode)
-                    }
-
-                    contentItems(
-                        state = state,
-                        contentMode = contentMode,
-                        selectedSeriesKey = selectedSeriesKey,
-                        onSelectSeries = { selectedSeriesKey = it },
-                        onClearSeries = { selectedSeriesKey = null },
-                        onPlay = onPlay,
-                        onLoadMoreSeries = onLoadMoreSeries,cus.onFocusChanged
-import androidx.compose.ui.draw.clip
-import androidx.compose.material3.CardDefaults
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.border
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.focusable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
-import coil.compose.rememberAsyncImagePainter
-import com.storetd.play.core.epg.EpgProgram
-import com.storetd.play.core.model.Channel
-import com.storetd.play.core.storage.LocalAccount
-import com.storetd.play.core.parental.ParentalControl
-import java.net.URLEncoder
-import java.text.Normalizer
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.Alignment
-
-private data class SeriesFolder(
-    val key: String,
-    val title: String,
-    val group: String,
-    val logoUrl: String?,
-    val episodes: List<Channel>
-)
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun LiveTvScreen(
-    onBack: () -> Unit,
-    onPlay: (Channel, List<Channel>) -> Unit,
-    contentMode: ContentMode = ContentMode.LiveTv,
-    viewModel: LiveTvViewModel = viewModel(),
-
-    onLoadMoreSeries: () -> Unit = {},) {
+    viewModel: LiveTvViewModel = viewModel()
+) {
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
 
@@ -578,9 +218,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
     selectedSeriesKey: String?,
     onSelectSeries: (String) -> Unit,
     onClearSeries: () -> Unit,
-    onPlay: (Channel, List<Channel>) -> Unit,
-
-    onLoadMoreSeries: () -> Unit,) {
+    onPlay: (Channel, List<Channel>) -> Unit
+) {
     if (state.isLoading || state.isFiltering) {
         item {
             LoadingSectionCard(
@@ -617,23 +256,11 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
             )
         }
 
-        val visibleFolders = folders.take(state.seriesFolderLimit)
-
-        items(visibleFolders) { folder ->
+        items(folders) { folder ->
             SeriesFolderRow(
                 folder = folder,
                 onOpen = { onSelectSeries(folder.key) }
             )
-        }
-
-        if (folders.size > visibleFolders.size) {
-            item {
-                SeriesLoadMoreCard(
-                    visibleCount = visibleFolders.size,
-                    totalCount = folders.size,
-                    onClick = onLoadMoreSeries
-                )
-            }
         }
     } else {
         item {
@@ -736,7 +363,6 @@ private fun ContentControls(
                         onHideAdultChange(true)
                     }
                 },
-                        onLoadMoreSeries = onLoadMoreSeries,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
@@ -948,48 +574,6 @@ private fun StatusBlock(
                 text = mode.emptyMessage,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f)
-            )
-        }
-    }
-}
-
-
-@Composable
-private fun SeriesLoadMoreCard(
-    visibleCount: Int,
-    totalCount: Int,
-    onClick: () -> Unit
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
-        shape = RoundedCornerShape(22.dp),
-        border = BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
-        ),
-        shadowElevation = 4.dp
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = "Cargar más series",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-
-            Text(
-                text = "$visibleCount de $totalCount visibles",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
-                textAlign = TextAlign.Center
             )
         }
     }
@@ -1304,6 +888,10 @@ private fun ChannelRow(
     }
 }
 
+
+
+
+
 private fun buildSeriesFolders(channels: List<Channel>): List<SeriesFolder> {
     if (channels.isEmpty()) return emptyList()
 
@@ -1350,6 +938,152 @@ private fun buildSeriesFolders(channels: List<Channel>): List<SeriesFolder> {
         .sortedBy { it.title.lowercase(Locale.getDefault()) }
 }
 
+private fun seriesFolderKey(channel: Channel): String {
+    val cleanName = cleanSeriesTitle(channel.name)
+    val cleanGroup = cleanSeriesTitle(channel.group)
+
+    val source = when {
+        cleanName.length >= 3 -> cleanName
+        cleanGroup.length >= 3 -> cleanGroup
+        channel.name.isNotBlank() -> channel.name
+        else -> channel.group
+    }
+
+    return normalizeSeriesKey(source)
+}
+
+private fun cleanSeriesTitle(value: String): String {
+    var text = value.trim()
+
+    if (text.isBlank()) return ""
+
+    text = text
+        .replace(Regex("(?i)\\bS\\s*\\d{1,2}\\s*E\\s*\\d{1,3}\\b.*"), "")
+        .replace(Regex("(?i)\\bT\\s*\\d{1,2}\\s*E\\s*\\d{1,3}\\b.*"), "")
+        .replace(Regex("(?i)\\b\\d{1,2}\\s*x\\s*\\d{1,3}\\b.*"), "")
+        .replace(Regex("(?i)\\btemporada\\s*\\d{1,2}\\b.*"), "")
+        .replace(Regex("(?i)\\bseason\\s*\\d{1,2}\\b.*"), "")
+        .replace(Regex("(?i)\\bcap[ií]tulo\\s*\\d{1,3}\\b.*"), "")
+        .replace(Regex("(?i)\\bepisodio\\s*\\d{1,3}\\b.*"), "")
+        .replace(Regex("(?i)\\bepisode\\s*\\d{1,3}\\b.*"), "")
+
+    text = text
+        .replace(Regex("(?i)\\s+-\\s+cap.*$"), "")
+        .replace(Regex("(?i)\\s+-\\s+ep.*$"), "")
+        .replace(Regex("(?i)\\s+\\[.*?\\]"), "")
+        .replace(Regex("(?i)\\s+\\(.*?\\)"), "")
+        .replace(Regex("\\s+"), " ")
+        .trim(' ', '-', '|', '.', ':', '_')
+
+    return text
+}
+
+private fun extractSeasonEpisode(value: String): Pair<Int, Int>? {
+    val normalized = normalizeSeriesKey(value)
+
+    val patterns = listOf(
+        Regex("\\bs\\s*(\\d{1,2})\\s*e\\s*(\\d{1,3})\\b"),
+        Regex("\\bt\\s*(\\d{1,2})\\s*e\\s*(\\d{1,3})\\b"),
+        Regex("\\b(\\d{1,2})\\s*x\\s*(\\d{1,3})\\b"),
+        Regex("\\btemporada\\s*(\\d{1,2}).*?capitulo\\s*(\\d{1,3})\\b"),
+        Regex("\\btemporada\\s*(\\d{1,2}).*?episodio\\s*(\\d{1,3})\\b"),
+        Regex("\\bseason\\s*(\\d{1,2}).*?episode\\s*(\\d{1,3})\\b")
+    )
+
+    for (pattern in patterns) {
+        val match = pattern.find(normalized)
+
+        if (match != null) {
+            val season = match.groupValues[1].toIntOrNull() ?: 1
+            val episode = match.groupValues[2].toIntOrNull() ?: 0
+
+            return season to episode
+        }
+    }
+
+    val singleEpisodePatterns = listOf(
+        Regex("\\bcapitulo\\s*(\\d{1,3})\\b"),
+        Regex("\\bepisodio\\s*(\\d{1,3})\\b"),
+        Regex("\\bepisode\\s*(\\d{1,3})\\b"),
+        Regex("\\bep\\s*(\\d{1,3})\\b")
+    )
+
+    for (pattern in singleEpisodePatterns) {
+        val match = pattern.find(normalized)
+
+        if (match != null) {
+            val episode = match.groupValues[1].toIntOrNull() ?: 0
+            return 1 to episode
+        }
+    }
+
+    return null
+}
+
+private fun normalizeSeriesKey(value: String): String {
+    return Normalizer.normalize(value, Normalizer.Form.NFD)
+        .replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
+        .lowercase(Locale.getDefault())
+        .replace("&", " y ")
+        .replace(Regex("[^a-z0-9]+"), " ")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+}
+
+private fun buildSectionPlaylistUrl(
+    activationCode: String,
+    fallbackUrl: String,
+    contentMode: ContentMode
+): String {
+    val code = activationCode.trim()
+
+    if (code.isBlank()) {
+        return fallbackUrl
+    }
+
+    val type = when (contentMode) {
+        ContentMode.LiveTv -> "live"
+        ContentMode.Movies -> "movies"
+        ContentMode.Series -> "series"
+    }
+
+    val encodedCode = URLEncoder.encode(code, "UTF-8")
+
+    return "https://storetd-play-backend.onrender.com/playlist/proxy?code=$encodedCode&type=$type"
+}
+
+
+private fun episodeUniqueKey(channel: Channel): String {
+    val folderKey = seriesFolderKey(channel)
+    val seasonEpisode = extractSeasonEpisode(channel.name)
+    val urlKey = normalizeSeriesKey(channel.streamUrl)
+
+    return if (seasonEpisode != null) {
+        "$folderKey|s${seasonEpisode.first}e${seasonEpisode.second}|$urlKey"
+    } else {
+        "$folderKey|${normalizeSeriesKey(channel.name)}|$urlKey"
+    }
+}
+
+private fun episodeSeasonForSort(channel: Channel): Int {
+    return extractSeasonEpisode(channel.name)?.first ?: 999
+}
+
+private fun episodeNumberForSort(channel: Channel): Int {
+    return extractSeasonEpisode(channel.name)?.second ?: 9999
+}
+
+private fun cleanEpisodeDisplayName(value: String): String {
+    return value
+        .replace(Regex("(?i)\\bS\\s*(\\d{1,2})\\s*E\\s*(\\d{1,3})\\b"), "S$1 E$2")
+        .replace(Regex("(?i)\\bT\\s*(\\d{1,2})\\s*E\\s*(\\d{1,3})\\b"), "T$1 E$2")
+        .replace(Regex("(?i)\\b(\\d{1,2})\\s*x\\s*(\\d{1,3})\\b"), "$1x$2")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+}
+
+
+
 private fun fastSeriesFolderKey(channel: Channel): String {
     return fastSeriesTitle(channel)
         .lowercase(Locale.getDefault())
@@ -1364,12 +1098,16 @@ private fun fastSeriesTitle(channel: Channel): String {
     val rawGroup = channel.group.trim()
 
     var title = rawName
+
+    // Quitar prefijos de categorías que vienen metidos en el nombre.
+    title = title
         .replace(Regex("(?i)^series\\s*[|:/-]\\s*"), "")
         .replace(Regex("(?i)^serie\\s*[|:/-]\\s*"), "")
         .replace(Regex("(?i)^temporadas\\s*[|:/-]\\s*"), "")
         .replace(Regex("(?i)^capitulos\\s*[|:/-]\\s*"), "")
         .replace(Regex("(?i)^capítulos\\s*[|:/-]\\s*"), "")
 
+    // Si el nombre empieza igual que la categoría, quitarlo.
     if (rawGroup.isNotBlank()) {
         title = title.replace(
             Regex("^" + Regex.escape(rawGroup) + "\\s*[|:/-]\\s*", RegexOption.IGNORE_CASE),
@@ -1377,10 +1115,14 @@ private fun fastSeriesTitle(channel: Channel): String {
         )
     }
 
+    // Quitar tags comunes.
     title = title
         .replace(Regex("(?i)\\b(latino|castellano|subtitulado|dual audio|hd|fhd|4k|1080p|720p)\\b"), "")
         .replace(Regex("(?i)\\[[^\\]]*\\]"), "")
         .replace(Regex("(?i)\\([^)]*\\)"), "")
+
+    // Quitar temporada/capítulo y todo lo posterior.
+    title = title
         .replace(Regex("(?i)\\bS\\s*\\d{1,2}\\s*E\\s*\\d{1,3}\\b.*"), "")
         .replace(Regex("(?i)\\bT\\s*\\d{1,2}\\s*E\\s*\\d{1,3}\\b.*"), "")
         .replace(Regex("(?i)\\b\\d{1,2}\\s*x\\s*\\d{1,3}\\b.*"), "")
@@ -1390,14 +1132,19 @@ private fun fastSeriesTitle(channel: Channel): String {
         .replace(Regex("(?i)\\bepisodio\\s*\\d{1,3}\\b.*"), "")
         .replace(Regex("(?i)\\bepisode\\s*\\d{1,3}\\b.*"), "")
         .replace(Regex("(?i)\\bep\\s*\\d{1,3}\\b.*"), "")
+
+    // Quitar separadores finales.
+    title = title
         .replace(Regex("(?i)\\s+[-|:]\\s+(cap[ií]tulo|episodio|episode|ep|s\\d|t\\d|\\d+x).*$"), "")
         .replace(Regex("\\s+"), " ")
         .trim(' ', '-', '|', '.', ':', '_')
 
+    // Muy importante: NO usar grupos genéricos como carpeta.
     if (title.length >= 3 && !looksLikeGenericSeriesGroup(title)) {
         return title
     }
 
+    // Solo usamos grupo como último recurso si no es genérico.
     if (rawGroup.isNotBlank() && !looksLikeGenericSeriesGroup(rawGroup)) {
         return rawGroup
     }
@@ -1406,6 +1153,28 @@ private fun fastSeriesTitle(channel: Channel): String {
         .replace(Regex("\\s+"), " ")
         .trim(' ', '-', '|', '.', ':', '_')
 }
+
+private fun fastEpisodeNumber(name: String): Int {
+    val patterns = listOf(
+        Regex("(?i)\\bS\\s*\\d{1,2}\\s*E\\s*(\\d{1,3})\\b"),
+        Regex("(?i)\\bT\\s*\\d{1,2}\\s*E\\s*(\\d{1,3})\\b"),
+        Regex("(?i)\\b\\d{1,2}\\s*x\\s*(\\d{1,3})\\b"),
+        Regex("(?i)\\bcap[ií]tulo\\s*(\\d{1,3})\\b"),
+        Regex("(?i)\\bepisodio\\s*(\\d{1,3})\\b"),
+        Regex("(?i)\\bepisode\\s*(\\d{1,3})\\b"),
+        Regex("(?i)\\bep\\s*(\\d{1,3})\\b")
+    )
+
+    for (pattern in patterns) {
+        val match = pattern.find(name)
+        if (match != null) {
+            return match.groupValues[1].toIntOrNull() ?: 9999
+        }
+    }
+
+    return 9999
+}
+
 
 private fun looksLikeGenericSeriesGroup(value: String): Boolean {
     val normalized = value
@@ -1457,73 +1226,12 @@ private fun fastEpisodeSeason(name: String): Int {
     return 1
 }
 
-private fun fastEpisodeNumber(name: String): Int {
-    val patterns = listOf(
-        Regex("(?i)\\bS\\s*\\d{1,2}\\s*E\\s*(\\d{1,3})\\b"),
-        Regex("(?i)\\bT\\s*\\d{1,2}\\s*E\\s*(\\d{1,3})\\b"),
-        Regex("(?i)\\b\\d{1,2}\\s*x\\s*(\\d{1,3})\\b"),
-        Regex("(?i)\\bcap[ií]tulo\\s*(\\d{1,3})\\b"),
-        Regex("(?i)\\bepisodio\\s*(\\d{1,3})\\b"),
-        Regex("(?i)\\bepisode\\s*(\\d{1,3})\\b"),
-        Regex("(?i)\\bep\\s*(\\d{1,3})\\b")
-    )
-
-    for (pattern in patterns) {
-        val match = pattern.find(name)
-        if (match != null) {
-            return match.groupValues[1].toIntOrNull() ?: 9999
-        }
-    }
-
-    return 9999
-}
-
 private fun fastEpisodeKey(name: String): String {
     return fastEpisodeSeason(name).toString() + "x" + fastEpisodeNumber(name).toString() + "|" +
         name.lowercase(Locale.getDefault())
             .replace(Regex("[^a-z0-9áéíóúüñ]+"), " ")
             .replace(Regex("\\s+"), " ")
             .trim()
-}
-
-// Compatibilidad con nombres viejos usados por otros bloques.
-private fun seriesFolderKey(channel: Channel): String = fastSeriesFolderKey(channel)
-
-private fun cleanSeriesTitle(value: String): String {
-    return value
-        .replace(Regex("(?i)\\bS\\s*\\d{1,2}\\s*E\\s*\\d{1,3}\\b.*"), "")
-        .replace(Regex("(?i)\\bT\\s*\\d{1,2}\\s*E\\s*\\d{1,3}\\b.*"), "")
-        .replace(Regex("(?i)\\b\\d{1,2}\\s*x\\s*\\d{1,3}\\b.*"), "")
-        .replace(Regex("\\s+"), " ")
-        .trim(' ', '-', '|', '.', ':', '_')
-}
-
-private fun normalizeSeriesKey(value: String): String {
-    return value
-        .lowercase(Locale.getDefault())
-        .replace("&", " y ")
-        .replace(Regex("[^a-z0-9áéíóúüñ]+"), " ")
-        .replace(Regex("\\s+"), " ")
-        .trim()
-}
-
-private fun extractSeasonEpisode(value: String): Pair<Int, Int>? {
-    val season = fastEpisodeSeason(value)
-    val episode = fastEpisodeNumber(value)
-
-    return if (episode != 9999) season to episode else null
-}
-
-private fun episodeUniqueKey(channel: Channel): String {
-    return channel.streamUrl.ifBlank { fastEpisodeKey(channel.name) }
-}
-
-private fun episodeSeasonForSort(channel: Channel): Int = fastEpisodeSeason(channel.name)
-
-private fun episodeNumberForSort(channel: Channel): Int = fastEpisodeNumber(channel.name)
-
-private fun cleanEpisodeDisplayName(value: String): String {
-    return value.replace(Regex("\\s+"), " ").trim()
 }
 
 private fun formatLiveEpgTime(value: Long): String {
