@@ -57,6 +57,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.LinearProgressIndicator
 import com.storetd.play.core.storage.SavedChannel
 import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.rememberCoroutineScope
+import com.storetd.play.core.cache.PlaylistDiskCache
+import com.storetd.play.core.cache.PlaylistMemoryCache
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private data class HomeAction(
     val title: String,
@@ -133,6 +141,42 @@ fun HomeScreen(
     val context = LocalContext.current
     val account = LocalAccount.getAccount(context)
     val customerName = account.customerName.ifBlank { "cliente" }
+
+    val refreshScope = rememberCoroutineScope()
+    var globalRefreshRunning by remember { mutableStateOf(false) }
+    var globalRefreshMessage by remember { mutableStateOf<String?>(null) }
+
+    fun refreshAllContentFromHome() {
+        if (globalRefreshRunning) return
+
+        val playlistUrl = account.playlistUrl.trim()
+
+        if (playlistUrl.isBlank()) {
+            globalRefreshMessage = "No hay lista asignada para actualizar"
+            return
+        }
+
+        globalRefreshRunning = true
+        globalRefreshMessage = "Actualizando contenido..."
+
+        refreshScope.launch {
+            withContext(Dispatchers.IO) {
+                PlaylistPreloader.clear(playlistUrl)
+                PlaylistMemoryCache.clear(playlistUrl)
+                PlaylistDiskCache.clear(context.applicationContext, playlistUrl)
+                PlaylistPreloader.preload(
+                    appContext = context.applicationContext,
+                    url = playlistUrl,
+                    forceRefresh = true
+                )
+            }
+
+            globalRefreshMessage = "Contenido actualizado"
+            delay(1800)
+            globalRefreshRunning = false
+            globalRefreshMessage = null
+        }
+    }
 
     var continueSummary by remember {
         mutableStateOf(loadContinueWatchingSummary(context))
@@ -238,6 +282,14 @@ fun HomeScreen(
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.92f)
                 )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                HomeGlobalRefreshCard(
+                    isRefreshing = globalRefreshRunning,
+                    message = globalRefreshMessage,
+                    onRefresh = { refreshAllContentFromHome() }
+                )
             }
 
             if (continueItems.isNotEmpty()) {
@@ -285,6 +337,60 @@ fun HomeScreen(
         }
     }
 }
+
+
+
+@Composable
+private fun HomeGlobalRefreshCard(
+    isRefreshing: Boolean,
+    message: String?,
+    onRefresh: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = !isRefreshing) { onRefresh() },
+        color = MaterialTheme.colorScheme.primary.copy(alpha = if (isRefreshing) 0.72f else 0.95f),
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.35f)
+        ),
+        shadowElevation = 8.dp
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 22.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (isRefreshing) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    strokeWidth = 3.dp
+                )
+            }
+
+            Column(
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = if (isRefreshing) "Actualizando contenido" else "Actualizar contenido",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Text(
+                    text = message ?: "Recarga TV en vivo, películas y series desde el Home.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.86f)
+                )
+            }
+        }
+    }
+}
+
 
 
 @Composable
