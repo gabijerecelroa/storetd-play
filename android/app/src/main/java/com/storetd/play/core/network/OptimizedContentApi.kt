@@ -35,17 +35,43 @@ object OptimizedContentApi {
 
         val result = linkedMapOf<String, List<Channel>>()
 
-        for (section in listOf("live", "movies", "series")) {
-            val items = runCatching {
+        val liveItems = runCatching {
+            loadSection(
+                activationCode = code,
+                section = "live"
+            )
+        }.getOrDefault(emptyList())
+
+        if (liveItems.isNotEmpty()) {
+            result["live"] = liveItems
+        }
+
+        val movieItems = runCatching {
+            loadSection(
+                activationCode = code,
+                section = "movies"
+            )
+        }.getOrDefault(emptyList())
+
+        if (movieItems.isNotEmpty()) {
+            result["movies"] = movieItems
+        }
+
+        // Series usa primero el cache optimizado de carpetas del backend.
+        // Si falla, cae al endpoint plano /series como respaldo.
+        val seriesItems = runCatching {
+            loadSeriesFoldersAsChannels(code)
+        }.getOrDefault(emptyList()).ifEmpty {
+            runCatching {
                 loadSection(
                     activationCode = code,
-                    section = section
+                    section = "series"
                 )
             }.getOrDefault(emptyList())
+        }
 
-            if (items.isNotEmpty()) {
-                result[section] = items
-            }
+        if (seriesItems.isNotEmpty()) {
+            result["series"] = seriesItems
         }
 
         return result
@@ -121,6 +147,76 @@ object OptimizedContentApi {
         } finally {
             connection.disconnect()
         }
+    }
+
+    fun loadSeriesFoldersAsChannels(activationCode: String): List<Channel> {
+        val base = BuildConfig.API_BASE_URL
+            .trim()
+            .trimEnd('/')
+
+        val code = activationCode.trim()
+
+        if (base.isBlank() || code.isBlank()) return emptyList()
+
+        val encodedCode = URLEncoder.encode(code, "UTF-8")
+        val requestUrl = "$base/api/content/series-folders?code=$encodedCode&autoRefresh=0"
+
+        val raw = readUrl(requestUrl)
+        val json = JSONObject(raw)
+
+        if (!json.optBoolean("success", true)) {
+            return emptyList()
+        }
+
+        val folders = json.optJSONArray("folders") ?: return emptyList()
+        val channels = mutableListOf<Channel>()
+
+        for (folderIndex in 0 until folders.length()) {
+            val folder = folders.optJSONObject(folderIndex) ?: continue
+
+            val folderTitle = readString(folder, "title", "name").ifBlank {
+                "Serie sin título"
+            }
+
+            val folderPoster = readNullableString(folder, "posterUrl", "poster_url", "logoUrl", "logo")
+            val episodes = folder.optJSONArray("episodes") ?: continue
+
+            for (episodeIndex in 0 until episodes.length()) {
+                val episode = episodes.optJSONObject(episodeIndex) ?: continue
+                val channel = parseSeriesEpisode(
+                    obj = episode,
+                    folderTitle = folderTitle,
+                    folderPoster = folderPoster
+                )
+
+                if (channel.streamUrl.isNotBlank()) {
+                    channels.add(channel)
+                }
+            }
+        }
+
+        return channels
+    }
+
+    private fun parseSeriesEpisode(
+        obj: JSONObject,
+        folderTitle: String,
+        folderPoster: String?
+    ): Channel {
+        val name = readString(obj, "name", "title").ifBlank { folderTitle }
+        val streamUrl = readString(obj, "streamUrl", "stream_url", "url")
+        val id = readString(obj, "id").ifBlank {
+            "$folderTitle|$name|$streamUrl".hashCode().toString()
+        }
+
+        return Channel(
+            id = id,
+            name = name,
+            streamUrl = streamUrl,
+            logoUrl = readNullableString(obj, "logoUrl", "logo_url", "logo") ?: folderPoster,
+            group = folderTitle,
+            tvgId = readNullableString(obj, "tvgId", "tvg_id")
+        )
     }
 
     private fun readUrl(requestUrl: String): String {
