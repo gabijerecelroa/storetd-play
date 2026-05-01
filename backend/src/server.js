@@ -5,7 +5,11 @@ const { supabase, isDatabaseConfigured } = require("./db");
 const { getAppConfig, updateAppConfig } = require("./appConfig");
 const {
   refreshContentCacheForClient,
-  getCachedContentSection
+  getCachedContentSection,
+  getSeriesFoldersLite,
+  getSeriesFolderByKey,
+  getMovieCategoriesLite,
+  getMovieCategoryByKey
 } = require("./playlistContent");
 
 const app = express();
@@ -1675,6 +1679,172 @@ app.post("/api/content/refresh", requireAdmin, async (req, res) => {
     });
   }
 });
+
+
+app.get("/api/content/series-folders-lite", async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const activationCode = normalizeCode(req.query.code);
+
+    if (!activationCode) {
+      return res.status(400).json({
+        success: false,
+        message: "Falta code."
+      });
+    }
+
+    const result = await getSeriesFoldersLite({
+      activationCode,
+      autoRefresh: req.query.autoRefresh !== "0"
+    });
+
+    if (!result.success) {
+      return res.status(result.status || 500).json({
+        success: false,
+        message: result.message
+      });
+    }
+
+    res.json({
+      success: true,
+      fromCache: result.fromCache,
+      ...result.payload
+    });
+  } catch (error) {
+    console.error("Series folders lite error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudo obtener carpetas de series.",
+      error: error.message
+    });
+  }
+});
+
+app.get("/api/content/series-folder", async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const activationCode = normalizeCode(req.query.code);
+    const key = String(req.query.key || "").trim();
+
+    if (!activationCode) {
+      return res.status(400).json({
+        success: false,
+        message: "Falta code."
+      });
+    }
+
+    const result = await getSeriesFolderByKey({
+      activationCode,
+      key,
+      autoRefresh: req.query.autoRefresh !== "0"
+    });
+
+    if (!result.success) {
+      return res.status(result.status || 500).json({
+        success: false,
+        message: result.message
+      });
+    }
+
+    res.json({
+      success: true,
+      fromCache: result.fromCache,
+      ...result.payload
+    });
+  } catch (error) {
+    console.error("Series folder error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudo obtener episodios de la carpeta.",
+      error: error.message
+    });
+  }
+});
+
+app.get("/api/content/movie-categories-lite", async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const activationCode = normalizeCode(req.query.code);
+
+    if (!activationCode) {
+      return res.status(400).json({
+        success: false,
+        message: "Falta code."
+      });
+    }
+
+    const result = await getMovieCategoriesLite({
+      activationCode,
+      autoRefresh: req.query.autoRefresh !== "0"
+    });
+
+    if (!result.success) {
+      return res.status(result.status || 500).json({
+        success: false,
+        message: result.message
+      });
+    }
+
+    res.json({
+      success: true,
+      fromCache: result.fromCache,
+      ...result.payload
+    });
+  } catch (error) {
+    console.error("Movie categories lite error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudo obtener categorías de películas.",
+      error: error.message
+    });
+  }
+});
+
+app.get("/api/content/movie-category", async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const activationCode = normalizeCode(req.query.code);
+    const key = String(req.query.key || "").trim();
+
+    if (!activationCode) {
+      return res.status(400).json({
+        success: false,
+        message: "Falta code."
+      });
+    }
+
+    const result = await getMovieCategoryByKey({
+      activationCode,
+      key,
+      autoRefresh: req.query.autoRefresh !== "0"
+    });
+
+    if (!result.success) {
+      return res.status(result.status || 500).json({
+        success: false,
+        message: result.message
+      });
+    }
+
+    res.json({
+      success: true,
+      fromCache: result.fromCache,
+      ...result.payload
+    });
+  } catch (error) {
+    console.error("Movie category error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudo obtener películas de la categoría.",
+      error: error.message
+    });
+  }
+});
+
 
 app.get("/api/content/:section", async (req, res) => {
   if (!requireDb(res)) return;

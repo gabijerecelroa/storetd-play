@@ -680,8 +680,190 @@ async function getCachedContentSection({ activationCode, section, autoRefresh = 
   });
 }
 
+
+async function getSeriesFoldersLite({ activationCode, autoRefresh = true }) {
+  const result = await getCachedContentSection({
+    activationCode,
+    section: "series-folders",
+    autoRefresh
+  });
+
+  if (!result.success) return result;
+
+  const payload = result.payload || {};
+  const folders = Array.isArray(payload.folders) ? payload.folders : [];
+
+  const liteFolders = folders.map((folder) => ({
+    key: folder.key,
+    title: folder.title,
+    group: folder.group,
+    posterUrl: folder.posterUrl || null,
+    episodeCount: Number(folder.episodeCount || folder.episodes?.length || 0)
+  }));
+
+  return {
+    success: true,
+    status: 200,
+    fromCache: result.fromCache,
+    payload: {
+      section: "series-folders-lite",
+      activationCode: payload.activationCode,
+      playlistUrlMasked: payload.playlistUrlMasked,
+      updatedAt: payload.updatedAt,
+      folderCount: liteFolders.length,
+      itemCount: liteFolders.reduce((sum, folder) => sum + Number(folder.episodeCount || 0), 0),
+      folders: liteFolders
+    }
+  };
+}
+
+async function getSeriesFolderByKey({ activationCode, key, autoRefresh = true }) {
+  const safeKey = String(key || "").trim();
+
+  if (!safeKey) {
+    return {
+      success: false,
+      status: 400,
+      message: "Falta key de carpeta."
+    };
+  }
+
+  const result = await getCachedContentSection({
+    activationCode,
+    section: "series-folders",
+    autoRefresh
+  });
+
+  if (!result.success) return result;
+
+  const payload = result.payload || {};
+  const folders = Array.isArray(payload.folders) ? payload.folders : [];
+  const folder = folders.find((item) => String(item.key || "") === safeKey);
+
+  if (!folder) {
+    return {
+      success: false,
+      status: 404,
+      message: "Carpeta no encontrada."
+    };
+  }
+
+  const episodes = Array.isArray(folder.episodes) ? folder.episodes : [];
+
+  return {
+    success: true,
+    status: 200,
+    fromCache: result.fromCache,
+    payload: {
+      section: "series-folder",
+      activationCode: payload.activationCode,
+      playlistUrlMasked: payload.playlistUrlMasked,
+      updatedAt: payload.updatedAt,
+      folder: {
+        key: folder.key,
+        title: folder.title,
+        group: folder.group,
+        posterUrl: folder.posterUrl || null,
+        episodeCount: episodes.length
+      },
+      items: episodes
+    }
+  };
+}
+
+async function getMovieCategoriesLite({ activationCode, autoRefresh = true }) {
+  const result = await getCachedContentSection({
+    activationCode,
+    section: "movie-categories",
+    autoRefresh
+  });
+
+  if (!result.success) return result;
+
+  const payload = result.payload || {};
+  const categories = Array.isArray(payload.categories) ? payload.categories : [];
+
+  const liteCategories = categories.map((category) => ({
+    key: category.key,
+    title: category.title,
+    itemCount: Number(category.itemCount || category.items?.length || 0)
+  }));
+
+  return {
+    success: true,
+    status: 200,
+    fromCache: result.fromCache,
+    payload: {
+      section: "movie-categories-lite",
+      activationCode: payload.activationCode,
+      playlistUrlMasked: payload.playlistUrlMasked,
+      updatedAt: payload.updatedAt,
+      categoryCount: liteCategories.length,
+      itemCount: liteCategories.reduce((sum, category) => sum + Number(category.itemCount || 0), 0),
+      categories: liteCategories
+    }
+  };
+}
+
+async function getMovieCategoryByKey({ activationCode, key, autoRefresh = true }) {
+  const safeKey = String(key || "").trim();
+
+  if (!safeKey) {
+    return {
+      success: false,
+      status: 400,
+      message: "Falta key de categoría."
+    };
+  }
+
+  const result = await getCachedContentSection({
+    activationCode,
+    section: "movie-categories",
+    autoRefresh
+  });
+
+  if (!result.success) return result;
+
+  const payload = result.payload || {};
+  const categories = Array.isArray(payload.categories) ? payload.categories : [];
+  const category = categories.find((item) => String(item.key || "") === safeKey);
+
+  if (!category) {
+    return {
+      success: false,
+      status: 404,
+      message: "Categoría no encontrada."
+    };
+  }
+
+  const items = Array.isArray(category.items) ? category.items : [];
+
+  return {
+    success: true,
+    status: 200,
+    fromCache: result.fromCache,
+    payload: {
+      section: "movie-category",
+      activationCode: payload.activationCode,
+      playlistUrlMasked: payload.playlistUrlMasked,
+      updatedAt: payload.updatedAt,
+      category: {
+        key: category.key,
+        title: category.title,
+        itemCount: items.length
+      },
+      items
+    }
+  };
+}
+
+
 module.exports = {
   parseM3u,
   refreshContentCacheForClient,
-  getCachedContentSection
+  getCachedContentSection,
+  getSeriesFoldersLite,
+  getSeriesFolderByKey,
+  getMovieCategoriesLite,
+  getMovieCategoryByKey
 };
