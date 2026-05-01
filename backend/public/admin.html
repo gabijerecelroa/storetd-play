@@ -886,6 +886,66 @@
       }
     }
 
+  
+    .create-main-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .create-main-grid .full {
+      grid-column: 1 / -1;
+    }
+
+    .create-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .create-actions button {
+      margin: 0;
+    }
+
+    .create-advanced {
+      margin-top: 14px;
+      background: var(--panel-soft);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px;
+    }
+
+    .create-advanced summary {
+      cursor: pointer;
+      list-style: none;
+      color: var(--primary);
+      font-weight: 900;
+    }
+
+    .create-advanced summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .create-hint {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 4px;
+      margin-bottom: 12px;
+    }
+
+    @media (max-width: 760px) {
+      .create-main-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .create-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -945,48 +1005,63 @@
         <details class="card create-card">
           <summary>+ Nuevo cliente</summary>
           <div class="create-body">
-
-          <div class="grid">
-            <div>
-              <label>Nombre</label>
-              <input id="newCustomerName" placeholder="Jose" />
+            <div class="create-hint">
+              Creá un cliente rápido con los datos básicos. Las opciones avanzadas quedan plegadas para mantener el panel limpio.
             </div>
 
-            <div>
-              <label>Código de activación</label>
-              <input id="newActivationCode" placeholder="JOSE2026" />
+            <div class="create-main-grid">
+              <div>
+                <label>Nombre del cliente</label>
+                <input id="newCustomerName" placeholder="Ej: Jose" />
+              </div>
+
+              <div>
+                <label>Código de activación</label>
+                <input id="newActivationCode" placeholder="Ej: 253698" />
+                <button type="button" class="secondary small" onclick="fillRandomActivationCode()">Generar código</button>
+              </div>
+
+              <div>
+                <label>Vencimiento</label>
+                <input id="newExpiresAt" type="date" />
+              </div>
+
+              <div>
+                <label>Estado</label>
+                <select id="newStatus">
+                  <option>Activa</option>
+                  <option>Prueba</option>
+                  <option>Vencida</option>
+                  <option>Suspendida</option>
+                </select>
+              </div>
+
+              <div class="full">
+                <label>Playlist M3U URL autorizada</label>
+                <input id="newPlaylistUrl" placeholder="https://..." />
+              </div>
             </div>
 
-            <div>
-              <label>Estado</label>
-              <select id="newStatus">
-                <option>Activa</option>
-                <option>Prueba</option>
-                <option>Vencida</option>
-                <option>Suspendida</option>
-              </select>
+            <details class="create-advanced">
+              <summary>Opciones avanzadas</summary>
+
+              <div class="grid" style="margin-top:14px">
+                <div>
+                  <label>Máximo dispositivos</label>
+                  <input id="newMaxDevices" type="number" min="1" value="1" />
+                </div>
+
+                <div>
+                  <label>EPG URL</label>
+                  <input id="newEpgUrl" placeholder="https://..." />
+                </div>
+              </div>
+            </details>
+
+            <div class="create-actions">
+              <button onclick="createClient()">Crear cliente</button>
+              <button type="button" class="secondary" onclick="clearNewClientForm()">Limpiar</button>
             </div>
-
-            <div>
-              <label>Vencimiento</label>
-              <input id="newExpiresAt" type="date" />
-            </div>
-
-            <div>
-              <label>Máximo dispositivos</label>
-              <input id="newMaxDevices" type="number" min="1" value="1" />
-            </div>
-
-            <div>
-              <label>EPG URL</label>
-              <input id="newEpgUrl" placeholder="https://..." />
-            </div>
-          </div>
-
-          <label>Playlist M3U URL autorizada</label>
-          <input id="newPlaylistUrl" placeholder="https://..." />
-
-          <button onclick="createClient()">Crear cliente</button>
           </div>
         </details>
 
@@ -1188,6 +1263,17 @@
       const data = await api("/admin/api/clients");
       clientsCache = data.clients || [];
       renderClients();
+    }
+
+    function fillRandomActivationCode() {
+      const input = document.getElementById("newActivationCode");
+      const name = normalize(document.getElementById("newCustomerName")?.value || "")
+        .replace(/[^a-z0-9]/g, "")
+        .slice(0, 4)
+        .toUpperCase();
+
+      const random = Math.floor(100000 + Math.random() * 900000).toString();
+      input.value = name ? `${name}${random.slice(-4)}` : random;
     }
 
     async function createClient() {
