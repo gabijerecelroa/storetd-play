@@ -2235,6 +2235,100 @@ function updateM3uEntryByHash(m3uText, targetHash, changes = {}) {
 
 
 
+
+function analyzeM3uForAdmin(m3uText) {
+  const lines = String(m3uText || "").replace(/\r/g, "").split("\n");
+  const categories = new Map();
+  const urlHashes = new Map();
+
+  let entries = 0;
+  let brokenEntries = 0;
+  let duplicateUrls = 0;
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const extinf = lines[i] || "";
+
+    if (!extinf.trim().startsWith("#EXTINF")) continue;
+
+    entries += 1;
+
+    const url = String(lines[i + 1] || "").trim();
+
+    if (!url || url.startsWith("#")) {
+      brokenEntries += 1;
+      continue;
+    }
+
+    const group = readM3uAttributeFromLine(extinf, "group-title") || "Sin categoría";
+    categories.set(group, (categories.get(group) || 0) + 1);
+
+    const hash = streamUrlHash(url);
+    const count = (urlHashes.get(hash) || 0) + 1;
+    urlHashes.set(hash, count);
+
+    if (count === 2) {
+      duplicateUrls += 1;
+    }
+  }
+
+  const topCategories = Array.from(categories.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 80);
+
+  return {
+    entries,
+    categories: categories.size,
+    duplicateUrls,
+    brokenEntries,
+    topCategories
+  };
+}
+
+
+
+app.get("/admin/api/m3u/download", requireAdmin, async (req, res) => {
+  try {
+    const config = requireGistConfig(res);
+    if (!config) return;
+
+    const m3uText = await downloadGistM3uRaw(config.rawUrl);
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+
+    res.setHeader("Content-Type", "application/x-mpegURL; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="storetd-lista-backup-${stamp}.m3u"`);
+    res.send(m3uText);
+  } catch (error) {
+    console.error("Download M3U backup error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "No se pudo descargar backup M3U."
+    });
+  }
+});
+
+app.get("/admin/api/m3u/validate", requireAdmin, async (req, res) => {
+  try {
+    const config = requireGistConfig(res);
+    if (!config) return;
+
+    const m3uText = await downloadGistM3uRaw(config.rawUrl);
+    const analysis = analyzeM3uForAdmin(m3uText);
+
+    res.json({
+      success: true,
+      ...analysis
+    });
+  } catch (error) {
+    console.error("Validate M3U error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "No se pudo validar la M3U."
+    });
+  }
+});
+
+
 app.get("/admin/api/m3u/search", requireAdmin, async (req, res) => {
   try {
     const config = requireGistConfig(res);
