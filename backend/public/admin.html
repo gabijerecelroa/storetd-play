@@ -6,17 +6,24 @@
   <title>StoreTD Play Admin</title>
   <style>
     :root {
-      --bg: #050505;
-      --card: #1f1f24;
-      --card2: #2c2c33;
-      --text: #ffffff;
-      --muted: #b8b8c2;
-      --red: #e50914;
-      --red2: #9f1018;
-      --border: #3a3a44;
-      --green: #1e8e3e;
-      --yellow: #d39e00;
-      --input: #08080a;
+      --bg: #f3f4f8;
+      --panel: #ffffff;
+      --panel-soft: #f8fafc;
+      --sidebar: #111827;
+      --sidebar-2: #1f2937;
+      --text: #111827;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --border-strong: #d1d5db;
+      --primary: #2563eb;
+      --primary-2: #1d4ed8;
+      --red: #e11d48;
+      --red-2: #be123c;
+      --green: #16a34a;
+      --yellow: #d97706;
+      --purple: #7c3aed;
+      --shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+      --radius: 18px;
     }
 
     * { box-sizing: border-box; }
@@ -25,88 +32,140 @@
       margin: 0;
       background: var(--bg);
       color: var(--text);
-      font-family: Arial, Helvetica, sans-serif;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
     }
 
     header {
-      padding: 22px;
-      background: #0d0d0f;
-      border-bottom: 1px solid var(--border);
+      background: linear-gradient(135deg, var(--sidebar), var(--sidebar-2));
+      color: #ffffff;
+      padding: 22px clamp(16px, 4vw, 34px);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
       position: sticky;
       top: 0;
       z-index: 20;
+      box-shadow: 0 10px 28px rgba(15,23,42,0.20);
     }
 
-    h1 {
+    header .brand-row {
+      max-width: 1240px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    header h1 {
       margin: 0;
-      color: var(--red);
-      font-size: 28px;
+      font-size: clamp(22px, 3vw, 32px);
+      letter-spacing: -0.03em;
+      color: #ffffff;
     }
 
-    h2 {
-      margin-top: 0;
+    header .muted {
+      color: #cbd5e1;
+      margin-top: 4px;
     }
 
     main {
-      padding: 18px;
-      max-width: 1200px;
+      padding: clamp(16px, 3vw, 28px);
+      max-width: 1240px;
       margin: auto;
     }
 
+    h2, h3 {
+      letter-spacing: -0.02em;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 24px;
+    }
+
+    h3 {
+      margin: 0;
+      font-size: 19px;
+    }
+
     .card {
-      background: var(--card);
+      background: var(--panel);
       border: 1px solid var(--border);
-      border-radius: 18px;
-      padding: 18px;
+      border-radius: var(--radius);
+      padding: 20px;
       margin-bottom: 18px;
+      box-shadow: var(--shadow);
     }
 
     .login-card {
       max-width: 520px;
-      margin: 32px auto;
+      margin: 40px auto;
     }
 
     label {
       display: block;
       color: var(--muted);
       font-size: 13px;
+      font-weight: 700;
       margin-bottom: 6px;
     }
 
     input, select, textarea {
       width: 100%;
-      background: var(--input);
+      background: #ffffff;
       color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px;
+      border: 1px solid var(--border-strong);
+      border-radius: 13px;
+      padding: 12px 13px;
       margin-bottom: 12px;
       font-size: 15px;
+      outline: none;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
     }
 
     textarea {
-      min-height: 80px;
+      min-height: 82px;
+      resize: vertical;
     }
 
     button {
-      background: var(--red);
+      background: var(--primary);
       color: white;
       border: 0;
       border-radius: 999px;
-      padding: 12px 18px;
-      font-size: 15px;
-      font-weight: bold;
+      padding: 11px 17px;
+      font-size: 14px;
+      font-weight: 800;
       cursor: pointer;
       margin: 4px;
+      transition: transform .12s ease, opacity .12s ease, background .12s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      background: var(--primary-2);
     }
 
     button.secondary {
-      background: transparent;
-      border: 1px solid var(--border);
+      background: #ffffff;
+      color: var(--text);
+      border: 1px solid var(--border-strong);
+    }
+
+    button.secondary:hover {
+      background: var(--panel-soft);
     }
 
     button.danger {
-      background: var(--red2);
+      background: var(--red);
+    }
+
+    button.danger:hover {
+      background: var(--red-2);
     }
 
     button.small {
@@ -134,59 +193,83 @@
     }
 
     .stat {
-      background: var(--card2);
-      border-radius: 14px;
-      padding: 14px;
+      background: var(--panel-soft);
+      border-radius: 18px;
+      padding: 18px;
       border: 1px solid var(--border);
+      min-height: 112px;
     }
 
     .stat strong {
       display: block;
-      font-size: 28px;
-      color: var(--red);
+      font-size: 36px;
+      line-height: 1;
+      color: var(--primary);
+      margin-bottom: 12px;
     }
 
-    .client, .report {
-      background: var(--card2);
-      border: 1px solid var(--border);
-      border-radius: 18px;
-      padding: 16px;
-      margin-bottom: 14px;
-    }
-
-    .client h3, .report h3 {
-      margin: 0 0 8px;
-    }
+    .stat:nth-child(2) strong { color: var(--green); }
+    .stat:nth-child(5) strong { color: var(--red); }
+    .stat:nth-child(7) strong { color: var(--yellow); }
 
     .muted {
       color: var(--muted);
     }
 
     .badge {
-      display: inline-block;
-      padding: 6px 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 11px;
       border-radius: 999px;
-      background: #111;
-      border: 1px solid var(--border);
-      margin: 4px 0;
+      background: #eef2ff;
+      color: #3730a3;
+      border: 1px solid #c7d2fe;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
     }
 
-    .badge.pending { border-color: var(--yellow); }
-    .badge.done { border-color: var(--green); }
+    .badge.ok {
+      background: #dcfce7;
+      color: #166534;
+      border-color: #bbf7d0;
+    }
+
+    .badge.trial {
+      background: #fef3c7;
+      color: #92400e;
+      border-color: #fde68a;
+    }
+
+    .badge.danger,
+    .badge.pending {
+      background: #ffe4e6;
+      color: #9f1239;
+      border-color: #fecdd3;
+    }
+
+    .badge.done {
+      background: #dcfce7;
+      color: #166534;
+      border-color: #bbf7d0;
+    }
 
     .actions {
-      margin-top: 12px;
+      margin-top: 14px;
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
+      gap: 8px;
     }
 
     .message {
-      padding: 12px;
-      border-radius: 12px;
-      background: #111;
-      border: 1px solid var(--border);
+      padding: 13px 15px;
+      border-radius: 14px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e3a8a;
       margin-bottom: 14px;
+      font-weight: 700;
     }
 
     .tabs {
@@ -194,16 +277,23 @@
       gap: 10px;
       margin-bottom: 16px;
       flex-wrap: wrap;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 8px;
+      width: fit-content;
+      box-shadow: var(--shadow);
     }
 
     .tab {
       background: transparent;
-      border: 1px solid var(--border);
+      border: 0;
+      color: var(--muted);
     }
 
     .tab.active {
-      background: var(--red);
-      border-color: var(--red);
+      background: var(--primary);
+      color: #ffffff;
     }
 
     .hidden {
@@ -215,7 +305,12 @@
       grid-template-columns: 1fr 220px auto;
       gap: 10px;
       align-items: center;
-      margin-bottom: 14px;
+      margin-bottom: 16px;
+    }
+
+    .toolbar input,
+    .toolbar select {
+      margin-bottom: 0;
     }
 
     .check-row {
@@ -231,8 +326,110 @@
       margin: 0;
     }
 
+    .session-card {
+      background: linear-gradient(135deg, #111827, #1f2937);
+      color: #ffffff;
+      border: 0;
+    }
+
+    .session-card .muted {
+      color: #cbd5e1;
+    }
+
+    .client-list {
+      display: grid;
+      gap: 14px;
+    }
+
+    .client, .report {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 16px;
+      box-shadow: 0 8px 22px rgba(15,23,42,0.06);
+    }
+
+    .client-main {
+      display: grid;
+      grid-template-columns: 1.4fr 150px 150px 160px auto;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .client-name {
+      min-width: 0;
+    }
+
+    .client-name strong {
+      display: block;
+      font-size: 18px;
+      margin-bottom: 5px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .client-code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-weight: 800;
+      color: #334155;
+    }
+
+    .client-meta {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .client-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    details.client-editor {
+      margin-top: 12px;
+      background: var(--panel-soft);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 12px;
+    }
+
+    details.client-editor summary {
+      cursor: pointer;
+      font-weight: 900;
+      color: var(--primary);
+      list-style: none;
+    }
+
+    details.client-editor summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .client-edit-grid {
+      margin-top: 14px;
+    }
+
+    .report h3 {
+      margin-bottom: 8px;
+    }
+
     .footer-space {
       height: 40px;
+    }
+
+    @media (max-width: 980px) {
+      .stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .client-main {
+        grid-template-columns: 1fr;
+      }
+
+      .client-actions {
+        justify-content: flex-start;
+      }
     }
 
     @media (max-width: 760px) {
@@ -240,23 +437,29 @@
         grid-template-columns: 1fr;
       }
 
-      h1 {
-        font-size: 24px;
-      }
-
       main {
         padding: 12px;
       }
 
       .card {
-        padding: 14px;
+        padding: 16px;
+      }
+
+      .tabs {
+        width: 100%;
+        border-radius: 18px;
+      }
+
+      .tab {
+        flex: 1;
       }
 
       button {
         width: 100%;
       }
 
-      .actions button {
+      .actions button,
+      .client-actions button {
         width: 100%;
       }
     }
@@ -264,8 +467,13 @@
 </head>
 <body>
   <header>
-    <h1>StoreTD Play Admin</h1>
-    <div class="muted">Clientes, reportes, estadísticas y exportación</div>
+    <div class="brand-row">
+      <div>
+        <h1>StoreTD Play Admin</h1>
+        <div class="muted">Clientes, listas, dispositivos, reportes y contenido optimizado</div>
+      </div>
+      <div class="badge">Panel privado</div>
+    </div>
   </header>
 
   <main>
@@ -287,7 +495,7 @@
     </section>
 
     <section id="dashboardSection" class="hidden">
-      <section class="card">
+      <section class="card session-card">
         <h2>Sesión admin</h2>
         <div class="muted">Sesión activa en este navegador.</div>
         <div class="top-actions">
@@ -635,6 +843,30 @@
       }
     }
 
+    async function refreshClientContent(code) {
+      if (!code) {
+        showMessage("Cliente sin código de activación.");
+        return;
+      }
+
+      try {
+        showMessage(`Actualizando contenido optimizado de ${code}...`);
+
+        const data = await api("/api/content/refresh", {
+          method: "POST",
+          body: JSON.stringify({ activationCode: code })
+        });
+
+        const counts = data.counts || {};
+
+        showMessage(
+          `Contenido listo para ${code}: TV ${counts.live || 0} · Películas ${counts.movies || 0} · Series ${counts.series || 0} · Carpetas ${counts.seriesFolders || 0} · Categorías ${counts.movieCategories || 0}`
+        );
+      } catch (error) {
+        showMessage(error.message);
+      }
+    }
+
     async function loadReports() {
       const data = await api("/admin/api/reports");
       reportsCache = data.reports || [];
@@ -677,6 +909,21 @@
       }
     }
 
+    function clientStatusClass(status) {
+      const normalized = normalize(status);
+
+      if (normalized.includes("activa")) return "ok";
+      if (normalized.includes("prueba")) return "trial";
+      if (normalized.includes("vencida") || normalized.includes("suspendida")) return "danger";
+
+      return "";
+    }
+
+    function formatClientDate(value) {
+      if (!value) return "Sin vencimiento";
+      return String(value).slice(0, 10);
+    }
+
     function renderClients() {
       const search = normalize(document.getElementById("clientSearch")?.value || "");
       const status = document.getElementById("clientStatusFilter")?.value || "";
@@ -701,59 +948,92 @@
         return;
       }
 
-      clientsBox.innerHTML = filtered.map((client, index) => {
-        const code = client.activationCode || "";
+      clientsBox.innerHTML = `
+        <div class="client-list">
+          ${filtered.map((client, index) => {
+            const code = client.activationCode || "";
+            const devices = Number(client.deviceCount || 0);
+            const maxDevices = Number(client.maxDevices || 1);
+            const registeredDevices = (client.devices || []).map(escapeHtml).join(", ") || "ninguno";
 
-        return `
-          <div class="client">
-            <h3>${escapeHtml(client.customerName)} <span class="badge">${escapeHtml(client.status)}</span></h3>
-            <div class="muted">Código: ${escapeHtml(code)}</div>
-            <div class="muted">Dispositivos: ${escapeHtml(client.deviceCount || 0)}/${escapeHtml(client.maxDevices || 1)}</div>
-            <div class="muted">Registrados: ${(client.devices || []).map(escapeHtml).join(", ") || "ninguno"}</div>
+            return `
+              <article class="client">
+                <div class="client-main">
+                  <div class="client-name">
+                    <strong>${escapeHtml(client.customerName || "Cliente sin nombre")}</strong>
+                    <div class="client-meta">Código <span class="client-code">${escapeHtml(code)}</span></div>
+                  </div>
 
-            <div class="grid" style="margin-top:12px">
-              <div>
-                <label>Nombre</label>
-                <input id="name-${index}" value="${escapeAttr(client.customerName)}" />
-              </div>
+                  <div>
+                    <span class="badge ${clientStatusClass(client.status)}">${escapeHtml(client.status || "Sin estado")}</span>
+                  </div>
 
-              <div>
-                <label>Estado</label>
-                <select id="status-${index}">
-                  ${option("Activa", client.status)}
-                  ${option("Prueba", client.status)}
-                  ${option("Vencida", client.status)}
-                  ${option("Suspendida", client.status)}
-                </select>
-              </div>
+                  <div>
+                    <div class="client-meta">Vence</div>
+                    <strong>${escapeHtml(formatClientDate(client.expiresAt))}</strong>
+                  </div>
 
-              <div>
-                <label>Vencimiento</label>
-                <input id="expires-${index}" type="date" value="${escapeAttr(client.expiresAt || "")}" />
-              </div>
+                  <div>
+                    <div class="client-meta">Dispositivos</div>
+                    <strong>${escapeHtml(devices)}/${escapeHtml(maxDevices)}</strong>
+                  </div>
 
-              <div>
-                <label>Máximo dispositivos</label>
-                <input id="max-${index}" type="number" min="1" value="${escapeAttr(client.maxDevices || 1)}" />
-              </div>
+                  <div class="client-actions">
+                    <button class="small" onclick='refreshClientContent(${JSON.stringify(code)})'>Actualizar contenido</button>
+                    <button class="secondary small" onclick='unlinkDevices(${JSON.stringify(code)})'>Desvincular</button>
+                    <button class="danger small" onclick='deleteClient(${JSON.stringify(code)})'>Eliminar</button>
+                  </div>
+                </div>
 
-              <div>
-                <label>EPG URL</label>
-                <input id="epg-${index}" value="${escapeAttr(client.epgUrl || "")}" />
-              </div>
-            </div>
+                <details class="client-editor">
+                  <summary>Editar datos, lista y EPG</summary>
 
-            <label>Playlist URL autorizada</label>
-            <input id="playlist-${index}" value="${escapeAttr(client.playlistUrl || "")}" />
+                  <div class="muted" style="margin-top:10px">Registrados: ${registeredDevices}</div>
 
-            <div class="actions">
-              <button onclick='updateClient(${JSON.stringify(code)}, ${index})'>Guardar</button>
-              <button class="secondary" onclick='unlinkDevices(${JSON.stringify(code)})'>Desvincular dispositivos</button>
-              <button class="danger" onclick='deleteClient(${JSON.stringify(code)})'>Eliminar</button>
-            </div>
-          </div>
-        `;
-      }).join("");
+                  <div class="grid client-edit-grid">
+                    <div>
+                      <label>Nombre</label>
+                      <input id="name-${index}" value="${escapeAttr(client.customerName)}" />
+                    </div>
+
+                    <div>
+                      <label>Estado</label>
+                      <select id="status-${index}">
+                        ${option("Activa", client.status)}
+                        ${option("Prueba", client.status)}
+                        ${option("Vencida", client.status)}
+                        ${option("Suspendida", client.status)}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label>Vencimiento</label>
+                      <input id="expires-${index}" type="date" value="${escapeAttr(client.expiresAt || "")}" />
+                    </div>
+
+                    <div>
+                      <label>Máximo dispositivos</label>
+                      <input id="max-${index}" type="number" min="1" value="${escapeAttr(client.maxDevices || 1)}" />
+                    </div>
+
+                    <div>
+                      <label>EPG URL</label>
+                      <input id="epg-${index}" value="${escapeAttr(client.epgUrl || "")}" />
+                    </div>
+                  </div>
+
+                  <label>Playlist URL autorizada</label>
+                  <input id="playlist-${index}" value="${escapeAttr(client.playlistUrl || "")}" />
+
+                  <div class="actions">
+                    <button onclick='updateClient(${JSON.stringify(code)}, ${index})'>Guardar cambios</button>
+                  </div>
+                </details>
+              </article>
+            `;
+          }).join("")}
+        </div>
+      `;
     }
 
     function renderReports() {
@@ -930,167 +1210,6 @@
       return escapeHtml(value);
     }
   </script>
-
-<!-- StoreTD Play - Content Refresh Tool -->
-<section id="storetd-content-refresh-tool" style="
-  margin: 18px 0;
-  padding: 18px;
-  border-radius: 18px;
-  background: rgba(15, 23, 42, 0.92);
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.22);
-  color: #f8fafc;
-">
-  <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
-    <div>
-      <h2 style="margin:0 0 6px 0; font-size:20px;">Actualizar contenido optimizado</h2>
-      <p style="margin:0; color:#cbd5e1; font-size:14px;">
-        Regenera TV, Películas, Series, categorías y carpetas para que la APK cargue más rápido.
-      </p>
-    </div>
-  </div>
-
-  <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-top:16px;">
-    <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1; font-size:13px;">
-      Código de activación
-      <input id="contentRefreshActivationCode" placeholder="Ej: 253698" style="
-        padding: 12px 14px;
-        border-radius: 12px;
-        border: 1px solid rgba(148, 163, 184, 0.35);
-        background: rgba(2, 6, 23, 0.70);
-        color: #f8fafc;
-        outline: none;
-      " />
-    </label>
-
-    <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1; font-size:13px;">
-      Admin Key
-      <input id="contentRefreshAdminKey" type="password" placeholder="Clave admin" style="
-        padding: 12px 14px;
-        border-radius: 12px;
-        border: 1px solid rgba(148, 163, 184, 0.35);
-        background: rgba(2, 6, 23, 0.70);
-        color: #f8fafc;
-        outline: none;
-      " />
-    </label>
-  </div>
-
-  <div style="display:flex; align-items:center; gap:12px; margin-top:14px; flex-wrap:wrap;">
-    <button id="contentRefreshButton" type="button" style="
-      padding: 12px 18px;
-      border-radius: 999px;
-      border: 0;
-      background: #ef4444;
-      color: #ffffff;
-      font-weight: 800;
-      cursor: pointer;
-      box-shadow: 0 8px 20px rgba(239,68,68,0.30);
-    ">
-      Actualizar contenido
-    </button>
-
-    <span id="contentRefreshStatus" style="color:#cbd5e1; font-size:14px;"></span>
-  </div>
-
-  <pre id="contentRefreshResult" style="
-    display:none;
-    margin-top:14px;
-    white-space:pre-wrap;
-    word-break:break-word;
-    padding:14px;
-    border-radius:14px;
-    background: rgba(2, 6, 23, 0.82);
-    color:#dbeafe;
-    border:1px solid rgba(148, 163, 184, 0.16);
-    max-height:260px;
-    overflow:auto;
-  "></pre>
-</section>
-
-<script>
-(function () {
-  const codeInput = document.getElementById("contentRefreshActivationCode");
-  const keyInput = document.getElementById("contentRefreshAdminKey");
-  const button = document.getElementById("contentRefreshButton");
-  const status = document.getElementById("contentRefreshStatus");
-  const resultBox = document.getElementById("contentRefreshResult");
-
-  if (!codeInput || !keyInput || !button || !status || !resultBox) return;
-
-  const savedKey = localStorage.getItem("storetd_admin_key") || localStorage.getItem("adminKey") || "";
-  if (savedKey && !keyInput.value) keyInput.value = savedKey;
-
-  button.addEventListener("click", async function () {
-    const activationCode = codeInput.value.trim();
-    const adminKey = keyInput.value.trim();
-
-    resultBox.style.display = "none";
-    resultBox.textContent = "";
-
-    if (!activationCode) {
-      status.textContent = "Ingresá el código de activación.";
-      status.style.color = "#fca5a5";
-      return;
-    }
-
-    if (!adminKey) {
-      status.textContent = "Ingresá la Admin Key.";
-      status.style.color = "#fca5a5";
-      return;
-    }
-
-    localStorage.setItem("storetd_admin_key", adminKey);
-
-    button.disabled = true;
-    button.style.opacity = "0.65";
-    status.textContent = "Actualizando contenido optimizado...";
-    status.style.color = "#fde68a";
-
-    try {
-      const response = await fetch("/api/content/refresh?key=" + encodeURIComponent(adminKey), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-admin-key": adminKey
-        },
-        body: JSON.stringify({ activationCode })
-      });
-
-      const data = await response.json().catch(function () {
-        return { success: false, message: "Respuesta inválida del servidor." };
-      });
-
-      resultBox.style.display = "block";
-      resultBox.textContent = JSON.stringify(data, null, 2);
-
-      if (!response.ok || !data.success) {
-        status.textContent = data.message || "No se pudo actualizar.";
-        status.style.color = "#fca5a5";
-        return;
-      }
-
-      const counts = data.counts || {};
-      status.textContent =
-        "Listo: TV " + (counts.live || 0) +
-        " · Películas " + (counts.movies || 0) +
-        " · Series " + (counts.series || 0) +
-        " · Carpetas " + (counts.seriesFolders || 0) +
-        " · Categorías " + (counts.movieCategories || 0);
-
-      status.style.color = "#86efac";
-    } catch (error) {
-      status.textContent = "Error de conexión con el backend.";
-      status.style.color = "#fca5a5";
-      resultBox.style.display = "block";
-      resultBox.textContent = String(error && error.message ? error.message : error);
-    } finally {
-      button.disabled = false;
-      button.style.opacity = "1";
-    }
-  });
-})();
-</script>
 
 </body>
 </html>
