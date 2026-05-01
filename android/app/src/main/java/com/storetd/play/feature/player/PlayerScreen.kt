@@ -133,6 +133,7 @@ fun PlayerScreen(
 
     var videoResizeMode by remember { mutableStateOf(VideoResizeMode.Fit) }
     var errorMessage by remember(currentChannel.streamUrl) { mutableStateOf<String?>(null) }
+    var shouldAutoRetryPlayback by remember(currentChannel.streamUrl) { mutableStateOf(true) }
     var isBuffering by remember(currentChannel.streamUrl) { mutableStateOf(false) }
     var isPlaying by remember(currentChannel.streamUrl) { mutableStateOf(true) }
     var currentPositionMs by remember(currentChannel.streamUrl) { mutableStateOf(0L) }
@@ -280,8 +281,17 @@ fun PlayerScreen(
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                errorMessage = error.message ?: "No se pudo reproducir este canal."
-                reconnectMessage = "Detectamos un problema de reproducción."
+                val friendlyError = friendlyPlaybackErrorMessage(error)
+
+                shouldAutoRetryPlayback = shouldAutoRetryForPlaybackError(error)
+                errorMessage = friendlyError
+
+                reconnectMessage = if (shouldAutoRetryPlayback) {
+                    "Detectamos un problema de reproducción."
+                } else {
+                    "El contenido no respondió como video válido."
+                }
+
                 showControls = true
             }
         }
@@ -296,6 +306,7 @@ fun PlayerScreen(
 
     fun restartPlayback() {
         errorMessage = null
+        shouldAutoRetryPlayback = true
         showControls = true
 
         player.stop()
@@ -311,15 +322,17 @@ fun PlayerScreen(
         restartPlayback()
     }
 
-    LaunchedEffect(errorMessage, currentChannel.streamUrl) {
-        if (errorMessage != null && retryAttempt < 3) {
+    LaunchedEffect(errorMessage, currentChannel.streamUrl, shouldAutoRetryPlayback) {
+        if (errorMessage != null && shouldAutoRetryPlayback && retryAttempt < 3) {
             val nextAttempt = retryAttempt + 1
             retryAttempt = nextAttempt
             reconnectMessage = "Reintentando automáticamente $nextAttempt/3..."
             delay(1800L * nextAttempt)
             restartPlayback()
+        } else if (errorMessage != null && !shouldAutoRetryPlayback) {
+            reconnectMessage = "Contenido no disponible. Puedes reportarlo o volver."
         } else if (errorMessage != null && retryAttempt >= 3) {
-            reconnectMessage = "No se pudo recuperar la reproducción. Prueba Reintentar o Siguiente."
+            reconnectMessage = "No se pudo recuperar la reproducción. Prueba Reintentar o Reportar."
         }
     }
 
@@ -628,22 +641,21 @@ fun PlayerScreen(
         }
 
         errorMessage?.let { message ->
-            Card(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
-                    .padding(
-                        start = 14.dp,
-                        end = 14.dp,
-                        bottom = if (isLandscape) 78.dp else 112.dp
-                    )
-            ) {
-                Text(
-                    text = "Error: $message",
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(14.dp)
-                )
-            }
+            PlaybackErrorCard(
+                message = message,
+                isLandscape = isLandscape,
+                onRetry = {
+                    selectedControlIndex = 6
+                    retryPlayback()
+                },
+                onReport = {
+                    selectedControlIndex = 5
+                    showControls = true
+                    showReportDialog = true
+                },
+                onBack = onBack,
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
         }
 
         reportMessage?.let { message ->
@@ -748,6 +760,70 @@ fun PlayerScreen(
             )
         }
 }
+}
+
+@Composable
+private fun PlaybackErrorCard(
+    message: String,
+    isLandscape: Boolean,
+    onRetry: () -> Unit,
+    onReport: () -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .navigationBarsPadding()
+            .padding(
+                start = 14.dp,
+                end = 14.dp,
+                bottom = if (isLandscape) 78.dp else 112.dp
+            )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = "Contenido no disponible",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.error,
+                fontWeight = FontWeight.Bold
+            )
+
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Button(
+                    onClick = onRetry,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Reintentar")
+                }
+
+                OutlinedButton(
+                    onClick = onReport,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Reportar")
+                }
+
+                TextButton(
+                    onClick = onBack,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Volver")
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -1183,4 +1259,83 @@ private fun PlayerPortraitBackButton(
         )
     }
 }
+
+
+private fun friendlyPlaybackErrorMessage(error: PlaybackException): String {
+    val raw = listOfNotNull(
+        error.message,
+        error.cause?.message,
+        runCatching { error.errorCodeName }.getOrNull()
+    ).joinToString(" ").lowercase(Locale.getDefault())
+
+    return when {
+        raw.contains("source") ||
+            raw.contains("404") ||
+            raw.contains("403") ||
+            raw.contains("file not found") ||
+            raw.contains("not found") ||
+            raw.contains("response code") ||
+            raw.contains("invalid response") -> {
+            "El enlace no respondió, está caído o el servidor rechazó la reproducción."
+        }
+
+        raw.contains("timeout") ||
+            raw.contains("timed out") ||
+            raw.contains("unable to connect") ||
+            raw.contains("failed to connect") -> {
+            "El servidor tardó demasiado en responder. Probá de nuevo más tarde."
+        }
+
+        raw.contains("behind live window") -> {
+            "La transmisión en vivo cambió de posición. Tocá Reintentar para reconectar."
+        }
+
+        raw.contains("decoder") ||
+            raw.contains("format") ||
+            raw.contains("codec") -> {
+            "El formato de video no es compatible con este dispositivo."
+        }
+
+        raw.isBlank() -> {
+            "No se pudo reproducir este contenido."
+        }
+
+        else -> {
+            error.message ?: "No se pudo reproducir este contenido."
+        }
+    }
+}
+
+private fun shouldAutoRetryForPlaybackError(error: PlaybackException): Boolean {
+    val raw = listOfNotNull(
+        error.message,
+        error.cause?.message,
+        runCatching { error.errorCodeName }.getOrNull()
+    ).joinToString(" ").lowercase(Locale.getDefault())
+
+    if (
+        raw.contains("404") ||
+        raw.contains("403") ||
+        raw.contains("file not found") ||
+        raw.contains("not found") ||
+        raw.contains("invalid response")
+    ) {
+        return false
+    }
+
+    if (
+        raw.contains("source") &&
+        (
+            raw.contains("response") ||
+                raw.contains("http") ||
+                raw.contains("server") ||
+                raw.contains("unrecognized")
+        )
+    ) {
+        return false
+    }
+
+    return true
+}
+
 
