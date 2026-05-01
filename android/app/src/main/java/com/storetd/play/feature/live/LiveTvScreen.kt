@@ -237,6 +237,9 @@ fun LiveTvScreen(
             .padding(20.dp)
     ) {
         val isCompact = maxWidth < 700.dp
+        val usingLazyBackendContent =
+            (contentMode == ContentMode.Series && lazySeriesFolders.isNotEmpty()) ||
+                (contentMode == ContentMode.Movies && lazyMovieCategories.isNotEmpty())
 
         if (isCompact) {
             LazyColumn(
@@ -257,16 +260,18 @@ fun LiveTvScreen(
                     )
                 }
 
-                item {
-                    CategoryRow(
-                        groups = state.groups,
-                        selectedGroup = state.selectedGroup,
-                        onSelectGroup = viewModel::selectGroup
-                    )
-                }
+                if (!usingLazyBackendContent) {
+                    item {
+                        CategoryRow(
+                            groups = state.groups,
+                            selectedGroup = state.selectedGroup,
+                            onSelectGroup = viewModel::selectGroup
+                        )
+                    }
 
-                item {
-                    StatusBlock(state = state, mode = contentMode)
+                    item {
+                        StatusBlock(state = state, mode = contentMode)
+                    }
                 }
 
                 contentItems(
@@ -306,13 +311,15 @@ fun LiveTvScreen(
                         onBack = onBack
                     )
 
-                    Spacer(Modifier.height(24.dp))
+                    if (!usingLazyBackendContent) {
+                        Spacer(Modifier.height(24.dp))
 
-                    CategoryRow(
-                        groups = state.groups,
-                        selectedGroup = state.selectedGroup,
-                        onSelectGroup = viewModel::selectGroup
-                    )
+                        CategoryRow(
+                            groups = state.groups,
+                            selectedGroup = state.selectedGroup,
+                            onSelectGroup = viewModel::selectGroup
+                        )
+                    }
                 }
 
                 Spacer(Modifier.width(24.dp))
@@ -321,8 +328,10 @@ fun LiveTvScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.weight(1f)
                 ) {
-                    item {
-                        StatusBlock(state = state, mode = contentMode)
+                    if (!usingLazyBackendContent) {
+                        item {
+                            StatusBlock(state = state, mode = contentMode)
+                        }
                     }
 
                     contentItems(
