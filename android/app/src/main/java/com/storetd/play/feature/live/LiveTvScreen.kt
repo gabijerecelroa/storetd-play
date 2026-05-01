@@ -280,8 +280,7 @@ fun LiveTvScreen(
     ) {
         val isCompact = maxWidth < 700.dp
         val usingLazyBackendContent =
-            (contentMode == ContentMode.Series && lazySeriesFolders.isNotEmpty()) ||
-                (contentMode == ContentMode.Movies && lazyMovieCategories.isNotEmpty())
+            contentMode == ContentMode.Series || contentMode == ContentMode.Movies
 
         val contentListState = rememberLazyListState()
 
