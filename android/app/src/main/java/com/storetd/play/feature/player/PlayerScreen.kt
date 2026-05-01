@@ -600,7 +600,7 @@ fun PlayerScreen(
             }
         }
 
-        if (showControls) {
+        if (showControls && errorMessage == null) {
             PlayerCenterControl(
                 selected = selectedControlIndex == 0,
                 isPlaying = isPlaying,
@@ -626,17 +626,19 @@ fun PlayerScreen(
             }
         }
 
-        reconnectMessage?.let { message ->
-            Card(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .padding(top = 154.dp)
-            ) {
-                Text(
-                    text = message,
-                    modifier = Modifier.padding(14.dp),
-                    color = MaterialTheme.colorScheme.primary
-                )
+        if (errorMessage == null) {
+            reconnectMessage?.let { message ->
+                Card(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(top = 154.dp)
+                ) {
+                    Text(
+                        text = message,
+                        modifier = Modifier.padding(14.dp),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
         }
 
