@@ -1413,8 +1413,6 @@ private fun SeriesFolderRow(
         colors = CardDefaults.cardColors(
             containerColor = if (focused) {
                 MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
-            } else if (isReportedBroken) {
-                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.32f)
             } else {
                 MaterialTheme.colorScheme.surfaceVariant
             }
