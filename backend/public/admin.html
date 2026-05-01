@@ -1303,6 +1303,86 @@
       }
     }
 
+  
+    .report-quick-tabs {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      margin: 12px 0 18px;
+    }
+
+    .report-quick-tab {
+      background: #ffffff;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 14px 12px;
+      text-align: left;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+      margin: 0;
+    }
+
+    .report-quick-tab:hover {
+      background: #f8fafc;
+      transform: translateY(-1px);
+    }
+
+    .report-quick-tab.active {
+      background: linear-gradient(135deg, #111827, #312e81);
+      color: #ffffff;
+      border-color: rgba(255,255,255,0.18);
+    }
+
+    .report-quick-tab.broken.active {
+      background: linear-gradient(135deg, #991b1b, #e11d48);
+    }
+
+    .report-quick-tab span {
+      display: block;
+      font-size: 12px;
+      opacity: 0.78;
+      font-weight: 900;
+      margin-bottom: 8px;
+    }
+
+    .report-quick-tab strong {
+      display: block;
+      font-size: 28px;
+      line-height: 1;
+    }
+
+    .broken-link-chip {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      margin-top: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #ffe4e6;
+      color: #9f1239;
+      border: 1px solid #fecdd3;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    details.report-row.broken-link {
+      border-color: rgba(225, 29, 72, 0.35);
+    }
+
+    details.report-row.broken-link[open] {
+      border-color: rgba(225, 29, 72, 0.65);
+    }
+
+    @media (max-width: 760px) {
+      .report-quick-tabs {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .report-quick-tab {
+        width: 100%;
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -1526,6 +1606,8 @@
             </div>
           </div>
 
+          <div id="reportQuickTabs" class="report-quick-tabs"></div>
+
           <div class="toolbar">
             <input id="reportSearch" oninput="renderReports()" placeholder="Buscar por canal, cliente, problema o dispositivo" />
 
@@ -1564,6 +1646,7 @@
     let clientsCache = [];
     let reportsCache = [];
     let groupedCache = [];
+    let reportQuickFilter = "all";
     let clientQuickFilter = "all";
 
     const loginSection = document.getElementById("loginSection");
@@ -1575,6 +1658,7 @@
     const reportsBox = document.getElementById("reports");
     const groupedReportsBox = document.getElementById("groupedReports");
     const statsBox = document.getElementById("stats");
+    const reportQuickTabsBox = document.getElementById("reportQuickTabs");
     const clientQuickTabsBox = document.getElementById("clientQuickTabs");
     const clientsCountPill = document.getElementById("clientsCountPill");
 
@@ -2167,7 +2251,83 @@
       `;
     }
 
+    function isBrokenLinkReport(report) {
+      const text = normalize([
+        report?.problemType || "",
+        report?.playerError || "",
+        report?.internalComment || ""
+      ].join(" "));
+
+      return text.includes("enlace caido") ||
+        text.includes("contenido no disponible") ||
+        text.includes("source error") ||
+        text.includes("source") ||
+        text.includes("404") ||
+        text.includes("403") ||
+        text.includes("not found");
+    }
+
+    function setReportQuickFilter(filter) {
+      reportQuickFilter = filter || "all";
+      renderReports();
+    }
+
+    function reportQuickFilterMatches(report) {
+      const status = String(report?.status || "");
+
+      if (reportQuickFilter === "pending") {
+        return status === "Pendiente";
+      }
+
+      if (reportQuickFilter === "reviewing") {
+        return status === "Revisando";
+      }
+
+      if (reportQuickFilter === "done") {
+        return status === "Solucionado" || status === "Descartado";
+      }
+
+      if (reportQuickFilter === "broken") {
+        return isBrokenLinkReport(report);
+      }
+
+      return true;
+    }
+
+    function countQuickReports(filter) {
+      const previous = reportQuickFilter;
+      reportQuickFilter = filter;
+      const count = reportsCache.filter(reportQuickFilterMatches).length;
+      reportQuickFilter = previous;
+      return count;
+    }
+
+    function renderReportQuickTabs() {
+      if (!reportQuickTabsBox) return;
+
+      const tabs = [
+        ["all", "Total", reportsCache.length, ""],
+        ["pending", "Pendientes", countQuickReports("pending"), ""],
+        ["reviewing", "Revisando", countQuickReports("reviewing"), ""],
+        ["done", "Cerrados", countQuickReports("done"), ""],
+        ["broken", "Enlaces caídos", countQuickReports("broken"), "broken"]
+      ];
+
+      reportQuickTabsBox.innerHTML = tabs.map(([key, label, count, extraClass]) => `
+        <button
+          type="button"
+          class="report-quick-tab ${extraClass} ${reportQuickFilter === key ? "active" : ""}"
+          onclick="setReportQuickFilter('${key}')"
+        >
+          <span>${escapeHtml(label)}</span>
+          <strong>${escapeHtml(count)}</strong>
+        </button>
+      `).join("");
+    }
+
     function renderReports() {
+      renderReportQuickTabs();
+
       const search = normalize(document.getElementById("reportSearch")?.value || "");
       const status = document.getElementById("reportStatusFilter")?.value || "";
 
@@ -2186,8 +2346,9 @@
 
         const matchesSearch = !search || text.includes(search);
         const matchesStatus = !status || report.status === status;
+        const matchesQuickFilter = reportQuickFilterMatches(report);
 
-        return matchesSearch && matchesStatus;
+        return matchesSearch && matchesStatus && matchesQuickFilter;
       });
 
       if (!filtered.length) {
@@ -2200,6 +2361,7 @@
           ${filtered.map((report, index) => {
             const id = report.id || "";
             const isPending = report.status === "Pendiente";
+            const brokenLink = isBrokenLinkReport(report);
             const statusClass = isPending ? "pending" : "done";
             const title = report.channelName || "Canal sin nombre";
             const meta = [
@@ -2209,11 +2371,12 @@
             ].filter(Boolean).join(" · ");
 
             return `
-              <details class="report-row">
+              <details class="report-row ${brokenLink ? "broken-link" : ""}">
                 <summary class="report-row-summary">
                   <div class="report-row-title">
                     <strong>${escapeHtml(title)}</strong>
                     <div class="report-row-meta">${escapeHtml(meta)}</div>
+                    ${brokenLink ? '<div class="broken-link-chip">Enlace caído / contenido no disponible</div>' : ''}
                   </div>
 
                   <span class="badge ${statusClass}">${escapeHtml(report.status || "Sin estado")}</span>
