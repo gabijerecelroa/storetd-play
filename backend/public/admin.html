@@ -946,6 +946,194 @@
       }
     }
 
+  
+    .report-list {
+      display: grid;
+      gap: 14px;
+    }
+
+    details.report-row {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      overflow: hidden;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+    }
+
+    details.report-row[open] {
+      border-color: rgba(37, 99, 235, 0.35);
+    }
+
+    .report-row-summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 18px 20px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .report-row-summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .report-row-title {
+      min-width: 0;
+    }
+
+    .report-row-title strong {
+      display: block;
+      font-size: 19px;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      letter-spacing: -0.02em;
+    }
+
+    .report-row-meta {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 6px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .report-row-chevron {
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0;
+      padding: 0;
+      background: #f8fafc;
+      color: var(--text);
+      border: 1px solid var(--border);
+      font-size: 22px;
+      box-shadow: none;
+    }
+
+    .report-row-chevron:hover {
+      background: #eef2ff;
+      transform: none;
+    }
+
+    details.report-row[open] .report-row-chevron {
+      transform: rotate(180deg);
+    }
+
+    .report-row-body {
+      padding: 16px 20px 20px;
+      border-top: 1px solid var(--border);
+      background: var(--panel-soft);
+    }
+
+    .report-info-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .report-info-card {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 12px;
+      min-width: 0;
+    }
+
+    .report-info-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+      margin-bottom: 5px;
+    }
+
+    .report-info-card strong {
+      display: block;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .report-error-box {
+      background: #111827;
+      color: #e5e7eb;
+      border-radius: 14px;
+      padding: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin-bottom: 14px;
+    }
+
+    .grouped-list {
+      display: grid;
+      gap: 14px;
+    }
+
+    .grouped-card {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 16px;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .grouped-card strong {
+      display: block;
+      font-size: 18px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .grouped-card .muted {
+      margin-top: 6px;
+      font-size: 13px;
+    }
+
+    .grouped-count {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+      border-radius: 999px;
+      padding: 9px 13px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 760px) {
+      .report-row-summary {
+        grid-template-columns: minmax(0, 1fr) auto;
+      }
+
+      .report-row-summary .badge {
+        grid-column: 1 / -1;
+        width: fit-content;
+      }
+
+      .report-info-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .grouped-card {
+        grid-template-columns: 1fr;
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -1096,7 +1284,12 @@
 
       <section id="sectionReports" class="hidden">
         <section class="card">
-          <h2>Reportes de canales</h2>
+          <div class="section-head">
+            <div>
+              <h2>Reportes de canales</h2>
+              <div class="section-subtitle">Revisá errores enviados desde la APK y cambiá su estado.</div>
+            </div>
+          </div>
 
           <div class="toolbar">
             <input id="reportSearch" oninput="renderReports()" placeholder="Buscar por canal, cliente, problema o dispositivo" />
@@ -1118,7 +1311,12 @@
 
       <section id="sectionGrouped" class="hidden">
         <section class="card">
-          <h2>Canales más reportados</h2>
+          <div class="section-head">
+            <div>
+              <h2>Canales más reportados</h2>
+              <div class="section-subtitle">Agrupación automática para detectar canales problemáticos.</div>
+            </div>
+          </div>
           <div id="groupedReports"></div>
         </section>
       </section>
@@ -1758,65 +1956,121 @@
       });
 
       if (!filtered.length) {
-        reportsBox.innerHTML = "<p class='muted'>No hay reportes para mostrar.</p>";
+        reportsBox.innerHTML = "<div class='empty-state'>No hay reportes para mostrar.</div>";
         return;
       }
 
-      reportsBox.innerHTML = filtered.map((report, index) => {
-        const id = report.id || "";
+      reportsBox.innerHTML = `
+        <div class="report-list">
+          ${filtered.map((report, index) => {
+            const id = report.id || "";
+            const isPending = report.status === "Pendiente";
+            const statusClass = isPending ? "pending" : "done";
+            const title = report.channelName || "Canal sin nombre";
+            const meta = [
+              report.customerName || "Cliente sin nombre",
+              report.problemType || "Sin problema",
+              report.createdAt || ""
+            ].filter(Boolean).join(" · ");
 
-        return `
-          <div class="report">
-            <h3>${escapeHtml(report.channelName)} <span class="badge ${report.status === "Pendiente" ? "pending" : "done"}">${escapeHtml(report.status)}</span></h3>
-            <div class="muted">Problema: ${escapeHtml(report.problemType)}</div>
-            <div class="muted">Categoría: ${escapeHtml(report.category)}</div>
-            <div class="muted">Cliente: ${escapeHtml(report.customerName)} (${escapeHtml(report.activationCode)})</div>
-            <div class="muted">Dispositivo: ${escapeHtml(report.deviceModel)} / Android ${escapeHtml(report.androidVersion)}</div>
-            <div class="muted">Código dispositivo: ${escapeHtml(report.deviceCode)}</div>
-            <div class="muted">URL: ${escapeHtml(report.streamUrlMasked)}</div>
-            <div class="muted">Error reproductor: ${escapeHtml(report.playerError)}</div>
-            <div class="muted">Fecha: ${escapeHtml(report.createdAt)}</div>
+            return `
+              <details class="report-row">
+                <summary class="report-row-summary">
+                  <div class="report-row-title">
+                    <strong>${escapeHtml(title)}</strong>
+                    <div class="report-row-meta">${escapeHtml(meta)}</div>
+                  </div>
 
-            <div class="grid" style="margin-top:12px">
-              <div>
-                <label>Estado</label>
-                <select id="report-status-${index}">
-                  ${option("Pendiente", report.status)}
-                  ${option("Revisando", report.status)}
-                  ${option("Solucionado", report.status)}
-                  ${option("Descartado", report.status)}
-                </select>
-              </div>
-            </div>
+                  <span class="badge ${statusClass}">${escapeHtml(report.status || "Sin estado")}</span>
 
-            <label>Comentario interno</label>
-            <textarea id="report-comment-${index}">${escapeHtml(report.internalComment || "")}</textarea>
+                  <button class="report-row-chevron" title="Desplegar" onclick='event.preventDefault(); this.closest("details").open = !this.closest("details").open'>⌄</button>
+                </summary>
 
-            <div class="actions">
-              <button onclick='updateReport(${JSON.stringify(id)}, ${index})'>Guardar reporte</button>
-              <button class="danger" onclick='deleteReport(${JSON.stringify(id)})'>Eliminar</button>
-            </div>
-          </div>
-        `;
-      }).join("");
+                <div class="report-row-body">
+                  <div class="report-info-grid">
+                    <div class="report-info-card">
+                      <span>Categoría</span>
+                      <strong>${escapeHtml(report.category || "Sin categoría")}</strong>
+                    </div>
+
+                    <div class="report-info-card">
+                      <span>Cliente</span>
+                      <strong>${escapeHtml(report.customerName || "")} (${escapeHtml(report.activationCode || "")})</strong>
+                    </div>
+
+                    <div class="report-info-card">
+                      <span>Dispositivo</span>
+                      <strong>${escapeHtml(report.deviceModel || "")} · Android ${escapeHtml(report.androidVersion || "")}</strong>
+                    </div>
+
+                    <div class="report-info-card">
+                      <span>Código dispositivo</span>
+                      <strong>${escapeHtml(report.deviceCode || "")}</strong>
+                    </div>
+
+                    <div class="report-info-card">
+                      <span>URL</span>
+                      <strong title="${escapeAttr(report.streamUrlMasked || "")}">${escapeHtml(report.streamUrlMasked || "")}</strong>
+                    </div>
+
+                    <div class="report-info-card">
+                      <span>Fecha</span>
+                      <strong>${escapeHtml(report.createdAt || "")}</strong>
+                    </div>
+                  </div>
+
+                  <div class="report-error-box">${escapeHtml(report.playerError || "Sin error del reproductor")}</div>
+
+                  <div class="grid">
+                    <div>
+                      <label>Estado</label>
+                      <select id="report-status-${index}">
+                        ${option("Pendiente", report.status)}
+                        ${option("Revisando", report.status)}
+                        ${option("Solucionado", report.status)}
+                        ${option("Descartado", report.status)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <label>Comentario interno</label>
+                  <textarea id="report-comment-${index}">${escapeHtml(report.internalComment || "")}</textarea>
+
+                  <div class="actions">
+                    <button onclick='updateReport(${JSON.stringify(id)}, ${index})'>Guardar reporte</button>
+                    <button class="danger" onclick='deleteReport(${JSON.stringify(id)})'>Eliminar</button>
+                  </div>
+                </div>
+              </details>
+            `;
+          }).join("")}
+        </div>
+      `;
     }
 
     function renderGroupedReports() {
       if (!groupedCache.length) {
-        groupedReportsBox.innerHTML = "<p class='muted'>No hay reportes agrupados.</p>";
+        groupedReportsBox.innerHTML = "<div class='empty-state'>No hay reportes agrupados.</div>";
         return;
       }
 
-      groupedReportsBox.innerHTML = groupedCache.map((item) => {
-        return `
-          <div class="report">
-            <h3>${escapeHtml(item.channelName)} <span class="badge">${escapeHtml(item.total)} reportes</span></h3>
-            <div class="muted">Categoría: ${escapeHtml(item.category)}</div>
-            <div class="muted">Pendientes: ${escapeHtml(item.pending)}</div>
-            <div class="muted">Último reporte: ${escapeHtml(item.lastReportedAt)}</div>
-          </div>
-        `;
-      }).join("");
+      groupedReportsBox.innerHTML = `
+        <div class="grouped-list">
+          ${groupedCache.map((item) => {
+            return `
+              <article class="grouped-card">
+                <div>
+                  <strong>${escapeHtml(item.channelName || "Sin nombre")}</strong>
+                  <div class="muted">Categoría: ${escapeHtml(item.category || "Sin categoría")}</div>
+                  <div class="muted">Pendientes: ${escapeHtml(item.pending || 0)} · Último reporte: ${escapeHtml(item.lastReportedAt || "")}</div>
+                </div>
+
+                <div class="grouped-count">${escapeHtml(item.total || 0)} reportes</div>
+              </article>
+            `;
+          }).join("")}
+        </div>
+      `;
     }
 
     function exportClientsCsv() {
