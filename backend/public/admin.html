@@ -463,6 +463,118 @@
         width: 100%;
       }
     }
+  
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .section-head h2 {
+      margin: 0;
+    }
+
+    .section-subtitle {
+      color: var(--muted);
+      margin-top: 4px;
+      font-size: 14px;
+    }
+
+    .count-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 42px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      font-weight: 900;
+      font-size: 14px;
+    }
+
+    .create-card {
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .create-card summary {
+      cursor: pointer;
+      padding: 18px 20px;
+      font-weight: 900;
+      font-size: 18px;
+      color: var(--primary);
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .create-card summary::after {
+      content: "Abrir";
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .create-card[open] summary::after {
+      content: "Cerrar";
+    }
+
+    .create-card summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .create-body {
+      padding: 0 20px 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    .client-mini-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .icon-btn {
+      background: #ffffff;
+      color: var(--text);
+      border: 1px solid var(--border-strong);
+      padding: 8px 11px;
+      font-size: 12px;
+      margin: 0;
+    }
+
+    .icon-btn:hover {
+      background: var(--panel-soft);
+    }
+
+    .client-url-preview {
+      display: block;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 5px;
+    }
+
+    .empty-state {
+      background: var(--panel-soft);
+      border: 1px dashed var(--border-strong);
+      color: var(--muted);
+      border-radius: 18px;
+      padding: 24px;
+      text-align: center;
+      font-weight: 700;
+    }
+
   </style>
 </head>
 <body>
@@ -519,8 +631,9 @@
       </div>
 
       <section id="sectionClients">
-        <section class="card">
-          <h2>Crear cliente</h2>
+        <details class="card create-card">
+          <summary>+ Nuevo cliente</summary>
+          <div class="create-body">
 
           <div class="grid">
             <div>
@@ -563,10 +676,17 @@
           <input id="newPlaylistUrl" placeholder="https://..." />
 
           <button onclick="createClient()">Crear cliente</button>
-        </section>
+          </div>
+        </details>
 
-        <section class="card">
-          <h2>Clientes</h2>
+        <section class="card clients-card">
+          <div class="section-head">
+            <div>
+              <h2>Gestión de clientes</h2>
+              <div class="section-subtitle">Buscá, editá, renová dispositivos y actualizá contenido por cliente.</div>
+            </div>
+            <span id="clientsCountPill" class="count-pill">0</span>
+          </div>
 
           <div class="toolbar">
             <input id="clientSearch" oninput="renderClients()" placeholder="Buscar por nombre, código o URL" />
@@ -633,6 +753,7 @@
     const reportsBox = document.getElementById("reports");
     const groupedReportsBox = document.getElementById("groupedReports");
     const statsBox = document.getElementById("stats");
+    const clientsCountPill = document.getElementById("clientsCountPill");
 
     const storedKey = sessionStorage.getItem("storetd_admin_key") || localStorage.getItem("storetd_admin_key") || "";
     if (storedKey) {
@@ -909,6 +1030,29 @@
       }
     }
 
+    async function copyText(value, label = "Texto") {
+      try {
+        await navigator.clipboard.writeText(String(value || ""));
+        showMessage(`${label} copiado.`);
+      } catch (error) {
+        showMessage("No se pudo copiar. Copialo manualmente.");
+      }
+    }
+
+    function maskLongUrl(value) {
+      const text = String(value || "");
+
+      if (!text) return "Sin playlist";
+
+      try {
+        const url = new URL(text);
+        return url.origin + "/...";
+      } catch {
+        if (text.length <= 34) return text;
+        return text.slice(0, 24) + "..." + text.slice(-8);
+      }
+    }
+
     function clientStatusClass(status) {
       const normalized = normalize(status);
 
@@ -943,8 +1087,12 @@
         return matchesSearch && matchesStatus;
       });
 
+      if (clientsCountPill) {
+        clientsCountPill.textContent = filtered.length;
+      }
+
       if (!filtered.length) {
-        clientsBox.innerHTML = "<p class='muted'>No hay clientes para mostrar.</p>";
+        clientsBox.innerHTML = "<div class='empty-state'>No hay clientes para mostrar.</div>";
         return;
       }
 
@@ -954,6 +1102,7 @@
             const code = client.activationCode || "";
             const devices = Number(client.deviceCount || 0);
             const maxDevices = Number(client.maxDevices || 1);
+            const playlistUrl = client.playlistUrl || "";
             const registeredDevices = (client.devices || []).map(escapeHtml).join(", ") || "ninguno";
 
             return `
@@ -962,6 +1111,12 @@
                   <div class="client-name">
                     <strong>${escapeHtml(client.customerName || "Cliente sin nombre")}</strong>
                     <div class="client-meta">Código <span class="client-code">${escapeHtml(code)}</span></div>
+                    <span class="client-url-preview">${escapeHtml(maskLongUrl(playlistUrl))}</span>
+
+                    <div class="client-mini-actions">
+                      <button class="icon-btn" onclick='copyText(${JSON.stringify(code)}, "Código")'>Copiar código</button>
+                      <button class="icon-btn" onclick='copyText(${JSON.stringify(playlistUrl)}, "Playlist")'>Copiar playlist</button>
+                    </div>
                   </div>
 
                   <div>
@@ -1023,7 +1178,7 @@
                   </div>
 
                   <label>Playlist URL autorizada</label>
-                  <input id="playlist-${index}" value="${escapeAttr(client.playlistUrl || "")}" />
+                  <input id="playlist-${index}" value="${escapeAttr(playlistUrl)}" />
 
                   <div class="actions">
                     <button onclick='updateClient(${JSON.stringify(code)}, ${index})'>Guardar cambios</button>
