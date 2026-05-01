@@ -2069,6 +2069,311 @@ function rewriteM3uGroupTitleAndType(m3uText, fromGroup, toGroup, contentType) {
 
 
 
+
+function readM3uAttributeFromLine(line, attrName) {
+  const regex = new RegExp(attrName + '="([^"]*)"', "i");
+  const match = String(line || "").match(regex);
+  return match ? match[1] : "";
+}
+
+function readM3uDisplayName(line) {
+  const text = String(line || "");
+  const comma = text.lastIndexOf(",");
+  return comma >= 0 ? text.slice(comma + 1).trim() : "";
+}
+
+function setM3uAttributeInLine(line, attrName, value) {
+  const safeValue = escapeM3uAttribute(value);
+  const regex = new RegExp(attrName + '="[^"]*"', "i");
+
+  if (regex.test(line)) {
+    return line.replace(regex, `${attrName}="${safeValue}"`);
+  }
+
+  return line.replace("#EXTINF:-1", `#EXTINF:-1 ${attrName}="${safeValue}"`);
+}
+
+function setM3uDisplayName(line, name) {
+  const safeName = escapeM3uAttribute(name);
+  const text = String(line || "");
+  const comma = text.lastIndexOf(",");
+
+  if (comma >= 0) {
+    return text.slice(0, comma + 1) + safeName;
+  }
+
+  return text + "," + safeName;
+}
+
+function parseM3uEntriesForAdmin(m3uText, query = "", limit = 120) {
+  const search = String(query || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+  const lines = String(m3uText || "").replace(/\r/g, "").split("\n");
+  const items = [];
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const extinf = lines[i] || "";
+    const url = lines[i + 1] || "";
+
+    if (!extinf.trim().startsWith("#EXTINF")) continue;
+    if (!url.trim() || url.trim().startsWith("#")) continue;
+
+    const name = readM3uDisplayName(extinf) || readM3uAttributeFromLine(extinf, "tvg-name") || "Sin nombre";
+    const group = readM3uAttributeFromLine(extinf, "group-title");
+    const logoUrl = readM3uAttributeFromLine(extinf, "tvg-logo");
+    const tvgId = readM3uAttributeFromLine(extinf, "tvg-id");
+    const tvgType = readM3uAttributeFromLine(extinf, "tvg-type");
+    const hash = streamUrlHash(url.trim());
+
+    const haystack = `${name} ${group} ${url}`
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+
+    if (search && !haystack.includes(search)) continue;
+
+    items.push({
+      streamUrlHash: hash,
+      name,
+      group,
+      logoUrl,
+      tvgId,
+      tvgType,
+      streamUrlMasked: maskUrl(url.trim()),
+      streamUrl: url.trim(),
+      lineNumber: i + 1
+    });
+
+    if (items.length >= limit) break;
+  }
+
+  return items;
+}
+
+function updateM3uEntryByHash(m3uText, targetHash, changes = {}) {
+  const lines = String(m3uText || "").replace(/\r/g, "").split("\n");
+  let changed = 0;
+
+  const newStreamUrl = String(changes.streamUrl || "").trim();
+  const newName = String(changes.name || "").trim();
+  const newGroup = String(changes.group || "").trim();
+  const newLogoUrl = String(changes.logoUrl || "").trim();
+  const newTvgId = String(changes.tvgId || "").trim();
+  const newType = String(changes.contentType || "").trim();
+
+  if (newStreamUrl) {
+    const newHash = streamUrlHash(newStreamUrl);
+    const duplicate = lines.some((line) => {
+      const clean = String(line || "").trim();
+      return clean &&
+        !clean.startsWith("#") &&
+        streamUrlHash(clean) === newHash &&
+        newHash !== targetHash;
+    });
+
+    if (duplicate) {
+      return {
+        content: String(m3uText || ""),
+        changed: 0,
+        duplicate: true
+      };
+    }
+  }
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const extinf = lines[i] || "";
+    const url = lines[i + 1] || "";
+
+    if (!extinf.trim().startsWith("#EXTINF")) continue;
+    if (!url.trim() || url.trim().startsWith("#")) continue;
+
+    if (streamUrlHash(url.trim()) !== targetHash) continue;
+
+    let nextExtinf = extinf;
+
+    if (newName) {
+      nextExtinf = setM3uAttributeInLine(nextExtinf, "tvg-name", newName);
+      nextExtinf = setM3uDisplayName(nextExtinf, newName);
+    }
+
+    if (newGroup) {
+      nextExtinf = setM3uAttributeInLine(nextExtinf, "group-title", newGroup);
+    }
+
+    if (newLogoUrl) {
+      nextExtinf = setM3uAttributeInLine(nextExtinf, "tvg-logo", newLogoUrl);
+    }
+
+    if (newTvgId) {
+      nextExtinf = setM3uAttributeInLine(nextExtinf, "tvg-id", newTvgId);
+    }
+
+    if (newType || newGroup) {
+      const safeType = normalizeM3uContentType(newType, newGroup || readM3uAttributeFromLine(nextExtinf, "group-title"));
+      nextExtinf = setM3uAttributeInLine(nextExtinf, "tvg-type", safeType);
+    }
+
+    lines[i] = nextExtinf;
+
+    if (newStreamUrl) {
+      lines[i + 1] = newStreamUrl;
+    }
+
+    changed += 1;
+  }
+
+  return {
+    content: lines.join("\n"),
+    changed,
+    duplicate: false
+  };
+}
+
+
+
+app.get("/admin/api/m3u/search", requireAdmin, async (req, res) => {
+  try {
+    const config = requireGistConfig(res);
+    if (!config) return;
+
+    const query = String(req.query.q || "").trim();
+    const limit = Math.min(Number(req.query.limit || 120), 300);
+
+    const originalM3u = await downloadGistM3uRaw(config.rawUrl);
+    const items = parseM3uEntriesForAdmin(originalM3u, query, limit);
+
+    res.json({
+      success: true,
+      query,
+      count: items.length,
+      items
+    });
+  } catch (error) {
+    console.error("Admin M3U search error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "No se pudo buscar en la M3U."
+    });
+  }
+});
+
+app.post("/admin/api/m3u/update-entry", requireAdmin, async (req, res) => {
+  try {
+    const config = requireGistConfig(res);
+    if (!config) return;
+
+    const streamUrlHashValue = String(req.body.streamUrlHash || "").trim();
+    const changes = {
+      name: String(req.body.name || "").trim(),
+      group: String(req.body.group || "").trim(),
+      logoUrl: String(req.body.logoUrl || "").trim(),
+      tvgId: String(req.body.tvgId || "").trim(),
+      contentType: String(req.body.contentType || "").trim(),
+      streamUrl: String(req.body.streamUrl || "").trim()
+    };
+
+    if (!streamUrlHashValue) {
+      return res.status(400).json({
+        success: false,
+        message: "Falta streamUrlHash."
+      });
+    }
+
+    if (changes.streamUrl && !changes.streamUrl.startsWith("http://") && !changes.streamUrl.startsWith("https://")) {
+      return res.status(400).json({
+        success: false,
+        message: "El nuevo link debe empezar con http:// o https://."
+      });
+    }
+
+    const originalM3u = await downloadGistM3uRaw(config.rawUrl);
+    const result = updateM3uEntryByHash(originalM3u, streamUrlHashValue, changes);
+
+    if (result.duplicate) {
+      return res.status(409).json({
+        success: false,
+        message: "Ese nuevo link ya existe en la M3U."
+      });
+    }
+
+    if (result.changed <= 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No encontré esa entrada en la M3U original."
+      });
+    }
+
+    await updateGistFile({
+      token: config.token,
+      gistId: config.gistId,
+      filename: config.filename,
+      content: result.content
+    });
+
+    res.json({
+      success: true,
+      message: `Entrada actualizada (${result.changed} coincidencia/s).`,
+      changed: result.changed
+    });
+  } catch (error) {
+    console.error("Admin M3U update entry error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "No se pudo actualizar la entrada."
+    });
+  }
+});
+
+app.post("/admin/api/m3u/delete-entry", requireAdmin, async (req, res) => {
+  try {
+    const config = requireGistConfig(res);
+    if (!config) return;
+
+    const streamUrlHashValue = String(req.body.streamUrlHash || "").trim();
+
+    if (!streamUrlHashValue) {
+      return res.status(400).json({
+        success: false,
+        message: "Falta streamUrlHash."
+      });
+    }
+
+    const originalM3u = await downloadGistM3uRaw(config.rawUrl);
+    const result = removeM3uEntriesByHash(originalM3u, streamUrlHashValue);
+
+    if (result.removed <= 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No encontré esa entrada en la M3U original."
+      });
+    }
+
+    await updateGistFile({
+      token: config.token,
+      gistId: config.gistId,
+      filename: config.filename,
+      content: result.content
+    });
+
+    res.json({
+      success: true,
+      message: `Entrada eliminada de lista.m3u (${result.removed} bloque/s).`,
+      removed: result.removed
+    });
+  } catch (error) {
+    console.error("Admin M3U delete entry error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "No se pudo eliminar la entrada."
+    });
+  }
+});
+
+
 app.post("/admin/api/m3u/rename-group", requireAdmin, async (req, res) => {
   try {
     const config = requireGistConfig(res);
