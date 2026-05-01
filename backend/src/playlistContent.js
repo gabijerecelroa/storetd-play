@@ -682,62 +682,115 @@ async function getCachedContentSection({ activationCode, section, autoRefresh = 
 
 
 
+
 function filterAdultItems(items, includeAdult) {
   if (includeAdult) return items || [];
   return (items || []).filter((item) => !isAdult(item));
+}
+
+function isAdultLiteEntry(entry) {
+  const text = normalizeText([
+    entry?.title || "",
+    entry?.name || "",
+    entry?.group || "",
+    entry?.key || ""
+  ].join(" "));
+
+  return adultWords.some((word) => {
+    const normalizedWord = normalizeText(word);
+    if (!normalizedWord) return false;
+
+    if (normalizedWord === "sex") {
+      return /\bsex\b/.test(text);
+    }
+
+    if (normalizedWord === "hot") {
+      return /\bhot\b/.test(text);
+    }
+
+    return text.includes(normalizedWord);
+  });
 }
 
 function filterPayloadAdultContent(payload, includeAdult) {
   if (includeAdult || !payload) return payload;
 
   if (Array.isArray(payload.items)) {
+    const items = filterAdultItems(payload.items, false);
+
     return {
       ...payload,
-      items: filterAdultItems(payload.items, false),
-      itemCount: filterAdultItems(payload.items, false).length,
-      groups: groupNames(filterAdultItems(payload.items, false))
+      items,
+      itemCount: items.length,
+      groups: groupNames(items)
     };
   }
 
   if (Array.isArray(payload.folders)) {
     const folders = payload.folders
       .map((folder) => {
-        const episodes = filterAdultItems(folder.episodes || [], false);
+        if (Array.isArray(folder.episodes)) {
+          const episodes = filterAdultItems(folder.episodes, false);
 
-        return {
-          ...folder,
-          episodes,
-          episodeCount: episodes.length
-        };
+          return {
+            ...folder,
+            episodes,
+            episodeCount: episodes.length
+          };
+        }
+
+        return folder;
       })
-      .filter((folder) => folder.episodeCount > 0);
+      .filter((folder) => {
+        if (Array.isArray(folder.episodes)) {
+          return Number(folder.episodeCount || 0) > 0;
+        }
+
+        return !isAdultLiteEntry(folder);
+      });
 
     return {
       ...payload,
       folders,
       folderCount: folders.length,
-      itemCount: folders.reduce((sum, folder) => sum + folder.episodeCount, 0)
+      itemCount: folders.reduce(
+        (sum, folder) => sum + Number(folder.episodeCount || 0),
+        0
+      )
     };
   }
 
   if (Array.isArray(payload.categories)) {
     const categories = payload.categories
       .map((category) => {
-        const items = filterAdultItems(category.items || [], false);
+        if (Array.isArray(category.items)) {
+          const items = filterAdultItems(category.items, false);
 
-        return {
-          ...category,
-          items,
-          itemCount: items.length
-        };
+          return {
+            ...category,
+            items,
+            itemCount: items.length
+          };
+        }
+
+        return category;
       })
-      .filter((category) => category.itemCount > 0);
+      .filter((category) => {
+        if (Array.isArray(category.items)) {
+          return Number(category.itemCount || 0) > 0;
+        }
+
+        return !isAdultLiteEntry(category);
+      });
 
     return {
       ...payload,
       categories,
       categoryCount: categories.length,
-      itemCount: categories.reduce((sum, category) => sum + category.itemCount, 0)
+      itemCount: categories.reduce(
+        (sum, category) => sum + Number(category.itemCount || 0),
+        0
+      )
     };
   }
 
