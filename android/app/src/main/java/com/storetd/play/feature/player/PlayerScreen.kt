@@ -375,7 +375,10 @@ fun PlayerScreen(
         }
     }
 
-    fun sendReport(problemType: String) {
+    fun sendReport(
+        problemType: String,
+        afterSend: (() -> Unit)? = null
+    ) {
         isSendingReport = true
         reportMessage = null
 
@@ -401,6 +404,8 @@ fun PlayerScreen(
             showReportDialog = false
             reportMessage = result.message
             showControls = true
+
+            afterSend?.invoke()
         }
     }
 
@@ -655,6 +660,12 @@ fun PlayerScreen(
                     selectedControlIndex = 5
                     sendReport("Enlace caído / contenido no disponible")
                 },
+                onReportAndNext = {
+                    selectedControlIndex = 2
+                    sendReport("Enlace caído / contenido no disponible") {
+                        zapNext()
+                    }
+                },
                 onBack = onBack,
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
@@ -771,6 +782,7 @@ private fun PlaybackErrorCard(
     isSendingReport: Boolean,
     onRetry: () -> Unit,
     onReport: () -> Unit,
+    onReportAndNext: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -823,6 +835,19 @@ private fun PlaybackErrorCard(
                         )
                     }
 
+                    if (canNext) {
+                        OutlinedButton(
+                            onClick = onReportAndNext,
+                            enabled = !isSendingReport,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = if (isSendingReport) "Enviando..." else "Reportar + sig.",
+                                maxLines = 1
+                            )
+                        }
+                    }
+
                     TextButton(
                         onClick = onBack,
                         modifier = Modifier.weight(1f)
@@ -848,6 +873,16 @@ private fun PlaybackErrorCard(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(if (isSendingReport) "Enviando reporte..." else "Reportar enlace")
+                    }
+
+                    if (canNext) {
+                        Button(
+                            onClick = onReportAndNext,
+                            enabled = !isSendingReport,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(if (isSendingReport) "Enviando reporte..." else "Reportar y seguir")
+                        }
                     }
 
                     TextButton(
