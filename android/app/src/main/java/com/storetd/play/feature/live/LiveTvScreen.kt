@@ -331,7 +331,16 @@ fun LiveTvScreen(
                         selectedSeriesKey = selectedSeriesKey,
                         onSelectSeries = { selectedSeriesKey = it },
                         onClearSeries = { selectedSeriesKey = null },
-                        onPlay = onPlay
+                        lazySeriesFolders = lazySeriesFolders,
+                    lazySeriesEpisodes = lazySeriesEpisodes,
+                    isLazySeriesLoading = isLazySeriesLoading,
+                    selectedMovieCategoryKey = selectedMovieCategoryKey,
+                    lazyMovieCategories = lazyMovieCategories,
+                    lazyMovieItems = lazyMovieItems,
+                    isLazyMoviesLoading = isLazyMoviesLoading,
+                    onSelectMovieCategory = { selectedMovieCategoryKey = it },
+                    onClearMovieCategory = { selectedMovieCategoryKey = null },
+                    onPlay = onPlay
                     )
                 }
             }
