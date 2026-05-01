@@ -586,53 +586,102 @@ fun PlayerScreen(
                     return@onPreviewKeyEvent false
                 }
 
-                when (event.key) {
-                    Key.DirectionRight -> {
-                        if (isVodContent) {
-                            seekBy(30000L)
-                        } else {
-                            zapNext()
-                        }
-                        true
-                    }
+                if (errorMessage != null) {
+                    val count = errorActionCount()
 
-                    Key.DirectionLeft -> {
-                        if (isVodContent) {
-                            seekBy(-10000L)
-                        } else {
-                            zapPrevious()
-                        }
-                        true
-                    }
-
-                    Key.DirectionUp -> {
-                        showControls = true
-                        selectedControlIndex = if (selectedControlIndex <= 0) {
-                            7
-                        } else {
-                            selectedControlIndex - 1
-                        }
-                        true
-                    }
-
-                    Key.DirectionDown -> {
-                        showControls = true
-                        selectedControlIndex = (selectedControlIndex + 1) % 8
-                        true
-                    }
-
-                    Key.DirectionCenter,
-                    Key.Enter,
-                    Key.NumPadEnter -> {
-                        if (showControls) {
-                            activateSelectedControl()
-                        } else {
+                    when (event.key) {
+                        Key.DirectionDown -> {
+                            selectedErrorActionIndex = (selectedErrorActionIndex + 1) % count
                             showControls = true
+                            true
                         }
-                        true
-                    }
 
-                    else -> false
+                        Key.DirectionUp -> {
+                            selectedErrorActionIndex = if (selectedErrorActionIndex <= 0) {
+                                count - 1
+                            } else {
+                                selectedErrorActionIndex - 1
+                            }
+                            showControls = true
+                            true
+                        }
+
+                        Key.DirectionRight -> {
+                            if (isVodContent) {
+                                seekBy(30000L)
+                            } else {
+                                zapNext()
+                            }
+                            true
+                        }
+
+                        Key.DirectionLeft -> {
+                            if (isVodContent) {
+                                seekBy(-10000L)
+                            } else {
+                                zapPrevious()
+                            }
+                            true
+                        }
+
+                        Key.DirectionCenter,
+                        Key.Enter,
+                        Key.NumPadEnter -> {
+                            activateSelectedErrorAction()
+                            true
+                        }
+
+                        else -> false
+                    }
+                } else {
+                    when (event.key) {
+                        Key.DirectionRight -> {
+                            if (isVodContent) {
+                                seekBy(30000L)
+                            } else {
+                                zapNext()
+                            }
+                            true
+                        }
+
+                        Key.DirectionLeft -> {
+                            if (isVodContent) {
+                                seekBy(-10000L)
+                            } else {
+                                zapPrevious()
+                            }
+                            true
+                        }
+
+                        Key.DirectionUp -> {
+                            showControls = true
+                            selectedControlIndex = if (selectedControlIndex <= 0) {
+                                7
+                            } else {
+                                selectedControlIndex - 1
+                            }
+                            true
+                        }
+
+                        Key.DirectionDown -> {
+                            showControls = true
+                            selectedControlIndex = (selectedControlIndex + 1) % 8
+                            true
+                        }
+
+                        Key.DirectionCenter,
+                        Key.Enter,
+                        Key.NumPadEnter -> {
+                            if (showControls) {
+                                activateSelectedControl()
+                            } else {
+                                showControls = true
+                            }
+                            true
+                        }
+
+                        else -> false
+                    }
                 }
             }
             .background(MaterialTheme.colorScheme.background)
@@ -773,7 +822,7 @@ fun PlayerScreen(
             }
         }
 
-        if (showControls) {
+        if (showControls && errorMessage == null){
             Surface(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
