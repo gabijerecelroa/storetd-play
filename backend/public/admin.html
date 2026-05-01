@@ -832,6 +832,60 @@
       }
     }
 
+  
+    .client-quick-tabs {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      margin: 12px 0 18px;
+    }
+
+    .client-quick-tab {
+      background: #111827;
+      color: #f8fafc;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 18px;
+      padding: 14px 12px;
+      text-align: left;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+      margin: 0;
+    }
+
+    .client-quick-tab:hover {
+      background: #1f2937;
+      transform: translateY(-1px);
+    }
+
+    .client-quick-tab.active {
+      background: linear-gradient(135deg, #5b35b1, #7c3aed);
+      border-color: rgba(255,255,255,0.20);
+    }
+
+    .client-quick-tab span {
+      display: block;
+      font-size: 12px;
+      opacity: 0.78;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .client-quick-tab strong {
+      display: block;
+      font-size: 28px;
+      line-height: 1;
+      color: #ffffff;
+    }
+
+    @media (max-width: 760px) {
+      .client-quick-tabs {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .client-quick-tab {
+        width: 100%;
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -945,6 +999,8 @@
             <span id="clientsCountPill" class="count-pill">0</span>
           </div>
 
+          <div id="clientQuickTabs" class="client-quick-tabs"></div>
+
           <div class="toolbar">
             <input id="clientSearch" oninput="renderClients()" placeholder="Buscar por nombre, código o URL" />
 
@@ -1000,6 +1056,7 @@
     let clientsCache = [];
     let reportsCache = [];
     let groupedCache = [];
+    let clientQuickFilter = "all";
 
     const loginSection = document.getElementById("loginSection");
     const dashboardSection = document.getElementById("dashboardSection");
@@ -1010,6 +1067,7 @@
     const reportsBox = document.getElementById("reports");
     const groupedReportsBox = document.getElementById("groupedReports");
     const statsBox = document.getElementById("stats");
+    const clientQuickTabsBox = document.getElementById("clientQuickTabs");
     const clientsCountPill = document.getElementById("clientsCountPill");
 
     const storedKey = sessionStorage.getItem("storetd_admin_key") || localStorage.getItem("storetd_admin_key") || "";
@@ -1356,7 +1414,96 @@
       return String(value).slice(0, 10);
     }
 
+    function todayDateOnly() {
+      const now = new Date();
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    }
+
+    function clientExpiryDate(client) {
+      if (!client || !client.expiresAt) return null;
+      const date = new Date(String(client.expiresAt).slice(0, 10) + "T00:00:00");
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    function isClientExpired(client) {
+      const date = clientExpiryDate(client);
+      if (!date) return false;
+      return date < todayDateOnly();
+    }
+
+    function isClientExpiringSoon(client) {
+      const date = clientExpiryDate(client);
+      if (!date) return false;
+
+      const today = todayDateOnly();
+      const diffDays = Math.ceil((date.getTime() - today.getTime()) / 86400000);
+
+      return diffDays >= 0 && diffDays <= 7;
+    }
+
+    function setClientQuickFilter(filter) {
+      clientQuickFilter = filter || "all";
+      renderClients();
+    }
+
+    function quickFilterMatches(client) {
+      const status = normalize(client.status || "");
+
+      if (clientQuickFilter === "active") {
+        return status.includes("activa") && !isClientExpired(client);
+      }
+
+      if (clientQuickFilter === "expired") {
+        return status.includes("vencida") || isClientExpired(client);
+      }
+
+      if (clientQuickFilter === "soon") {
+        return isClientExpiringSoon(client);
+      }
+
+      if (clientQuickFilter === "trial") {
+        return status.includes("prueba");
+      }
+
+      return true;
+    }
+
+    function countQuickClients(filter) {
+      return clientsCache.filter((client) => {
+        const previous = clientQuickFilter;
+        clientQuickFilter = filter;
+        const matches = quickFilterMatches(client);
+        clientQuickFilter = previous;
+        return matches;
+      }).length;
+    }
+
+    function renderClientQuickTabs() {
+      if (!clientQuickTabsBox) return;
+
+      const tabs = [
+        ["all", "Total", clientsCache.length],
+        ["active", "Activos", countQuickClients("active")],
+        ["expired", "Vencidos", countQuickClients("expired")],
+        ["soon", "Por vencer", countQuickClients("soon")],
+        ["trial", "Prueba", countQuickClients("trial")]
+      ];
+
+      clientQuickTabsBox.innerHTML = tabs.map(([key, label, count]) => `
+        <button
+          type="button"
+          class="client-quick-tab ${clientQuickFilter === key ? "active" : ""}"
+          onclick="setClientQuickFilter('${key}')"
+        >
+          <span>${escapeHtml(label)}</span>
+          <strong>${escapeHtml(count)}</strong>
+        </button>
+      `).join("");
+    }
+
     function renderClients() {
+      renderClientQuickTabs();
+
       const search = normalize(document.getElementById("clientSearch")?.value || "");
       const status = document.getElementById("clientStatusFilter")?.value || "";
 
@@ -1371,8 +1518,9 @@
 
         const matchesSearch = !search || text.includes(search);
         const matchesStatus = !status || client.status === status;
+        const matchesQuickFilter = quickFilterMatches(client);
 
-        return matchesSearch && matchesStatus;
+        return matchesSearch && matchesStatus && matchesQuickFilter;
       });
 
       if (clientsCountPill) {
