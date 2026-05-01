@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const crypto = require("crypto");
 const { supabase, isDatabaseConfigured } = require("./db");
 const { getAppConfig, updateAppConfig } = require("./appConfig");
 const {
@@ -101,6 +102,90 @@ function apiClientToDb(input, fixedCode) {
     updated_at: nowIso()
   };
 }
+
+
+function streamUrlHash(value) {
+  return crypto
+    .createHash("sha256")
+    .update(String(value || "").trim())
+    .digest("hex");
+}
+
+function isBrokenLinkProblem(problemType, playerError) {
+  const text = String(`${problemType || ""} ${playerError || ""}`)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  return text.includes("enlace caido") ||
+    text.includes("contenido no disponible") ||
+    text.includes("source error") ||
+    text.includes("source") ||
+    text.includes("404") ||
+    text.includes("403") ||
+    text.includes("not found");
+}
+
+async function saveBrokenLinkReport(body = {}) {
+  try {
+    if (!supabase) return;
+
+    const activationCode = normalizeCode(body.activationCode);
+    const streamUrl = String(body.streamUrl || "").trim();
+
+    if (!activationCode || !streamUrl) return;
+
+    const hash = streamUrlHash(streamUrl);
+    const now = new Date().toISOString();
+
+    const row = {
+      activation_code: activationCode,
+      stream_url_hash: hash,
+      stream_url_masked: maskUrl(streamUrl),
+      channel_name: String(body.channelName || "").trim(),
+      category: String(body.category || "").trim(),
+      problem_type: String(body.problemType || "").trim(),
+      player_error: String(body.playerError || "").trim(),
+      last_reported_at: now,
+      status: "Pendiente"
+    };
+
+    const { data: existing, error: existingError } = await supabase
+      .from("broken_links")
+      .select("id, report_count")
+      .eq("activation_code", activationCode)
+      .eq("stream_url_hash", hash)
+      .maybeSingle();
+
+    if (existingError) throw existingError;
+
+    if (existing) {
+      const { error } = await supabase
+        .from("broken_links")
+        .update({
+          ...row,
+          report_count: Number(existing.report_count || 1) + 1
+        })
+        .eq("id", existing.id);
+
+      if (error) throw error;
+      return;
+    }
+
+    const { error } = await supabase
+      .from("broken_links")
+      .insert({
+        ...row,
+        first_reported_at: now,
+        report_count: 1
+      });
+
+    if (error) throw error;
+  } catch (error) {
+    console.error("Broken link global save error:", error);
+  }
+}
+
 
 function dbReportToApi(row) {
   return {
@@ -520,6 +605,10 @@ app.post("/reports/channel", async (req, res) => {
 
     const { error } = await supabase.from("reports").insert(report);
     if (error) throw error;
+
+    if (isBrokenLinkProblem(body.problemType, body.playerError)) {
+      await saveBrokenLinkReport(body);
+    }
 
     res.json({
       success: true,
@@ -1607,6 +1696,55 @@ app.get("/admin/api/device-events", requireAdmin, async (req, res) => {
 });
 
 
+
+
+
+app.get("/api/broken-links", async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const activationCode = normalizeCode(req.query.code);
+
+    if (!activationCode) {
+      return res.status(400).json({
+        success: false,
+        message: "Falta código de activación."
+      });
+    }
+
+    const { data, error } = await supabase
+      .from("broken_links")
+      .select("stream_url_hash, channel_name, category, stream_url_masked, report_count, status, last_reported_at")
+      .eq("activation_code", activationCode)
+      .neq("status", "Solucionado")
+      .order("last_reported_at", { ascending: false })
+      .limit(5000);
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      activationCode,
+      count: (data || []).length,
+      hashes: (data || []).map((row) => row.stream_url_hash).filter(Boolean),
+      items: (data || []).map((row) => ({
+        streamUrlHash: row.stream_url_hash,
+        channelName: row.channel_name || "",
+        category: row.category || "",
+        streamUrlMasked: row.stream_url_masked || "",
+        reportCount: Number(row.report_count || 1),
+        status: row.status || "Pendiente",
+        lastReportedAt: row.last_reported_at || ""
+      }))
+    });
+  } catch (error) {
+    console.error("Broken links list error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudieron cargar enlaces reportados."
+    });
+  }
+});
 
 
 app.post("/api/content/refresh-app", async (req, res) => {
