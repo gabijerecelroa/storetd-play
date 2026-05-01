@@ -1699,6 +1699,351 @@ app.get("/admin/api/device-events", requireAdmin, async (req, res) => {
 
 
 
+
+function requireGistConfig(res) {
+  const token = process.env.GITHUB_GIST_TOKEN || "";
+  const gistId = process.env.GITHUB_GIST_ID || "";
+  const filename = process.env.GITHUB_GIST_FILENAME || "lista.m3u";
+  const rawUrl = process.env.GITHUB_GIST_RAW_URL || "";
+
+  if (!token || !gistId || !filename || !rawUrl) {
+    res.status(500).json({
+      success: false,
+      message: "Gist no configurado. Revisa GITHUB_GIST_TOKEN, GITHUB_GIST_ID, GITHUB_GIST_FILENAME y GITHUB_GIST_RAW_URL."
+    });
+    return null;
+  }
+
+  return { token, gistId, filename, rawUrl };
+}
+
+async function downloadGistM3uRaw(rawUrl) {
+  const separator = rawUrl.includes("?") ? "&" : "?";
+  const response = await fetch(`${rawUrl}${separator}t=${Date.now()}`, {
+    headers: {
+      "User-Agent": "StoreTD-Play-Admin",
+      "Accept": "application/x-mpegURL,text/plain,*/*",
+      "Cache-Control": "no-cache"
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`No se pudo descargar la M3U original. HTTP ${response.status}`);
+  }
+
+  return await response.text();
+}
+
+async function updateGistFile({ token, gistId, filename, content }) {
+  const response = await fetch(`https://api.github.com/gists/${gistId}`, {
+    method: "PATCH",
+    headers: {
+      "Accept": "application/vnd.github+json",
+      "Authorization": `Bearer ${token}`,
+      "Content-Type": "application/json",
+      "User-Agent": "StoreTD-Play-Admin"
+    },
+    body: JSON.stringify({
+      files: {
+        [filename]: {
+          content
+        }
+      }
+    })
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.message || `No se pudo actualizar el Gist. HTTP ${response.status}`);
+  }
+
+  return data;
+}
+
+function replaceM3uStreamUrlByHash(m3uText, targetHash, replacementUrl) {
+  const lines = String(m3uText || "").replace(/\r/g, "").split("\n");
+  let replacements = 0;
+
+  const nextLines = lines.map((line) => {
+    const trimmed = String(line || "").trim();
+
+    if (
+      trimmed &&
+      !trimmed.startsWith("#") &&
+      streamUrlHash(trimmed) === targetHash
+    ) {
+      replacements += 1;
+      return replacementUrl;
+    }
+
+    return line;
+  });
+
+  return {
+    content: nextLines.join("\n"),
+    replacements
+  };
+}
+
+function removeM3uEntriesByHash(m3uText, targetHash) {
+  const lines = String(m3uText || "").replace(/\r/g, "").split("\n");
+  const output = [];
+  let removed = 0;
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i] || "";
+    const nextLine = lines[i + 1] || "";
+
+    if (
+      line.trim().startsWith("#EXTINF") &&
+      nextLine.trim() &&
+      !nextLine.trim().startsWith("#") &&
+      streamUrlHash(nextLine.trim()) === targetHash
+    ) {
+      removed += 1;
+      i += 1;
+      continue;
+    }
+
+    output.push(line);
+  }
+
+  return {
+    content: output.join("\n"),
+    removed
+  };
+}
+
+function dbBrokenLinkToApi(row) {
+  return {
+    id: row.id,
+    activationCode: row.activation_code || "",
+    streamUrlHash: row.stream_url_hash || "",
+    streamUrlMasked: row.stream_url_masked || "",
+    channelName: row.channel_name || "",
+    category: row.category || "",
+    problemType: row.problem_type || "",
+    playerError: row.player_error || "",
+    firstReportedAt: row.first_reported_at || "",
+    lastReportedAt: row.last_reported_at || "",
+    reportCount: Number(row.report_count || 1),
+    status: row.status || "Pendiente",
+    replacementUrl: row.replacement_url || "",
+    removedFromSource: Boolean(row.removed_from_source),
+    resolvedAt: row.resolved_at || "",
+    adminNote: row.admin_note || ""
+  };
+}
+
+
+
+app.get("/admin/api/broken-links", requireAdmin, async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const status = String(req.query.status || "").trim();
+
+    let query = supabase
+      .from("broken_links")
+      .select("*")
+      .order("last_reported_at", { ascending: false })
+      .limit(5000);
+
+    if (status) {
+      query = query.eq("status", status);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      brokenLinks: (data || []).map(dbBrokenLinkToApi)
+    });
+  } catch (error) {
+    console.error("Admin broken links list error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudieron cargar enlaces caídos."
+    });
+  }
+});
+
+app.post("/admin/api/broken-links/:id/replace-url", requireAdmin, async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const config = requireGistConfig(res);
+    if (!config) return;
+
+    const id = String(req.params.id || "").trim();
+    const replacementUrl = String(req.body.replacementUrl || req.body.newStreamUrl || "").trim();
+    const adminNote = String(req.body.adminNote || "").trim();
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Falta ID del enlace caído."
+      });
+    }
+
+    if (!replacementUrl.startsWith("http://") && !replacementUrl.startsWith("https://")) {
+      return res.status(400).json({
+        success: false,
+        message: "El nuevo link debe empezar con http:// o https://."
+      });
+    }
+
+    const { data: brokenLink, error: linkError } = await supabase
+      .from("broken_links")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (linkError) throw linkError;
+
+    if (!brokenLink) {
+      return res.status(404).json({
+        success: false,
+        message: "Enlace caído no encontrado."
+      });
+    }
+
+    const originalM3u = await downloadGistM3uRaw(config.rawUrl);
+    const result = replaceM3uStreamUrlByHash(
+      originalM3u,
+      brokenLink.stream_url_hash,
+      replacementUrl
+    );
+
+    if (result.replacements <= 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No encontré ese link dentro de la M3U original. Puede que la lista ya haya cambiado."
+      });
+    }
+
+    await updateGistFile({
+      token: config.token,
+      gistId: config.gistId,
+      filename: config.filename,
+      content: result.content
+    });
+
+    const now = nowIso();
+
+    const { error: updateError } = await supabase
+      .from("broken_links")
+      .update({
+        status: "Solucionado",
+        replacement_url: replacementUrl,
+        removed_from_source: false,
+        resolved_at: now,
+        admin_note: adminNote || "Link reemplazado desde panel admin."
+      })
+      .eq("id", id);
+
+    if (updateError) throw updateError;
+
+    res.json({
+      success: true,
+      message: `Link reemplazado en la M3U original (${result.replacements} coincidencia/s). Actualiza contenido optimizado para reflejar el cambio en la APK.`,
+      replacements: result.replacements,
+      activationCode: brokenLink.activation_code
+    });
+  } catch (error) {
+    console.error("Replace broken link error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "No se pudo reemplazar el link."
+    });
+  }
+});
+
+app.post("/admin/api/broken-links/:id/remove-from-m3u", requireAdmin, async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const config = requireGistConfig(res);
+    if (!config) return;
+
+    const id = String(req.params.id || "").trim();
+    const adminNote = String(req.body.adminNote || "").trim();
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Falta ID del enlace caído."
+      });
+    }
+
+    const { data: brokenLink, error: linkError } = await supabase
+      .from("broken_links")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (linkError) throw linkError;
+
+    if (!brokenLink) {
+      return res.status(404).json({
+        success: false,
+        message: "Enlace caído no encontrado."
+      });
+    }
+
+    const originalM3u = await downloadGistM3uRaw(config.rawUrl);
+    const result = removeM3uEntriesByHash(
+      originalM3u,
+      brokenLink.stream_url_hash
+    );
+
+    if (result.removed <= 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No encontré esa entrada dentro de la M3U original. Puede que la lista ya haya cambiado."
+      });
+    }
+
+    await updateGistFile({
+      token: config.token,
+      gistId: config.gistId,
+      filename: config.filename,
+      content: result.content
+    });
+
+    const now = nowIso();
+
+    const { error: updateError } = await supabase
+      .from("broken_links")
+      .update({
+        status: "Solucionado",
+        removed_from_source: true,
+        resolved_at: now,
+        admin_note: adminNote || "Entrada eliminada de la M3U original desde panel admin."
+      })
+      .eq("id", id);
+
+    if (updateError) throw updateError;
+
+    res.json({
+      success: true,
+      message: `Entrada eliminada de la M3U original (${result.removed} bloque/s). Actualiza contenido optimizado para reflejar el cambio en la APK.`,
+      removed: result.removed,
+      activationCode: brokenLink.activation_code
+    });
+  } catch (error) {
+    console.error("Remove broken link from M3U error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "No se pudo eliminar la entrada de la M3U."
+    });
+  }
+});
+
+
 app.get("/api/broken-links", async (req, res) => {
   if (!requireDb(res)) return;
 
