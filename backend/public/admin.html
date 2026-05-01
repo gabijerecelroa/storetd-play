@@ -600,6 +600,238 @@
       pointer-events: none;
     }
 
+  
+    .client-list {
+      display: grid;
+      gap: 14px;
+    }
+
+    details.client-row {
+      background: #2f2d35;
+      color: #f8fafc;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 14px 32px rgba(15, 23, 42, 0.18);
+    }
+
+    details.client-row[open] {
+      border-color: rgba(124, 58, 237, 0.38);
+    }
+
+    .client-row-summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 20px 22px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto auto;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .client-row-summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .client-row-name {
+      min-width: 0;
+    }
+
+    .client-row-name strong {
+      display: block;
+      font-size: clamp(19px, 2vw, 26px);
+      line-height: 1.15;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: #fffaf0;
+      letter-spacing: -0.03em;
+    }
+
+    .client-row-date {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #d1d5db;
+      margin-top: 10px;
+      font-size: 15px;
+    }
+
+    .client-row-date .calendar {
+      opacity: 0.9;
+    }
+
+    .client-row-status {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      padding: 8px 13px;
+      font-weight: 900;
+      white-space: nowrap;
+      background: #5b35b1;
+      color: #f5f3ff;
+    }
+
+    .client-row-status.ok {
+      background: #5b35b1;
+      color: #f5f3ff;
+    }
+
+    .client-row-status.trial {
+      background: #6d647f;
+      color: #f8fafc;
+    }
+
+    .client-row-status.danger {
+      background: #a61b22;
+      color: #fff1f2;
+    }
+
+    .client-row-demo {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-left: 8px;
+      border-radius: 12px;
+      padding: 6px 10px;
+      background: #6d647f;
+      color: #f8fafc;
+      font-size: 13px;
+      font-weight: 900;
+      vertical-align: middle;
+    }
+
+    .client-row-copy,
+    .client-row-chevron {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      color: #e5e7eb;
+      border: 0;
+      font-size: 24px;
+      box-shadow: none;
+    }
+
+    .client-row-copy:hover,
+    .client-row-chevron:hover {
+      background: rgba(255,255,255,0.08);
+      transform: none;
+    }
+
+    details.client-row[open] .client-row-chevron {
+      transform: rotate(180deg);
+    }
+
+    .client-row-body {
+      border-top: 1px solid rgba(255,255,255,0.08);
+      padding: 16px 20px 20px;
+      background: rgba(15, 23, 42, 0.20);
+    }
+
+    .client-row-info {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .client-row-info-card {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 12px;
+      min-width: 0;
+    }
+
+    .client-row-info-card span {
+      display: block;
+      color: #cbd5e1;
+      font-size: 12px;
+      font-weight: 800;
+      margin-bottom: 5px;
+    }
+
+    .client-row-info-card strong {
+      display: block;
+      color: #ffffff;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .client-row-actions {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin: 12px 0;
+    }
+
+    .client-row-actions button {
+      width: 100%;
+      margin: 0;
+    }
+
+    .client-row-editor {
+      margin-top: 14px;
+      background: #ffffff;
+      color: var(--text);
+      border-radius: 18px;
+      padding: 16px;
+    }
+
+    .client-row-editor summary {
+      cursor: pointer;
+      color: var(--primary);
+      font-weight: 900;
+      list-style: none;
+      margin-bottom: 10px;
+    }
+
+    .client-row-editor summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .client-row-editor input,
+    .client-row-editor select,
+    .client-row-editor textarea {
+      background: #ffffff;
+      color: var(--text);
+    }
+
+    @media (max-width: 760px) {
+      .client-row-summary {
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        padding: 18px;
+      }
+
+      .client-row-status {
+        grid-column: 2;
+      }
+
+      .client-row-copy {
+        grid-column: 3;
+      }
+
+      .client-row-chevron {
+        grid-column: 3;
+      }
+
+      .client-row-info {
+        grid-template-columns: 1fr;
+      }
+
+      .client-row-actions {
+        grid-template-columns: 1fr;
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -1159,89 +1391,109 @@
             const devices = Number(client.deviceCount || 0);
             const maxDevices = Number(client.maxDevices || 1);
             const playlistUrl = client.playlistUrl || "";
+            const epgUrl = client.epgUrl || "";
             const registeredDevices = (client.devices || []).map(escapeHtml).join(", ") || "ninguno";
+            const isDemo = normalize(client.status).includes("prueba");
+            const name = client.customerName || "Cliente sin nombre";
 
             return `
-              <article class="client">
-                <div class="client-main">
-                  <div class="client-name">
-                    <strong>${escapeHtml(client.customerName || "Cliente sin nombre")}</strong>
-                    <div class="client-meta">Código <span class="client-code">${escapeHtml(code)}</span></div>
-                    <span class="client-url-preview">${escapeHtml(maskLongUrl(playlistUrl))}</span>
-
-                    <div class="client-mini-actions">
-                      <button class="icon-btn" onclick='copyText(${JSON.stringify(code)}, "Código")'>Copiar código</button>
-                      <button class="icon-btn" onclick='copyText(${JSON.stringify(playlistUrl)}, "Playlist")'>Copiar playlist</button>
+              <details class="client-row">
+                <summary class="client-row-summary">
+                  <div class="client-row-name">
+                    <strong>
+                      ${escapeHtml(name)}
+                      ${isDemo ? '<span class="client-row-demo">DEMO</span>' : ''}
+                    </strong>
+                    <div class="client-row-date">
+                      <span class="calendar">▣</span>
+                      <span>Vence: ${escapeHtml(formatClientDate(client.expiresAt))}</span>
                     </div>
                   </div>
 
-                  <div>
-                    <span class="badge ${clientStatusClass(client.status)}">${escapeHtml(client.status || "Sin estado")}</span>
+                  <span class="client-row-status ${clientStatusClass(client.status)}">${escapeHtml(client.status || "Sin estado")}</span>
+
+                  <button class="client-row-copy" title="Copiar código" onclick='event.preventDefault(); event.stopPropagation(); copyText(${JSON.stringify(code)}, "Código")'>⧉</button>
+
+                  <button class="client-row-chevron" title="Desplegar" onclick='event.preventDefault(); this.closest("details").open = !this.closest("details").open'>⌄</button>
+                </summary>
+
+                <div class="client-row-body">
+                  <div class="client-row-info">
+                    <div class="client-row-info-card">
+                      <span>Código</span>
+                      <strong>${escapeHtml(code)}</strong>
+                    </div>
+
+                    <div class="client-row-info-card">
+                      <span>Dispositivos</span>
+                      <strong>${escapeHtml(devices)}/${escapeHtml(maxDevices)}</strong>
+                    </div>
+
+                    <div class="client-row-info-card">
+                      <span>Playlist</span>
+                      <strong title="${escapeAttr(playlistUrl)}">${escapeHtml(maskLongUrl(playlistUrl))}</strong>
+                    </div>
                   </div>
 
-                  <div>
-                    <div class="client-meta">Vence</div>
-                    <strong>${escapeHtml(formatClientDate(client.expiresAt))}</strong>
+                  <div class="client-row-actions">
+                    <button id="refresh-content-${index}" onclick='refreshClientContent(${JSON.stringify(code)}, ${index})'>Actualizar contenido</button>
+                    <button class="secondary" onclick='copyText(${JSON.stringify(playlistUrl)}, "Playlist")'>Copiar playlist</button>
+                    <button class="secondary" onclick='unlinkDevices(${JSON.stringify(code)})'>Desvincular dispositivos</button>
                   </div>
 
-                  <div>
-                    <div class="client-meta">Dispositivos</div>
-                    <strong>${escapeHtml(devices)}/${escapeHtml(maxDevices)}</strong>
+                  <div class="client-row-actions">
+                    <button class="secondary" onclick='copyText(${JSON.stringify(epgUrl)}, "EPG")'>Copiar EPG</button>
+                    <button class="danger" onclick='deleteClient(${JSON.stringify(code)})'>Eliminar cliente</button>
                   </div>
 
-                  <div class="client-actions">
-                    <button id="refresh-content-${index}" class="small" onclick='refreshClientContent(${JSON.stringify(code)}, ${index})'>Actualizar contenido</button>
-                    <button class="secondary small" onclick='unlinkDevices(${JSON.stringify(code)})'>Desvincular</button>
-                    <button class="danger small" onclick='deleteClient(${JSON.stringify(code)})'>Eliminar</button>
-                  </div>
                   <div id="refresh-status-${index}" class="client-refresh-status"></div>
+
+                  <details class="client-row-editor">
+                    <summary>Editar datos, lista y EPG</summary>
+
+                    <div class="muted" style="margin:10px 0">Registrados: ${registeredDevices}</div>
+
+                    <div class="grid client-edit-grid">
+                      <div>
+                        <label>Nombre</label>
+                        <input id="name-${index}" value="${escapeAttr(client.customerName)}" />
+                      </div>
+
+                      <div>
+                        <label>Estado</label>
+                        <select id="status-${index}">
+                          ${option("Activa", client.status)}
+                          ${option("Prueba", client.status)}
+                          ${option("Vencida", client.status)}
+                          ${option("Suspendida", client.status)}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label>Vencimiento</label>
+                        <input id="expires-${index}" type="date" value="${escapeAttr(client.expiresAt || "")}" />
+                      </div>
+
+                      <div>
+                        <label>Máximo dispositivos</label>
+                        <input id="max-${index}" type="number" min="1" value="${escapeAttr(client.maxDevices || 1)}" />
+                      </div>
+
+                      <div>
+                        <label>EPG URL</label>
+                        <input id="epg-${index}" value="${escapeAttr(epgUrl)}" />
+                      </div>
+                    </div>
+
+                    <label>Playlist URL autorizada</label>
+                    <input id="playlist-${index}" value="${escapeAttr(playlistUrl)}" />
+
+                    <div class="actions">
+                      <button onclick='updateClient(${JSON.stringify(code)}, ${index})'>Guardar cambios</button>
+                    </div>
+                  </details>
                 </div>
-
-                <details class="client-editor">
-                  <summary>Editar datos, lista y EPG</summary>
-
-                  <div class="muted" style="margin-top:10px">Registrados: ${registeredDevices}</div>
-
-                  <div class="grid client-edit-grid">
-                    <div>
-                      <label>Nombre</label>
-                      <input id="name-${index}" value="${escapeAttr(client.customerName)}" />
-                    </div>
-
-                    <div>
-                      <label>Estado</label>
-                      <select id="status-${index}">
-                        ${option("Activa", client.status)}
-                        ${option("Prueba", client.status)}
-                        ${option("Vencida", client.status)}
-                        ${option("Suspendida", client.status)}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label>Vencimiento</label>
-                      <input id="expires-${index}" type="date" value="${escapeAttr(client.expiresAt || "")}" />
-                    </div>
-
-                    <div>
-                      <label>Máximo dispositivos</label>
-                      <input id="max-${index}" type="number" min="1" value="${escapeAttr(client.maxDevices || 1)}" />
-                    </div>
-
-                    <div>
-                      <label>EPG URL</label>
-                      <input id="epg-${index}" value="${escapeAttr(client.epgUrl || "")}" />
-                    </div>
-                  </div>
-
-                  <label>Playlist URL autorizada</label>
-                  <input id="playlist-${index}" value="${escapeAttr(playlistUrl)}" />
-
-                  <div class="actions">
-                    <button onclick='updateClient(${JSON.stringify(code)}, ${index})'>Guardar cambios</button>
-                  </div>
-                </details>
-              </article>
+              </details>
             `;
           }).join("")}
         </div>
