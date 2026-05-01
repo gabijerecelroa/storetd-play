@@ -1398,6 +1398,18 @@
       font-weight: 900;
     }
 
+  
+    .duplicate-actions {
+      margin-top: 10px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .duplicate-actions button {
+      margin: 0;
+    }
+
   </style>
 </head>
 <body>
@@ -1979,6 +1991,34 @@
       }
     }
 
+    async function deleteDuplicateReports(ids) {
+      const cleanIds = (ids || []).filter(Boolean);
+
+      if (!cleanIds.length) {
+        showMessage("No hay duplicados para limpiar.");
+        return;
+      }
+
+      if (!confirm(`¿Eliminar ${cleanIds.length} reportes duplicados y dejar solo el principal?`)) {
+        return;
+      }
+
+      try {
+        showMessage("Limpiando reportes duplicados...");
+
+        for (const id of cleanIds) {
+          await api(`/admin/api/reports/${encodeURIComponent(id)}`, {
+            method: "DELETE"
+          });
+        }
+
+        showMessage("Duplicados eliminados.");
+        refreshAll();
+      } catch (error) {
+        showMessage(error.message);
+      }
+    }
+
     async function deleteReport(id) {
       if (!confirm("¿Eliminar reporte?")) return;
 
@@ -2426,6 +2466,8 @@
             const brokenLink = isBrokenLinkReport(report);
             const statusClass = isPending ? "pending" : "done";
             const title = report.channelName || "Canal sin nombre";
+            const duplicateIdsToDelete = (report.duplicateIds || [])
+              .filter((id) => String(id || "") !== String(report.id || ""));
             const meta = [
               report.customerName || "Cliente sin nombre",
               report.problemType || "Sin problema",
@@ -2439,7 +2481,17 @@
                     <strong>${escapeHtml(title)}</strong>
                     <div class="report-row-meta">${escapeHtml(meta)}</div>
                     ${brokenLink ? '<div class="broken-link-chip">Enlace caído / contenido no disponible</div>' : ''}
-                    ${Number(report.duplicateCount || 1) > 1 ? `<div class="duplicate-chip">${escapeHtml(report.duplicateCount)} reportes duplicados</div>` : ''}
+                    ${Number(report.duplicateCount || 1) > 1 ? `
+                      <div class="duplicate-chip">${escapeHtml(report.duplicateCount)} reportes duplicados</div>
+                      <div class="duplicate-actions">
+                        <button
+                          class="danger small"
+                          onclick='event.preventDefault(); event.stopPropagation(); deleteDuplicateReports(${JSON.stringify(duplicateIdsToDelete)})'
+                        >
+                          Limpiar duplicados
+                        </button>
+                      </div>
+                    ` : ''}
                   </div>
 
                   <span class="badge ${statusClass}">${escapeHtml(report.status || "Sin estado")}</span>
