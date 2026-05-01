@@ -71,6 +71,9 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.Alignment
 import androidx.activity.compose.BackHandler
 import androidx.compose.ui.input.key.onKeyEvent
+import com.storetd.play.core.network.OptimizedContentApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private data class SeriesFolder(
     val key: String,
@@ -94,14 +97,74 @@ fun LiveTvScreen(
     val state by viewModel.uiState.collectAsState()
 
     var selectedSeriesKey by remember(contentMode) { mutableStateOf<String?>(null) }
+    var selectedMovieCategoryKey by remember(contentMode) { mutableStateOf<String?>(null) }
+
+    var lazySeriesFolders by remember(contentMode) {
+        mutableStateOf<List<OptimizedContentApi.SeriesFolderLite>>(emptyList())
+    }
+    var lazySeriesEpisodes by remember(contentMode, selectedSeriesKey) {
+        mutableStateOf<List<Channel>>(emptyList())
+    }
+    var isLazySeriesLoading by remember(contentMode, selectedSeriesKey) {
+        mutableStateOf(false)
+    }
+
+    var lazyMovieCategories by remember(contentMode) {
+        mutableStateOf<List<OptimizedContentApi.MovieCategoryLite>>(emptyList())
+    }
+    var lazyMovieItems by remember(contentMode, selectedMovieCategoryKey) {
+        mutableStateOf<List<Channel>>(emptyList())
+    }
+    var isLazyMoviesLoading by remember(contentMode, selectedMovieCategoryKey) {
+        mutableStateOf(false)
+    }
 
     LaunchedEffect(contentMode) {
         selectedSeriesKey = null
+        selectedMovieCategoryKey = null
+        lazySeriesFolders = emptyList()
+        lazySeriesEpisodes = emptyList()
+        lazyMovieCategories = emptyList()
+        lazyMovieItems = emptyList()
+        isLazySeriesLoading = false
+        isLazyMoviesLoading = false
 
         viewModel.setContentMode(contentMode)
         viewModel.setHideAdultContent(ParentalControl.isAdultContentHidden(context))
 
         val account = LocalAccount.getAccount(context)
+        val activationCode = account.activationCode.trim()
+
+        if (activationCode.isNotBlank() && contentMode == ContentMode.Series) {
+            isLazySeriesLoading = true
+            val folders = withContext(Dispatchers.IO) {
+                runCatching {
+                    OptimizedContentApi.loadSeriesFoldersLite(activationCode)
+                }.getOrDefault(emptyList())
+            }
+            isLazySeriesLoading = false
+
+            if (folders.isNotEmpty()) {
+                lazySeriesFolders = folders
+                return@LaunchedEffect
+            }
+        }
+
+        if (activationCode.isNotBlank() && contentMode == ContentMode.Movies) {
+            isLazyMoviesLoading = true
+            val categories = withContext(Dispatchers.IO) {
+                runCatching {
+                    OptimizedContentApi.loadMovieCategoriesLite(activationCode)
+                }.getOrDefault(emptyList())
+            }
+            isLazyMoviesLoading = false
+
+            if (categories.isNotEmpty()) {
+                lazyMovieCategories = categories
+                return@LaunchedEffect
+            }
+        }
+
         val assignedPlaylist = buildSectionPlaylistUrl(
             activationCode = account.activationCode,
             fallbackUrl = account.playlistUrl,
@@ -115,6 +178,55 @@ fun LiveTvScreen(
 
     LaunchedEffect(state.selectedGroup) {
         selectedSeriesKey = null
+        selectedMovieCategoryKey = null
+    }
+
+    LaunchedEffect(contentMode, selectedSeriesKey, lazySeriesFolders) {
+        val account = LocalAccount.getAccount(context)
+        val activationCode = account.activationCode.trim()
+        val key = selectedSeriesKey
+
+        if (
+            contentMode == ContentMode.Series &&
+            key != null &&
+            lazySeriesFolders.isNotEmpty() &&
+            activationCode.isNotBlank()
+        ) {
+            isLazySeriesLoading = true
+            lazySeriesEpisodes = withContext(Dispatchers.IO) {
+                runCatching {
+                    OptimizedContentApi.loadSeriesFolderEpisodes(
+                        activationCode = activationCode,
+                        key = key
+                    )
+                }.getOrDefault(emptyList())
+            }
+            isLazySeriesLoading = false
+        }
+    }
+
+    LaunchedEffect(contentMode, selectedMovieCategoryKey, lazyMovieCategories) {
+        val account = LocalAccount.getAccount(context)
+        val activationCode = account.activationCode.trim()
+        val key = selectedMovieCategoryKey
+
+        if (
+            contentMode == ContentMode.Movies &&
+            key != null &&
+            lazyMovieCategories.isNotEmpty() &&
+            activationCode.isNotBlank()
+        ) {
+            isLazyMoviesLoading = true
+            lazyMovieItems = withContext(Dispatchers.IO) {
+                runCatching {
+                    OptimizedContentApi.loadMovieCategoryItems(
+                        activationCode = activationCode,
+                        key = key
+                    )
+                }.getOrDefault(emptyList())
+            }
+            isLazyMoviesLoading = false
+        }
     }
 
     BoxWithConstraints(
@@ -163,6 +275,15 @@ fun LiveTvScreen(
                     selectedSeriesKey = selectedSeriesKey,
                     onSelectSeries = { selectedSeriesKey = it },
                     onClearSeries = { selectedSeriesKey = null },
+                    lazySeriesFolders = lazySeriesFolders,
+                    lazySeriesEpisodes = lazySeriesEpisodes,
+                    isLazySeriesLoading = isLazySeriesLoading,
+                    selectedMovieCategoryKey = selectedMovieCategoryKey,
+                    lazyMovieCategories = lazyMovieCategories,
+                    lazyMovieItems = lazyMovieItems,
+                    isLazyMoviesLoading = isLazyMoviesLoading,
+                    onSelectMovieCategory = { selectedMovieCategoryKey = it },
+                    onClearMovieCategory = { selectedMovieCategoryKey = null },
                     onPlay = onPlay
                 )
             }
@@ -224,6 +345,15 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
     selectedSeriesKey: String?,
     onSelectSeries: (String) -> Unit,
     onClearSeries: () -> Unit,
+    lazySeriesFolders: List<OptimizedContentApi.SeriesFolderLite>,
+    lazySeriesEpisodes: List<Channel>,
+    isLazySeriesLoading: Boolean,
+    selectedMovieCategoryKey: String?,
+    lazyMovieCategories: List<OptimizedContentApi.MovieCategoryLite>,
+    lazyMovieItems: List<Channel>,
+    isLazyMoviesLoading: Boolean,
+    onSelectMovieCategory: (String) -> Unit,
+    onClearMovieCategory: () -> Unit,
     onPlay: (Channel, List<Channel>) -> Unit
 ) {
     if (state.isLoading || state.isFiltering) {
@@ -236,6 +366,99 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                 }
             )
         }
+        return
+    }
+
+    if (isLazyMoviesLoading || isLazySeriesLoading) {
+        item {
+            LoadingSectionCard(
+                text = if (contentMode == ContentMode.Series) {
+                    "Cargando series..."
+                } else {
+                    "Cargando películas..."
+                }
+            )
+        }
+        return
+    }
+
+    if (contentMode == ContentMode.Movies && lazyMovieCategories.isNotEmpty()) {
+        val selectedCategory = lazyMovieCategories.firstOrNull { it.key == selectedMovieCategoryKey }
+
+        if (selectedCategory == null) {
+            item {
+                Text(
+                    text = "${lazyMovieCategories.size} categorías encontradas",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            items(lazyMovieCategories) { category ->
+                MovieCategoryLiteRow(
+                    category = category,
+                    onOpen = { onSelectMovieCategory(category.key) }
+                )
+            }
+        } else {
+            item {
+                MovieCategoryHeader(
+                    category = selectedCategory,
+                    onBack = onClearMovieCategory
+                )
+            }
+
+            items(lazyMovieItems) { movie ->
+                ChannelRow(
+                    channel = movie,
+                    currentProgram = null,
+                    nextProgram = null,
+                    onPlay = { onPlay(movie, lazyMovieItems) }
+                )
+            }
+        }
+
+        return
+    }
+
+    if (contentMode == ContentMode.Series && lazySeriesFolders.isNotEmpty()) {
+        val selectedFolder = lazySeriesFolders.firstOrNull { it.key == selectedSeriesKey }
+
+        if (selectedFolder == null) {
+            item {
+                Text(
+                    text = "${lazySeriesFolders.size} series encontradas",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            items(lazySeriesFolders) { folder ->
+                SeriesFolderLiteRow(
+                    folder = folder,
+                    onOpen = { onSelectSeries(folder.key) }
+                )
+            }
+        } else {
+            item {
+                SeriesFolderLiteHeader(
+                    folder = selectedFolder,
+                    onBack = onClearSeries
+                )
+            }
+
+            items(lazySeriesEpisodes) { episode ->
+                ChannelRow(
+                    channel = episode,
+                    currentProgram = null,
+                    nextProgram = null,
+                    onPlay = { onPlay(episode, lazySeriesEpisodes) }
+                )
+            }
+        }
+
         return
     }
 
@@ -595,6 +818,171 @@ private fun StatusBlock(
                 text = mode.emptyMessage,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f)
+            )
+        }
+    }
+}
+
+
+@Composable
+private fun MovieCategoryLiteRow(
+    category: OptimizedContentApi.MovieCategoryLite,
+    onOpen: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onOpen() },
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.50f),
+        shape = RoundedCornerShape(22.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)),
+        shadowElevation = 3.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = category.title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Text(
+                text = "${category.itemCount} películas",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.70f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun MovieCategoryHeader(
+    category: OptimizedContentApi.MovieCategoryLite,
+    onBack: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.50f),
+        shape = RoundedCornerShape(22.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = category.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Text(
+                    text = "${category.itemCount} películas disponibles",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.80f)
+                )
+            }
+
+            Text(
+                text = "Volver",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .clickable { onBack() }
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun SeriesFolderLiteRow(
+    folder: OptimizedContentApi.SeriesFolderLite,
+    onOpen: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onOpen() },
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.50f),
+        shape = RoundedCornerShape(22.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)),
+        shadowElevation = 3.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = folder.title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Text(
+                text = "${folder.episodeCount} capítulos",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.70f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun SeriesFolderLiteHeader(
+    folder: OptimizedContentApi.SeriesFolderLite,
+    onBack: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.50f),
+        shape = RoundedCornerShape(22.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = folder.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Text(
+                    text = "${folder.episodeCount} capítulos disponibles",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.80f)
+                )
+            }
+
+            Text(
+                text = "Volver",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .clickable { onBack() }
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
             )
         }
     }
