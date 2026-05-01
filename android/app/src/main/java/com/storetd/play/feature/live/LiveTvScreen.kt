@@ -92,8 +92,6 @@ fun LiveTvScreen(
     contentMode: ContentMode = ContentMode.LiveTv,
     viewModel: LiveTvViewModel = viewModel()
 ) {
-    BackHandler(enabled = true) { onBack() }
-
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
 
@@ -120,6 +118,29 @@ fun LiveTvScreen(
     }
     var isLazyMoviesLoading by remember(contentMode, selectedMovieCategoryKey) {
         mutableStateOf(false)
+    }
+
+    BackHandler(enabled = true) {
+        when {
+            selectedSeriesKey != null -> {
+                selectedSeriesKey = null
+                lazySeriesEpisodes = emptyList()
+                isLazySeriesLoading = false
+            }
+
+            selectedMovieCategoryKey != null -> {
+                selectedMovieCategoryKey = null
+                lazyMovieItems = emptyList()
+                isLazyMoviesLoading = false
+            }
+
+            showLazySearch -> {
+                showLazySearch = false
+                lazySearchQuery = ""
+            }
+
+            else -> onBack()
+        }
     }
 
     LaunchedEffect(contentMode) {
