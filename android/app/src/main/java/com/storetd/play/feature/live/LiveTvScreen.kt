@@ -78,6 +78,7 @@ import kotlinx.coroutines.withContext
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.foundation.lazy.rememberLazyListState
 
 private data class SeriesFolder(
     val key: String,
@@ -274,8 +275,71 @@ fun LiveTvScreen(
             (contentMode == ContentMode.Series && lazySeriesFolders.isNotEmpty()) ||
                 (contentMode == ContentMode.Movies && lazyMovieCategories.isNotEmpty())
 
+        val contentListState = rememberLazyListState()
+
+        LaunchedEffect(
+            contentMode,
+            selectedSeriesKey,
+            selectedMovieCategoryKey,
+            lastSeriesFocusKey,
+            lastMovieCategoryFocusKey,
+            lazySeriesFolders.size,
+            lazyMovieCategories.size,
+            showLazySearch,
+            lazySearchQuery,
+            isCompact
+        ) {
+            if (!usingLazyBackendContent || showLazySearch) return@LaunchedEffect
+
+            val baseIndex = if (isCompact) 1 else 0
+
+            if (
+                contentMode == ContentMode.Movies &&
+                selectedMovieCategoryKey == null &&
+                lazyMovieCategories.isNotEmpty()
+            ) {
+                val movieSearchText = lazySearchQuery.trim().lowercase(Locale.getDefault())
+                val visibleMovieCategories = if (movieSearchText.isBlank()) {
+                    lazyMovieCategories
+                } else {
+                    lazyMovieCategories.filter {
+                        it.title.lowercase(Locale.getDefault()).contains(movieSearchText)
+                    }
+                }
+
+                val targetIndex = visibleMovieCategories.indexOfFirst {
+                    it.key == lastMovieCategoryFocusKey
+                }.let { if (it >= 0) it else 0 }
+
+                contentListState.scrollToItem(baseIndex + 1 + targetIndex)
+            }
+
+            if (
+                contentMode == ContentMode.Series &&
+                selectedSeriesKey == null &&
+                lazySeriesFolders.isNotEmpty()
+            ) {
+                val seriesSearchText = lazySearchQuery.trim().lowercase(Locale.getDefault())
+                val visibleSeriesFolders = if (seriesSearchText.isBlank()) {
+                    lazySeriesFolders
+                } else {
+                    lazySeriesFolders.filter {
+                        it.title.lowercase(Locale.getDefault()).contains(seriesSearchText) ||
+                            it.group.lowercase(Locale.getDefault()).contains(seriesSearchText)
+                    }
+                }
+
+                val targetIndex = visibleSeriesFolders.indexOfFirst {
+                    it.key == lastSeriesFocusKey
+                }.let { if (it >= 0) it else 0 }
+
+                contentListState.scrollToItem(baseIndex + 1 + targetIndex)
+            }
+        }
+
         if (isCompact) {
             LazyColumn(
+                state = contentListState,
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
@@ -375,6 +439,7 @@ fun LiveTvScreen(
                 Spacer(Modifier.width(24.dp))
 
                 LazyColumn(
+                    state = contentListState,
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.weight(1f)
                 ) {
@@ -515,7 +580,12 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                             !showLazySearch &&
                             (
                                 category.key == lastMovieCategoryFocusKey ||
-                                    (lastMovieCategoryFocusKey == null && index == 0)
+                                    (
+                                        (
+                                            lastMovieCategoryFocusKey == null ||
+                                                visibleMovieCategories.none { it.key == lastMovieCategoryFocusKey }
+                                        ) && index == 0
+                                    )
                             ),
                     onOpen = { onSelectMovieCategory(category.key) }
                 )
@@ -585,7 +655,12 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                             !showLazySearch &&
                             (
                                 folder.key == lastSeriesFocusKey ||
-                                    (lastSeriesFocusKey == null && index == 0)
+                                    (
+                                        (
+                                            lastSeriesFocusKey == null ||
+                                                visibleSeriesFolders.none { it.key == lastSeriesFocusKey }
+                                        ) && index == 0
+                                    )
                             ),
                     onOpen = { onSelectSeries(folder.key) }
                 )
