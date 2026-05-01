@@ -73,6 +73,7 @@ import com.storetd.play.core.epg.EpgProgram
 import com.storetd.play.core.network.ChannelReportApi
 import com.storetd.play.core.network.ChannelReportPayload
 import com.storetd.play.core.player.PlayerSession
+import com.storetd.play.core.storage.BrokenLinkStore
 import com.storetd.play.core.storage.LocalAccount
 import com.storetd.play.core.storage.LocalLibrary
 import com.storetd.play.core.storage.PlaybackProgressStore
@@ -408,6 +409,13 @@ fun PlayerScreen(
     ) {
         isSendingReport = true
         reportMessage = null
+
+        if (
+            problemType.contains("enlace caído", ignoreCase = true) ||
+            problemType.contains("contenido no disponible", ignoreCase = true)
+        ) {
+            BrokenLinkStore.markReported(context, currentChannel.streamUrl)
+        }
 
         val account = LocalAccount.getAccount(context)
 

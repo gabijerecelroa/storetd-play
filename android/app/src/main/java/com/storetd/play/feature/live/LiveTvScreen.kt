@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
 import com.storetd.play.core.epg.EpgProgram
 import com.storetd.play.core.model.Channel
+import com.storetd.play.core.storage.BrokenLinkStore
 import com.storetd.play.core.storage.LocalAccount
 import com.storetd.play.core.parental.ParentalControl
 import java.net.URLEncoder
@@ -1374,6 +1375,10 @@ private fun SeriesFolderRow(
     onOpen: () -> Unit
 ) {
     var focused by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val isReportedBroken = remember(channel.streamUrl) {
+        BrokenLinkStore.isReported(context, channel.streamUrl)
+    }
     val shape = RoundedCornerShape(22.dp)
 
     Card(
@@ -1412,6 +1417,8 @@ private fun SeriesFolderRow(
         colors = CardDefaults.cardColors(
             containerColor = if (focused) {
                 MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
+            } else if (isReportedBroken) {
+                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.32f)
             } else {
                 MaterialTheme.colorScheme.surfaceVariant
             }
@@ -1530,6 +1537,27 @@ private fun SeriesFolderHeader(
     }
 }
 
+
+@Composable
+private fun ReportedBrokenChip() {
+    Surface(
+        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.90f),
+        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+        shape = RoundedCornerShape(999.dp),
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.error.copy(alpha = 0.35f)
+        )
+    ) {
+        Text(
+            text = "Reportado",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChannelRow(
@@ -1618,6 +1646,11 @@ private fun ChannelRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+
+                if (isReportedBroken) {
+                    Spacer(Modifier.height(6.dp))
+                    ReportedBrokenChip()
+                }
 
                 currentProgram?.let { program ->
                     Spacer(Modifier.height(4.dp))
