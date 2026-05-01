@@ -987,14 +987,29 @@ private fun MovieCategoryLiteRow(
     category: OptimizedContentApi.MovieCategoryLite,
     onOpen: () -> Unit
 ) {
+    var isFocused by remember { mutableStateOf(false) }
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
+            .onFocusChanged { isFocused = it.isFocused || it.hasFocus }
+            .focusable()
             .clickable { onOpen() },
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.50f),
+        color = if (isFocused) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+        } else {
+            MaterialTheme.colorScheme.surface.copy(alpha = 0.50f)
+        },
         shape = RoundedCornerShape(22.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)),
-        shadowElevation = 3.dp
+        border = BorderStroke(
+            width = if (isFocused) 3.dp else 1.dp,
+            color = if (isFocused) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)
+            }
+        ),
+        shadowElevation = if (isFocused) 8.dp else 3.dp
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
@@ -1017,6 +1032,8 @@ private fun MovieCategoryLiteRow(
         }
     }
 }
+
+
 
 @Composable
 private fun MovieCategoryHeader(
@@ -1069,14 +1086,29 @@ private fun SeriesFolderLiteRow(
     folder: OptimizedContentApi.SeriesFolderLite,
     onOpen: () -> Unit
 ) {
+    var isFocused by remember { mutableStateOf(false) }
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
+            .onFocusChanged { isFocused = it.isFocused || it.hasFocus }
+            .focusable()
             .clickable { onOpen() },
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.50f),
+        color = if (isFocused) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+        } else {
+            MaterialTheme.colorScheme.surface.copy(alpha = 0.50f)
+        },
         shape = RoundedCornerShape(22.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)),
-        shadowElevation = 3.dp
+        border = BorderStroke(
+            width = if (isFocused) 3.dp else 1.dp,
+            color = if (isFocused) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)
+            }
+        ),
+        shadowElevation = if (isFocused) 8.dp else 3.dp
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
@@ -1099,6 +1131,8 @@ private fun SeriesFolderLiteRow(
         }
     }
 }
+
+
 
 @Composable
 private fun SeriesFolderLiteHeader(
