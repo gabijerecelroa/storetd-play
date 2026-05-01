@@ -1383,6 +1383,21 @@
       }
     }
 
+  
+    .duplicate-chip {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      margin-top: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #ede9fe;
+      color: #5b21b6;
+      border: 1px solid #ddd6fe;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
   </style>
 </head>
 <body>
@@ -2325,6 +2340,51 @@
       `).join("");
     }
 
+    function reportDuplicateKey(report) {
+      if (!isBrokenLinkReport(report)) {
+        return "single:" + String(report?.id || Math.random());
+      }
+
+      return [
+        normalize(report?.channelName || ""),
+        normalize(report?.activationCode || ""),
+        normalize(report?.problemType || ""),
+        normalize(report?.streamUrlMasked || "")
+      ].join("|");
+    }
+
+    function compactDuplicateReports(reports) {
+      const map = new Map();
+
+      for (const report of reports) {
+        const key = reportDuplicateKey(report);
+
+        if (!map.has(key)) {
+          map.set(key, {
+            ...report,
+            duplicateCount: 1,
+            duplicateIds: [report.id],
+            duplicateLastReportedAt: report.createdAt || ""
+          });
+          continue;
+        }
+
+        const current = map.get(key);
+        current.duplicateCount += 1;
+        current.duplicateIds.push(report.id);
+
+        if (String(report.createdAt || "") > String(current.duplicateLastReportedAt || "")) {
+          current.duplicateLastReportedAt = report.createdAt || "";
+          current.id = report.id;
+          current.createdAt = report.createdAt;
+          current.status = report.status;
+          current.internalComment = report.internalComment;
+        }
+      }
+
+      return Array.from(map.values());
+    }
+
     function renderReports() {
       renderReportQuickTabs();
 
@@ -2356,9 +2416,11 @@
         return;
       }
 
+      const compacted = compactDuplicateReports(filtered);
+
       reportsBox.innerHTML = `
         <div class="report-list">
-          ${filtered.map((report, index) => {
+          ${compacted.map((report, index) => {
             const id = report.id || "";
             const isPending = report.status === "Pendiente";
             const brokenLink = isBrokenLinkReport(report);
@@ -2377,6 +2439,7 @@
                     <strong>${escapeHtml(title)}</strong>
                     <div class="report-row-meta">${escapeHtml(meta)}</div>
                     ${brokenLink ? '<div class="broken-link-chip">Enlace caído / contenido no disponible</div>' : ''}
+                    ${Number(report.duplicateCount || 1) > 1 ? `<div class="duplicate-chip">${escapeHtml(report.duplicateCount)} reportes duplicados</div>` : ''}
                   </div>
 
                   <span class="badge ${statusClass}">${escapeHtml(report.status || "Sin estado")}</span>
@@ -2415,6 +2478,13 @@
                       <span>Fecha</span>
                       <strong>${escapeHtml(report.createdAt || "")}</strong>
                     </div>
+
+                    ${Number(report.duplicateCount || 1) > 1 ? `
+                      <div class="report-info-card">
+                        <span>Duplicados</span>
+                        <strong>${escapeHtml(report.duplicateCount)} reportes · Último: ${escapeHtml(report.duplicateLastReportedAt || "")}</strong>
+                      </div>
+                    ` : ""}
                   </div>
 
                   <div class="report-error-box">${escapeHtml(report.playerError || "Sin error del reproductor")}</div>
