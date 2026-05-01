@@ -9,7 +9,8 @@ const {
   getSeriesFoldersLite,
   getSeriesFolderByKey,
   getMovieCategoriesLite,
-  getMovieCategoryByKey
+  getMovieCategoryByKey,
+  filterPayloadAdultContent
 } = require("./playlistContent");
 
 const app = express();
@@ -1709,7 +1710,10 @@ app.get("/api/content/series-folders-lite", async (req, res) => {
     res.json({
       success: true,
       fromCache: result.fromCache,
-      ...result.payload
+      ...filterPayloadAdultContent(
+        result.payload,
+        req.query.includeAdult === "1"
+      )
     });
   } catch (error) {
     console.error("Series folders lite error:", error);
@@ -1751,7 +1755,10 @@ app.get("/api/content/series-folder", async (req, res) => {
     res.json({
       success: true,
       fromCache: result.fromCache,
-      ...result.payload
+      ...filterPayloadAdultContent(
+        result.payload,
+        req.query.includeAdult === "1"
+      )
     });
   } catch (error) {
     console.error("Series folder error:", error);
@@ -1791,7 +1798,10 @@ app.get("/api/content/movie-categories-lite", async (req, res) => {
     res.json({
       success: true,
       fromCache: result.fromCache,
-      ...result.payload
+      ...filterPayloadAdultContent(
+        result.payload,
+        req.query.includeAdult === "1"
+      )
     });
   } catch (error) {
     console.error("Movie categories lite error:", error);
@@ -1833,7 +1843,10 @@ app.get("/api/content/movie-category", async (req, res) => {
     res.json({
       success: true,
       fromCache: result.fromCache,
-      ...result.payload
+      ...filterPayloadAdultContent(
+        result.payload,
+        req.query.includeAdult === "1"
+      )
     });
   } catch (error) {
     console.error("Movie category error:", error);
@@ -1876,7 +1889,10 @@ app.get("/api/content/:section", async (req, res) => {
     res.json({
       success: true,
       fromCache: result.fromCache,
-      ...result.payload
+      ...filterPayloadAdultContent(
+        result.payload,
+        req.query.includeAdult === "1"
+      )
     });
   } catch (error) {
     console.error("Content section error:", error);

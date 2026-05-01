@@ -233,7 +233,7 @@ async function fetchPlaylist(url) {
 }
 
 function splitSections(items) {
-  const clean = uniqueByUrl(items).filter((item) => !isAdult(item));
+  const clean = uniqueByUrl(items);
 
   const sections = {
     live: [],
@@ -681,6 +681,70 @@ async function getCachedContentSection({ activationCode, section, autoRefresh = 
 }
 
 
+
+function filterAdultItems(items, includeAdult) {
+  if (includeAdult) return items || [];
+  return (items || []).filter((item) => !isAdult(item));
+}
+
+function filterPayloadAdultContent(payload, includeAdult) {
+  if (includeAdult || !payload) return payload;
+
+  if (Array.isArray(payload.items)) {
+    return {
+      ...payload,
+      items: filterAdultItems(payload.items, false),
+      itemCount: filterAdultItems(payload.items, false).length,
+      groups: groupNames(filterAdultItems(payload.items, false))
+    };
+  }
+
+  if (Array.isArray(payload.folders)) {
+    const folders = payload.folders
+      .map((folder) => {
+        const episodes = filterAdultItems(folder.episodes || [], false);
+
+        return {
+          ...folder,
+          episodes,
+          episodeCount: episodes.length
+        };
+      })
+      .filter((folder) => folder.episodeCount > 0);
+
+    return {
+      ...payload,
+      folders,
+      folderCount: folders.length,
+      itemCount: folders.reduce((sum, folder) => sum + folder.episodeCount, 0)
+    };
+  }
+
+  if (Array.isArray(payload.categories)) {
+    const categories = payload.categories
+      .map((category) => {
+        const items = filterAdultItems(category.items || [], false);
+
+        return {
+          ...category,
+          items,
+          itemCount: items.length
+        };
+      })
+      .filter((category) => category.itemCount > 0);
+
+    return {
+      ...payload,
+      categories,
+      categoryCount: categories.length,
+      itemCount: categories.reduce((sum, category) => sum + category.itemCount, 0)
+    };
+  }
+
+  return payload;
+}
+
+
 async function getSeriesFoldersLite({ activationCode, autoRefresh = true }) {
   const result = await getCachedContentSection({
     activationCode,
@@ -865,5 +929,6 @@ module.exports = {
   getSeriesFoldersLite,
   getSeriesFolderByKey,
   getMovieCategoriesLite,
-  getMovieCategoryByKey
+  getMovieCategoryByKey,
+  filterPayloadAdultContent
 };
