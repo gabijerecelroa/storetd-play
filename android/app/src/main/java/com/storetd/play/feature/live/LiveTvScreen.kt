@@ -612,6 +612,9 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                     currentProgram = null,
                     nextProgram = null,
                     requestInitialFocus = index == 0,
+                    onSkipNext = lazyMovieItems.getOrNull(index + 1)?.let { nextMovie ->
+                        { onPlay(nextMovie, lazyMovieItems) }
+                    },
                     onPlay = { onPlay(movie, lazyMovieItems) }
                 )
             }
@@ -687,6 +690,9 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                     currentProgram = null,
                     nextProgram = null,
                     requestInitialFocus = index == 0,
+                    onSkipNext = lazySeriesEpisodes.getOrNull(index + 1)?.let { nextEpisode ->
+                        { onPlay(nextEpisode, lazySeriesEpisodes) }
+                    },
                     onPlay = { onPlay(episode, lazySeriesEpisodes) }
                 )
             }
@@ -696,11 +702,14 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
     }
 
     if (contentMode != ContentMode.Series) {
-        items(state.visibleChannels) { channel ->
+        itemsIndexed(state.visibleChannels) { index, channel ->
             ChannelRow(
                 channel = channel,
                 currentProgram = null,
                 nextProgram = null,
+                onSkipNext = state.visibleChannels.getOrNull(index + 1)?.let { nextChannel ->
+                    { onPlay(nextChannel, state.visibleChannels) }
+                },
                 onPlay = { onPlay(channel, state.visibleChannels) }
             )
         }
@@ -732,11 +741,14 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
             )
         }
 
-        items(selectedFolder.episodes) { episode ->
+        itemsIndexed(selectedFolder.episodes) { index, episode ->
             ChannelRow(
                 channel = episode,
                 currentProgram = null,
                 nextProgram = null,
+                onSkipNext = selectedFolder.episodes.getOrNull(index + 1)?.let { nextEpisode ->
+                    { onPlay(nextEpisode, selectedFolder.episodes) }
+                },
                 onPlay = { onPlay(episode, selectedFolder.episodes) }
             )
         }
@@ -1559,6 +1571,7 @@ private fun ChannelRow(
     currentProgram: EpgProgram?,
     nextProgram: EpgProgram?,
     requestInitialFocus: Boolean = false,
+    onSkipNext: (() -> Unit)? = null,
     onPlay: () -> Unit
 ) {
     val rowFocusRequester = remember { FocusRequester() }
@@ -1570,14 +1583,23 @@ private fun ChannelRow(
     }
 
     var focused by remember { mutableStateOf(false) }
+    var showReportedDialog by remember(channel.streamUrl) { mutableStateOf(false) }
     val context = LocalContext.current
-    val isReportedBroken = remember(channel.streamUrl) {
-        BrokenLinkStore.isReported(context, channel.streamUrl)
+    var isReportedBroken by remember(channel.streamUrl) {
+        mutableStateOf(BrokenLinkStore.isReported(context, channel.streamUrl))
     }
     val shape = RoundedCornerShape(22.dp)
 
+    fun handlePlayRequest() {
+        if (isReportedBroken) {
+            showReportedDialog = true
+        } else {
+            onPlay()
+        }
+    }
+
     Card(
-        onClick = onPlay,
+        onClick = { handlePlayRequest() },
         modifier = Modifier
             .fillMaxWidth()
             .focusRequester(rowFocusRequester)
@@ -1591,7 +1613,7 @@ private fun ChannelRow(
                     Key.DirectionCenter,
                     Key.Enter,
                     Key.NumPadEnter -> {
-                        onPlay()
+                        handlePlayRequest()
                         true
                     }
 
@@ -1609,7 +1631,7 @@ private fun ChannelRow(
             )
             .clip(shape)
             .focusable()
-            .clickable { onPlay() },
+            .clickable { handlePlayRequest() },
         colors = CardDefaults.cardColors(
             containerColor = if (focused) {
                 MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
@@ -2064,4 +2086,55 @@ private fun fastEpisodeKey(name: String): String {
 
 private fun formatLiveEpgTime(value: Long): String {
     return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(value))
+    if (showReportedDialog) {
+        AlertDialog(
+            onDismissRequest = { showReportedDialog = false },
+            title = { Text("Este contenido fue reportado") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Este enlace fue marcado como caído o no disponible en este dispositivo.")
+
+                    Button(
+                        onClick = {
+                            showReportedDialog = false
+                            onPlay()
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Reproducir igual")
+                    }
+
+                    if (onSkipNext != null) {
+                        OutlinedButton(
+                            onClick = {
+                                showReportedDialog = false
+                                onSkipNext()
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Siguiente")
+                        }
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            BrokenLinkStore.clear(context, channel.streamUrl)
+                            isReportedBroken = false
+                            showReportedDialog = false
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Quitar marca local")
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showReportedDialog = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
 }
