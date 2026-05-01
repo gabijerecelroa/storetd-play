@@ -1536,6 +1536,48 @@
       font-weight: 800;
     }
 
+  
+    .m3u-validation-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .m3u-validation-stat {
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(15, 23, 42, 0.06);
+      border: 1px solid rgba(15, 23, 42, 0.08);
+    }
+
+    .m3u-validation-stat strong {
+      display: block;
+      font-size: 24px;
+      color: #dc2626;
+    }
+
+    .m3u-category-list {
+      margin-top: 14px;
+      max-height: 260px;
+      overflow: auto;
+      border-radius: 14px;
+      border: 1px solid rgba(15, 23, 42, 0.10);
+    }
+
+    .m3u-category-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+      font-size: 13px;
+    }
+
+    .m3u-category-row:last-child {
+      border-bottom: 0;
+    }
+
   </style>
 </head>
 <body>
@@ -1793,6 +1835,14 @@
             Buscá una entrada de tu <strong>lista.m3u</strong> para editar nombre, categoría, logo o link.
             Después de guardar cambios, usá <strong>Actualizar contenido</strong> para que se refleje en la APK.
           </div>
+
+          <div class="actions">
+            <button class="secondary" onclick="downloadM3uBackup()">Descargar backup lista.m3u</button>
+            <button class="secondary" onclick="validateM3uList()">Validar lista.m3u</button>
+          </div>
+
+          <div id="m3uValidationResult"></div>
+
 
           <div class="toolbar">
             <input id="m3uAdminSearch" placeholder="Buscar por nombre, categoría o link..." />
@@ -2741,6 +2791,89 @@
     }
 
 
+
+
+
+    async function downloadM3uBackup() {
+      try {
+        showMessage("Preparando backup de lista.m3u...");
+
+        const response = await fetch("/admin/api/m3u/download", {
+          headers: {
+            "x-admin-key": getKey()
+          }
+        });
+
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.message || "No se pudo descargar backup.");
+        }
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        const stamp = new Date().toISOString().replaceAll(":", "-").replaceAll(".", "-");
+
+        a.href = url;
+        a.download = `storetd-lista-backup-${stamp}.m3u`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        showMessage("Backup descargado.");
+      } catch (error) {
+        showMessage(error.message);
+      }
+    }
+
+    async function validateM3uList() {
+      const box = document.getElementById("m3uValidationResult");
+
+      try {
+        showMessage("Validando lista.m3u...");
+
+        const data = await api("/admin/api/m3u/validate");
+
+        if (box) {
+          const categories = data.topCategories || [];
+
+          box.innerHTML = `
+            <div class="m3u-validation-grid">
+              <div class="m3u-validation-stat">
+                <span>Entradas</span>
+                <strong>${escapeHtml(data.entries || 0)}</strong>
+              </div>
+              <div class="m3u-validation-stat">
+                <span>Categorías</span>
+                <strong>${escapeHtml(data.categories || 0)}</strong>
+              </div>
+              <div class="m3u-validation-stat">
+                <span>URLs duplicadas</span>
+                <strong>${escapeHtml(data.duplicateUrls || 0)}</strong>
+              </div>
+              <div class="m3u-validation-stat">
+                <span>Entradas rotas</span>
+                <strong>${escapeHtml(data.brokenEntries || 0)}</strong>
+              </div>
+            </div>
+
+            <div class="m3u-category-list">
+              ${categories.map((category) => `
+                <div class="m3u-category-row">
+                  <span>${escapeHtml(category.name)}</span>
+                  <strong>${escapeHtml(category.count)}</strong>
+                </div>
+              `).join("")}
+            </div>
+          `;
+        }
+
+        showMessage("Validación completada.");
+      } catch (error) {
+        showMessage(error.message);
+      }
+    }
 
 
     async function searchM3uAdmin() {
