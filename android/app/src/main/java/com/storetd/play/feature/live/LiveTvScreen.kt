@@ -59,6 +59,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
+import com.storetd.play.core.network.BrokenLinksApi
 import com.storetd.play.core.epg.EpgProgram
 import com.storetd.play.core.model.Channel
 import com.storetd.play.core.storage.BrokenLinkStore
@@ -147,6 +148,21 @@ fun LiveTvScreen(
             }
 
             else -> onBack()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        val account = LocalAccount.getAccount(context)
+        val activationCode = account.activationCode.trim()
+
+        if (activationCode.isNotBlank()) {
+            val hashes = withContext(Dispatchers.IO) {
+                BrokenLinksApi.loadHashes(activationCode)
+            }
+
+            if (hashes.isNotEmpty()) {
+                BrokenLinkStore.replaceGlobalHashes(context, hashes)
+            }
         }
     }
 
@@ -1587,6 +1603,10 @@ private fun ChannelRow(
     val context = LocalContext.current
     var isReportedBroken by remember(channel.streamUrl) {
         mutableStateOf(BrokenLinkStore.isReported(context, channel.streamUrl))
+    }
+
+    LaunchedEffect(channel.streamUrl) {
+        isReportedBroken = BrokenLinkStore.isReported(context, channel.streamUrl)
     }
     val shape = RoundedCornerShape(22.dp)
 
