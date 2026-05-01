@@ -100,6 +100,8 @@ fun LiveTvScreen(
 
     var selectedSeriesKey by remember(contentMode) { mutableStateOf<String?>(null) }
     var selectedMovieCategoryKey by remember(contentMode) { mutableStateOf<String?>(null) }
+    var lastSeriesFocusKey by remember(contentMode) { mutableStateOf<String?>(null) }
+    var lastMovieCategoryFocusKey by remember(contentMode) { mutableStateOf<String?>(null) }
     var showLazySearch by remember(contentMode) { mutableStateOf(false) }
     var lazySearchQuery by remember(contentMode) { mutableStateOf("") }
 
@@ -149,6 +151,8 @@ fun LiveTvScreen(
     LaunchedEffect(contentMode) {
         selectedSeriesKey = null
         selectedMovieCategoryKey = null
+        lastSeriesFocusKey = null
+        lastMovieCategoryFocusKey = null
         showLazySearch = false
         lazySearchQuery = ""
         lazySeriesFolders = emptyList()
@@ -307,16 +311,24 @@ fun LiveTvScreen(
                     state = state,
                     contentMode = contentMode,
                     selectedSeriesKey = selectedSeriesKey,
-                    onSelectSeries = { selectedSeriesKey = it },
+                    onSelectSeries = {
+                        lastSeriesFocusKey = it
+                        selectedSeriesKey = it
+                    },
                     onClearSeries = { selectedSeriesKey = null },
                     lazySeriesFolders = lazySeriesFolders,
                     lazySeriesEpisodes = lazySeriesEpisodes,
                     isLazySeriesLoading = isLazySeriesLoading,
                     selectedMovieCategoryKey = selectedMovieCategoryKey,
+                    lastSeriesFocusKey = lastSeriesFocusKey,
+                    lastMovieCategoryFocusKey = lastMovieCategoryFocusKey,
                     lazyMovieCategories = lazyMovieCategories,
                     lazyMovieItems = lazyMovieItems,
                     isLazyMoviesLoading = isLazyMoviesLoading,
-                    onSelectMovieCategory = { selectedMovieCategoryKey = it },
+                    onSelectMovieCategory = {
+                        lastMovieCategoryFocusKey = it
+                        selectedMovieCategoryKey = it
+                    },
                     onClearMovieCategory = { selectedMovieCategoryKey = null },
                     showLazySearch = showLazySearch,
                     lazySearchQuery = lazySearchQuery,
@@ -376,16 +388,24 @@ fun LiveTvScreen(
                         state = state,
                         contentMode = contentMode,
                         selectedSeriesKey = selectedSeriesKey,
-                        onSelectSeries = { selectedSeriesKey = it },
+                        onSelectSeries = {
+                        lastSeriesFocusKey = it
+                        selectedSeriesKey = it
+                    },
                         onClearSeries = { selectedSeriesKey = null },
                         lazySeriesFolders = lazySeriesFolders,
                     lazySeriesEpisodes = lazySeriesEpisodes,
                     isLazySeriesLoading = isLazySeriesLoading,
                     selectedMovieCategoryKey = selectedMovieCategoryKey,
+                    lastSeriesFocusKey = lastSeriesFocusKey,
+                    lastMovieCategoryFocusKey = lastMovieCategoryFocusKey,
                     lazyMovieCategories = lazyMovieCategories,
                     lazyMovieItems = lazyMovieItems,
                     isLazyMoviesLoading = isLazyMoviesLoading,
-                    onSelectMovieCategory = { selectedMovieCategoryKey = it },
+                    onSelectMovieCategory = {
+                        lastMovieCategoryFocusKey = it
+                        selectedMovieCategoryKey = it
+                    },
                     onClearMovieCategory = { selectedMovieCategoryKey = null },
                     showLazySearch = showLazySearch,
                     lazySearchQuery = lazySearchQuery,
@@ -414,6 +434,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
     lazySeriesEpisodes: List<Channel>,
     isLazySeriesLoading: Boolean,
     selectedMovieCategoryKey: String?,
+    lastSeriesFocusKey: String?,
+    lastMovieCategoryFocusKey: String?,
     lazyMovieCategories: List<OptimizedContentApi.MovieCategoryLite>,
     lazyMovieItems: List<Channel>,
     isLazyMoviesLoading: Boolean,
@@ -488,7 +510,13 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
             itemsIndexed(visibleMovieCategories) { index, category ->
                 MovieCategoryLiteRow(
                     category = category,
-                    requestInitialFocus = index == 0 && selectedMovieCategoryKey == null && !showLazySearch,
+                    requestInitialFocus =
+                        selectedMovieCategoryKey == null &&
+                            !showLazySearch &&
+                            (
+                                category.key == lastMovieCategoryFocusKey ||
+                                    (lastMovieCategoryFocusKey == null && index == 0)
+                            ),
                     onOpen = { onSelectMovieCategory(category.key) }
                 )
             }
@@ -552,7 +580,13 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
             itemsIndexed(visibleSeriesFolders) { index, folder ->
                 SeriesFolderLiteRow(
                     folder = folder,
-                    requestInitialFocus = index == 0 && selectedSeriesKey == null && !showLazySearch,
+                    requestInitialFocus =
+                        selectedSeriesKey == null &&
+                            !showLazySearch &&
+                            (
+                                folder.key == lastSeriesFocusKey ||
+                                    (lastSeriesFocusKey == null && index == 0)
+                            ),
                     onOpen = { onSelectSeries(folder.key) }
                 )
             }
