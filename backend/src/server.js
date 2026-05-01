@@ -1700,6 +1700,134 @@ app.get("/admin/api/device-events", requireAdmin, async (req, res) => {
 
 
 
+
+function escapeM3uAttribute(value) {
+  return String(value || "")
+    .replace(/"/g, "'")
+    .replace(/\r/g, " ")
+    .replace(/\n/g, " ")
+    .trim();
+}
+
+function ensureM3uHeader(content) {
+  const text = String(content || "").replace(/\r/g, "").trim();
+
+  if (text.startsWith("#EXTM3U")) {
+    return text;
+  }
+
+  return "#EXTM3U\n" + text;
+}
+
+function getM3uExistingUrlHashes(m3uText) {
+  const hashes = new Set();
+  const lines = String(m3uText || "").replace(/\r/g, "").split("\n");
+
+  for (const line of lines) {
+    const url = String(line || "").trim();
+
+    if (url && !url.startsWith("#")) {
+      hashes.add(streamUrlHash(url));
+    }
+  }
+
+  return hashes;
+}
+
+function buildM3uEntry({ name, group, streamUrl, logoUrl, tvgId }) {
+  const safeName = escapeM3uAttribute(name) || "Contenido agregado";
+  const safeGroup = escapeM3uAttribute(group) || "Agregados";
+  const safeLogo = escapeM3uAttribute(logoUrl);
+  const safeTvgId = escapeM3uAttribute(tvgId);
+  const cleanUrl = String(streamUrl || "").trim();
+
+  const attrs = [
+    `tvg-id="${safeTvgId}"`,
+    `tvg-name="${safeName}"`,
+    safeLogo ? `tvg-logo="${safeLogo}"` : "",
+    `group-title="${safeGroup}"`
+  ].filter(Boolean).join(" ");
+
+  return `#EXTINF:-1 ${attrs},${safeName}\n${cleanUrl}`;
+}
+
+function parseM3uBlocksForAppend(rawText, defaultGroup) {
+  const lines = String(rawText || "")
+    .replace(/\r/g, "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const entries = [];
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+
+    if (line.startsWith("#EXTM3U")) {
+      continue;
+    }
+
+    if (line.startsWith("#EXTINF")) {
+      const url = lines[i + 1] || "";
+
+      if (url && !url.startsWith("#") && /^https?:\/\//i.test(url)) {
+        entries.push(`${line}\n${url}`);
+        i += 1;
+      }
+
+      continue;
+    }
+
+    if (/^https?:\/\//i.test(line)) {
+      const index = entries.length + 1;
+      entries.push(buildM3uEntry({
+        name: `Contenido agregado ${index}`,
+        group: defaultGroup || "Agregados",
+        streamUrl: line,
+        logoUrl: "",
+        tvgId: ""
+      }));
+    }
+  }
+
+  return entries;
+}
+
+function appendUniqueM3uEntries(originalM3u, entries) {
+  const existingHashes = getM3uExistingUrlHashes(originalM3u);
+  const appended = [];
+  let duplicates = 0;
+
+  for (const entry of entries) {
+    const lines = String(entry || "").replace(/\r/g, "").split("\n").map((line) => line.trim()).filter(Boolean);
+    const url = lines.find((line) => !line.startsWith("#") && /^https?:\/\//i.test(line));
+
+    if (!url) continue;
+
+    const hash = streamUrlHash(url);
+
+    if (existingHashes.has(hash)) {
+      duplicates += 1;
+      continue;
+    }
+
+    existingHashes.add(hash);
+    appended.push(lines.join("\n"));
+  }
+
+  const base = ensureM3uHeader(originalM3u);
+  const content = appended.length
+    ? base.replace(/\s+$/g, "") + "\n" + appended.join("\n") + "\n"
+    : base;
+
+  return {
+    content,
+    added: appended.length,
+    duplicates
+  };
+}
+
+
 function requireGistConfig(res) {
   const token = process.env.GITHUB_GIST_TOKEN || "";
   const gistId = process.env.GITHUB_GIST_ID || "";
@@ -1836,6 +1964,124 @@ function dbBrokenLinkToApi(row) {
   };
 }
 
+
+
+
+app.post("/admin/api/m3u/add-entry", requireAdmin, async (req, res) => {
+  try {
+    const config = requireGistConfig(res);
+    if (!config) return;
+
+    const name = String(req.body.name || "").trim();
+    const group = String(req.body.group || "Agregados").trim();
+    const streamUrl = String(req.body.streamUrl || "").trim();
+    const logoUrl = String(req.body.logoUrl || "").trim();
+    const tvgId = String(req.body.tvgId || "").trim();
+
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        message: "Falta nombre del contenido."
+      });
+    }
+
+    if (!streamUrl.startsWith("http://") && !streamUrl.startsWith("https://")) {
+      return res.status(400).json({
+        success: false,
+        message: "El link debe empezar con http:// o https://."
+      });
+    }
+
+    const originalM3u = await downloadGistM3uRaw(config.rawUrl);
+    const entry = buildM3uEntry({ name, group, streamUrl, logoUrl, tvgId });
+    const result = appendUniqueM3uEntries(originalM3u, [entry]);
+
+    if (result.added <= 0) {
+      return res.status(409).json({
+        success: false,
+        message: "Ese link ya existe en la M3U original.",
+        duplicates: result.duplicates
+      });
+    }
+
+    await updateGistFile({
+      token: config.token,
+      gistId: config.gistId,
+      filename: config.filename,
+      content: result.content
+    });
+
+    res.json({
+      success: true,
+      message: "Contenido agregado a lista.m3u. Actualiza contenido optimizado para verlo en la APK.",
+      added: result.added,
+      duplicates: result.duplicates
+    });
+  } catch (error) {
+    console.error("Add M3U entry error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "No se pudo agregar el contenido a la M3U."
+    });
+  }
+});
+
+app.post("/admin/api/m3u/import", requireAdmin, async (req, res) => {
+  try {
+    const config = requireGistConfig(res);
+    if (!config) return;
+
+    const m3uText = String(req.body.m3uText || "").trim();
+    const defaultGroup = String(req.body.defaultGroup || "Agregados").trim();
+
+    if (!m3uText) {
+      return res.status(400).json({
+        success: false,
+        message: "Pegá una lista M3U o links para importar."
+      });
+    }
+
+    const entries = parseM3uBlocksForAppend(m3uText, defaultGroup);
+
+    if (!entries.length) {
+      return res.status(400).json({
+        success: false,
+        message: "No encontré entradas válidas para importar."
+      });
+    }
+
+    const originalM3u = await downloadGistM3uRaw(config.rawUrl);
+    const result = appendUniqueM3uEntries(originalM3u, entries);
+
+    if (result.added <= 0) {
+      return res.status(409).json({
+        success: false,
+        message: "No se agregó nada. Todos los links ya existían o eran inválidos.",
+        duplicates: result.duplicates
+      });
+    }
+
+    await updateGistFile({
+      token: config.token,
+      gistId: config.gistId,
+      filename: config.filename,
+      content: result.content
+    });
+
+    res.json({
+      success: true,
+      message: `Importación lista: ${result.added} agregado/s, ${result.duplicates} duplicado/s ignorado/s. Actualiza contenido optimizado para verlo en la APK.`,
+      added: result.added,
+      duplicates: result.duplicates
+    });
+  } catch (error) {
+    console.error("Import M3U error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "No se pudo importar la lista M3U."
+    });
+  }
+});
 
 
 app.get("/admin/api/broken-links", requireAdmin, async (req, res) => {
