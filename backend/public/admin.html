@@ -1475,6 +1475,67 @@
       margin-bottom: 14px;
     }
 
+  
+    .m3u-editor-card {
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: rgba(255, 255, 255, 0.94);
+    }
+
+    .m3u-editor-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .m3u-editor-title h3 {
+      margin-bottom: 4px;
+    }
+
+    .m3u-editor-hash {
+      font-size: 11px;
+      color: #6b7280;
+      word-break: break-all;
+    }
+
+    .m3u-editor-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .m3u-editor-grid textarea {
+      min-height: 52px;
+    }
+
+    .m3u-editor-link {
+      grid-column: 1 / -1;
+    }
+
+    .m3u-editor-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .m3u-editor-actions button {
+      margin: 0;
+    }
+
+    .m3u-pill {
+      display: inline-block;
+      padding: 5px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(15, 23, 42, 0.14);
+      background: rgba(15, 23, 42, 0.06);
+      color: #111827;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
   </style>
 </head>
 <body>
@@ -1596,6 +1657,7 @@
         <button id="tabGrouped" class="tab" onclick="showTab('grouped')">Canales más reportados</button>
         <button id="tabBrokenLinks" class="tab" onclick="showTab('brokenLinks')">Enlaces caídos</button>
         <button id="tabM3uTools" class="tab" onclick="showTab('m3uTools')">Agregar M3U</button>
+        <button id="tabM3uEditor" class="tab" onclick="showTab('m3uEditor')">Editar M3U</button>
       </div>
 
       <section id="sectionClients">
@@ -1722,6 +1784,34 @@
 
       
       
+      
+      <section id="sectionM3uEditor" class="hidden">
+        <section class="card">
+          <h2>Editar lista.m3u</h2>
+
+          <div class="m3u-help">
+            Buscá una entrada de tu <strong>lista.m3u</strong> para editar nombre, categoría, logo o link.
+            Después de guardar cambios, usá <strong>Actualizar contenido</strong> para que se refleje en la APK.
+          </div>
+
+          <div class="toolbar">
+            <input id="m3uAdminSearch" placeholder="Buscar por nombre, categoría o link..." />
+
+            <input id="m3uAdminActivationCode" placeholder="Código para actualizar, ej: 253698" />
+
+            <button onclick="searchM3uAdmin()">Buscar</button>
+          </div>
+
+          <div class="actions">
+            <button class="secondary" onclick="refreshOptimizedContentForCode(document.getElementById('m3uAdminActivationCode').value)">
+              Actualizar contenido
+            </button>
+          </div>
+
+          <div id="m3uAdminResults"></div>
+        </section>
+      </section>
+
       <section id="sectionM3uTools" class="hidden">
         <section class="card">
           <h2>Agregar links a lista.m3u</h2>
@@ -1888,6 +1978,7 @@
     let reportsCache = [];
     let groupedCache = [];
     let brokenLinksCache = [];
+    let m3uAdminItems = [];
     let reportQuickFilter = "all";
     let clientQuickFilter = "all";
 
@@ -1900,6 +1991,7 @@
     const reportsBox = document.getElementById("reports");
     const groupedReportsBox = document.getElementById("groupedReports");
     const brokenLinksBox = document.getElementById("brokenLinks");
+    const m3uAdminResultsBox = document.getElementById("m3uAdminResults");
     const statsBox = document.getElementById("stats");
     const reportQuickTabsBox = document.getElementById("reportQuickTabs");
     const clientQuickTabsBox = document.getElementById("clientQuickTabs");
@@ -1960,12 +2052,14 @@
       document.getElementById("sectionGrouped").classList.toggle("hidden", tab !== "grouped");
       document.getElementById("sectionBrokenLinks")?.classList.toggle("hidden", tab !== "brokenLinks");
       document.getElementById("sectionM3uTools")?.classList.toggle("hidden", tab !== "m3uTools");
+      document.getElementById("sectionM3uEditor")?.classList.toggle("hidden", tab !== "m3uEditor");
 
       document.getElementById("tabClients").classList.toggle("active", tab === "clients");
       document.getElementById("tabReports").classList.toggle("active", tab === "reports");
       document.getElementById("tabGrouped").classList.toggle("active", tab === "grouped");
       document.getElementById("tabBrokenLinks")?.classList.toggle("active", tab === "brokenLinks");
       document.getElementById("tabM3uTools")?.classList.toggle("active", tab === "m3uTools");
+      document.getElementById("tabM3uEditor")?.classList.toggle("active", tab === "m3uEditor");
     }
 
     async function api(path, options = {}) {
@@ -2646,6 +2740,206 @@
       return Array.from(map.values());
     }
 
+
+
+
+    async function searchM3uAdmin() {
+      if (!m3uAdminResultsBox) return;
+
+      const query = document.getElementById("m3uAdminSearch")?.value || "";
+
+      try {
+        showMessage("Buscando en lista.m3u...");
+
+        const data = await api(`/admin/api/m3u/search?q=${encodeURIComponent(query)}&limit=120`);
+
+        m3uAdminItems = data.items || [];
+        renderM3uAdminItems();
+
+        showMessage(`Resultados encontrados: ${m3uAdminItems.length}`);
+      } catch (error) {
+        m3uAdminResultsBox.innerHTML = `<p class="muted">${escapeHtml(error.message)}</p>`;
+        showMessage(error.message);
+      }
+    }
+
+    function renderM3uAdminItems() {
+      if (!m3uAdminResultsBox) return;
+
+      if (!m3uAdminItems.length) {
+        m3uAdminResultsBox.innerHTML = "<p class='muted'>No hay resultados para mostrar.</p>";
+        return;
+      }
+
+      m3uAdminResultsBox.innerHTML = m3uAdminItems.map((item, index) => {
+        const type = item.tvgType || inferM3uTypeFromGroup(item.group || "");
+
+        return `
+          <div class="report m3u-editor-card">
+            <div class="m3u-editor-title">
+              <div>
+                <h3>${escapeHtml(item.name || "Sin nombre")}</h3>
+                <div class="muted">${escapeHtml(item.group || "Sin categoría")}</div>
+                <div class="m3u-editor-hash">${escapeHtml(item.streamUrlHash || "")}</div>
+              </div>
+              <span class="m3u-pill">${escapeHtml(type || "live")}</span>
+            </div>
+
+            <div class="m3u-editor-grid">
+              <div>
+                <label>Tipo</label>
+                <select id="m3uEditType-${index}">
+                  ${m3uTypeOptions(type)}
+                </select>
+              </div>
+
+              <div>
+                <label>Nombre</label>
+                <input id="m3uEditName-${index}" value="${escapeAttr(item.name || "")}" />
+              </div>
+
+              <div>
+                <label>Categoría</label>
+                <input id="m3uEditGroup-${index}" list="storetdM3uGroups" value="${escapeAttr(item.group || "")}" />
+              </div>
+
+              <div>
+                <label>Tvg-id</label>
+                <input id="m3uEditTvgId-${index}" value="${escapeAttr(item.tvgId || "")}" />
+              </div>
+
+              <div class="m3u-editor-link">
+                <label>Logo</label>
+                <input id="m3uEditLogo-${index}" value="${escapeAttr(item.logoUrl || "")}" />
+              </div>
+
+              <div class="m3u-editor-link">
+                <label>Link</label>
+                <textarea id="m3uEditUrl-${index}">${escapeHtml(item.streamUrl || "")}</textarea>
+              </div>
+            </div>
+
+            <div class="m3u-editor-actions">
+              <button onclick="updateM3uAdminEntry(${index})">Guardar cambios</button>
+              <button class="danger" onclick="deleteM3uAdminEntry(${index})">Eliminar entrada</button>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function inferM3uTypeFromGroup(group) {
+      const text = normalize(group || "");
+
+      if (text.startsWith("peliculas")) return "movie";
+      if (text.startsWith("series")) return "serie";
+      if (text.startsWith("tv")) return "live";
+
+      return "live";
+    }
+
+    function m3uTypeOptions(selected) {
+      const current = String(selected || "live").toLowerCase();
+
+      return [
+        ["live", "TV en vivo"],
+        ["movie", "Película"],
+        ["serie", "Serie"]
+      ].map(([value, label]) => {
+        return `<option value="${value}" ${value === current ? "selected" : ""}>${label}</option>`;
+      }).join("");
+    }
+
+    async function updateM3uAdminEntry(index) {
+      const item = m3uAdminItems[index];
+
+      if (!item || !item.streamUrlHash) {
+        showMessage("No se encontró la entrada para editar.");
+        return;
+      }
+
+      const body = {
+        streamUrlHash: item.streamUrlHash,
+        contentType: document.getElementById(`m3uEditType-${index}`)?.value || "",
+        name: document.getElementById(`m3uEditName-${index}`)?.value || "",
+        group: document.getElementById(`m3uEditGroup-${index}`)?.value || "",
+        tvgId: document.getElementById(`m3uEditTvgId-${index}`)?.value || "",
+        logoUrl: document.getElementById(`m3uEditLogo-${index}`)?.value || "",
+        streamUrl: document.getElementById(`m3uEditUrl-${index}`)?.value || ""
+      };
+
+      if (!body.name.trim()) {
+        showMessage("El nombre no puede quedar vacío.");
+        return;
+      }
+
+      if (!body.group.trim()) {
+        showMessage("La categoría no puede quedar vacía.");
+        return;
+      }
+
+      if (!body.streamUrl.trim().startsWith("http://") && !body.streamUrl.trim().startsWith("https://")) {
+        showMessage("El link debe empezar con http:// o https://.");
+        return;
+      }
+
+      try {
+        showMessage("Guardando cambios en lista.m3u...");
+
+        const data = await api("/admin/api/m3u/update-entry", {
+          method: "POST",
+          body: JSON.stringify(body)
+        });
+
+        showMessage(data.message || "Entrada actualizada.");
+
+        await searchM3uAdmin();
+
+        const code = document.getElementById("m3uAdminActivationCode")?.value || "";
+
+        if (code.trim() && confirm("¿Actualizar contenido optimizado ahora?")) {
+          await refreshOptimizedContentForCode(code);
+        }
+      } catch (error) {
+        showMessage(error.message);
+      }
+    }
+
+    async function deleteM3uAdminEntry(index) {
+      const item = m3uAdminItems[index];
+
+      if (!item || !item.streamUrlHash) {
+        showMessage("No se encontró la entrada para eliminar.");
+        return;
+      }
+
+      if (!confirm(`¿Eliminar de lista.m3u: ${item.name || "Sin nombre"}?`)) {
+        return;
+      }
+
+      try {
+        showMessage("Eliminando entrada de lista.m3u...");
+
+        const data = await api("/admin/api/m3u/delete-entry", {
+          method: "POST",
+          body: JSON.stringify({
+            streamUrlHash: item.streamUrlHash
+          })
+        });
+
+        showMessage(data.message || "Entrada eliminada.");
+
+        await searchM3uAdmin();
+
+        const code = document.getElementById("m3uAdminActivationCode")?.value || "";
+
+        if (code.trim() && confirm("¿Actualizar contenido optimizado ahora?")) {
+          await refreshOptimizedContentForCode(code);
+        }
+      } catch (error) {
+        showMessage(error.message);
+      }
+    }
 
 
     async function addM3uEntry() {
