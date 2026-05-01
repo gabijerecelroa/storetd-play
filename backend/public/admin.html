@@ -1410,6 +1410,48 @@
       margin: 0;
     }
 
+  
+    .broken-source-card {
+      border: 1px solid rgba(239, 68, 68, 0.28);
+      background: rgba(255, 255, 255, 0.92);
+    }
+
+    .broken-source-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .broken-source-actions button {
+      margin: 0;
+    }
+
+    .broken-source-meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .broken-source-meta div {
+      padding: 10px;
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.06);
+      color: #111827;
+      font-size: 13px;
+      word-break: break-word;
+    }
+
+    .broken-source-meta span {
+      display: block;
+      color: #6b7280;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
   </style>
 </head>
 <body>
@@ -1529,6 +1571,7 @@
         <button id="tabClients" class="tab active" onclick="showTab('clients')">Clientes</button>
         <button id="tabReports" class="tab" onclick="showTab('reports')">Reportes</button>
         <button id="tabGrouped" class="tab" onclick="showTab('grouped')">Canales más reportados</button>
+        <button id="tabBrokenLinks" class="tab" onclick="showTab('brokenLinks')">Enlaces caídos</button>
       </div>
 
       <section id="sectionClients">
@@ -1653,6 +1696,30 @@
         </section>
       </section>
 
+      
+      <section id="sectionBrokenLinks" class="hidden">
+        <section class="card">
+          <h2>Enlaces caídos globales</h2>
+          <p class="muted">
+            Desde acá podés reemplazar links rotos directamente en tu M3U original de Gist o eliminar entradas caídas.
+          </p>
+
+          <div class="toolbar">
+            <input id="brokenLinkSearch" oninput="renderBrokenLinks()" placeholder="Buscar por canal, categoría o link" />
+
+            <select id="brokenLinkStatusFilter" onchange="loadBrokenLinks()">
+              <option value="">Todos los estados</option>
+              <option>Pendiente</option>
+              <option>Solucionado</option>
+            </select>
+
+            <button class="secondary" onclick="loadBrokenLinks()">Actualizar</button>
+          </div>
+
+          <div id="brokenLinks"></div>
+        </section>
+      </section>
+
       <section id="sectionGrouped" class="hidden">
         <section class="card">
           <div class="section-head">
@@ -1673,6 +1740,7 @@
     let clientsCache = [];
     let reportsCache = [];
     let groupedCache = [];
+    let brokenLinksCache = [];
     let reportQuickFilter = "all";
     let clientQuickFilter = "all";
 
@@ -1684,6 +1752,7 @@
     const clientsBox = document.getElementById("clients");
     const reportsBox = document.getElementById("reports");
     const groupedReportsBox = document.getElementById("groupedReports");
+    const brokenLinksBox = document.getElementById("brokenLinks");
     const statsBox = document.getElementById("stats");
     const reportQuickTabsBox = document.getElementById("reportQuickTabs");
     const clientQuickTabsBox = document.getElementById("clientQuickTabs");
@@ -1742,10 +1811,12 @@
       document.getElementById("sectionClients").classList.toggle("hidden", tab !== "clients");
       document.getElementById("sectionReports").classList.toggle("hidden", tab !== "reports");
       document.getElementById("sectionGrouped").classList.toggle("hidden", tab !== "grouped");
+      document.getElementById("sectionBrokenLinks")?.classList.toggle("hidden", tab !== "brokenLinks");
 
       document.getElementById("tabClients").classList.toggle("active", tab === "clients");
       document.getElementById("tabReports").classList.toggle("active", tab === "reports");
       document.getElementById("tabGrouped").classList.toggle("active", tab === "grouped");
+      document.getElementById("tabBrokenLinks")?.classList.toggle("active", tab === "brokenLinks");
     }
 
     async function api(path, options = {}) {
@@ -1778,7 +1849,8 @@
       await Promise.allSettled([
         loadStats(),
         loadClients(),
-        loadReports()
+        loadReports(),
+        loadBrokenLinks()
       ]);
 
       showMessage("Datos actualizados.");
@@ -2424,6 +2496,191 @@
 
       return Array.from(map.values());
     }
+
+
+    async function loadBrokenLinks() {
+      if (!brokenLinksBox) return;
+
+      try {
+        const status = document.getElementById("brokenLinkStatusFilter")?.value || "";
+        const path = status
+          ? `/admin/api/broken-links?status=${encodeURIComponent(status)}`
+          : "/admin/api/broken-links";
+
+        const data = await api(path);
+        brokenLinksCache = data.brokenLinks || [];
+        renderBrokenLinks();
+      } catch (error) {
+        brokenLinksBox.innerHTML = `<p class="muted">${escapeHtml(error.message)}</p>`;
+      }
+    }
+
+    function renderBrokenLinks() {
+      if (!brokenLinksBox) return;
+
+      const search = normalize(document.getElementById("brokenLinkSearch")?.value || "");
+
+      const filtered = brokenLinksCache.filter((item) => {
+        const text = normalize([
+          item.channelName,
+          item.category,
+          item.streamUrlMasked,
+          item.problemType,
+          item.status,
+          item.adminNote
+        ].join(" "));
+
+        return !search || text.includes(search);
+      });
+
+      if (!filtered.length) {
+        brokenLinksBox.innerHTML = "<p class='muted'>No hay enlaces caídos para mostrar.</p>";
+        return;
+      }
+
+      brokenLinksBox.innerHTML = filtered.map((item) => {
+        const id = item.id || "";
+        const activationCode = item.activationCode || "";
+
+        return `
+          <div class="report broken-source-card">
+            <h3>
+              ${escapeHtml(item.channelName || "Contenido sin nombre")}
+              <span class="badge ${item.status === "Pendiente" ? "pending" : "done"}">${escapeHtml(item.status || "Pendiente")}</span>
+            </h3>
+
+            <div class="broken-link-chip">Enlace caído / contenido no disponible</div>
+
+            <div class="broken-source-meta">
+              <div><span>Categoría</span>${escapeHtml(item.category || "")}</div>
+              <div><span>Cliente</span>${escapeHtml(activationCode)}</div>
+              <div><span>Reportes</span>${escapeHtml(item.reportCount || 1)}</div>
+              <div><span>Último reporte</span>${escapeHtml(item.lastReportedAt || "")}</div>
+              <div><span>Link</span>${escapeHtml(item.streamUrlMasked || "")}</div>
+              <div><span>Nota</span>${escapeHtml(item.adminNote || "")}</div>
+            </div>
+
+            <div class="broken-source-actions">
+              <button onclick='replaceBrokenM3uLink(${JSON.stringify(id)}, ${JSON.stringify(activationCode)})'>
+                Reemplazar link
+              </button>
+
+              <button class="danger" onclick='removeBrokenM3uEntry(${JSON.stringify(id)}, ${JSON.stringify(activationCode)})'>
+                Eliminar de M3U
+              </button>
+
+              <button class="secondary" onclick='refreshOptimizedContentForCode(${JSON.stringify(activationCode)})'>
+                Actualizar contenido
+              </button>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    async function replaceBrokenM3uLink(id, activationCode) {
+      const replacementUrl = prompt("Pegá el nuevo link para reemplazar el enlace caído:");
+
+      if (!replacementUrl) return;
+
+      const cleanUrl = replacementUrl.trim();
+
+      if (!cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://")) {
+        showMessage("El nuevo link debe empezar con http:// o https://.");
+        return;
+      }
+
+      const adminNote = prompt("Nota opcional para este cambio:", "Link reemplazado desde panel admin.") || "";
+
+      try {
+        showMessage("Reemplazando link en la M3U original...");
+
+        const data = await api(`/admin/api/broken-links/${encodeURIComponent(id)}/replace-url`, {
+          method: "POST",
+          body: JSON.stringify({
+            replacementUrl: cleanUrl,
+            adminNote
+          })
+        });
+
+        showMessage(data.message || "Link reemplazado.");
+
+        if (activationCode && confirm("¿Actualizar contenido optimizado ahora?")) {
+          await refreshOptimizedContentForCode(activationCode);
+        }
+
+        await loadBrokenLinks();
+      } catch (error) {
+        showMessage(error.message);
+      }
+    }
+
+    async function removeBrokenM3uEntry(id, activationCode) {
+      if (!confirm("¿Eliminar esta entrada completa de la M3U original?")) return;
+
+      const adminNote = prompt("Nota opcional:", "Entrada eliminada de la M3U original desde panel admin.") || "";
+
+      try {
+        showMessage("Eliminando entrada de la M3U original...");
+
+        const data = await api(`/admin/api/broken-links/${encodeURIComponent(id)}/remove-from-m3u`, {
+          method: "POST",
+          body: JSON.stringify({
+            adminNote
+          })
+        });
+
+        showMessage(data.message || "Entrada eliminada.");
+
+        if (activationCode && confirm("¿Actualizar contenido optimizado ahora?")) {
+          await refreshOptimizedContentForCode(activationCode);
+        }
+
+        await loadBrokenLinks();
+      } catch (error) {
+        showMessage(error.message);
+      }
+    }
+
+    async function refreshOptimizedContentForCode(activationCode) {
+      const code = String(activationCode || "").trim();
+
+      if (!code) {
+        showMessage("No hay código de activación para actualizar contenido.");
+        return;
+      }
+
+      try {
+        showMessage("Actualizando contenido optimizado...");
+
+        const response = await fetch("/api/content/refresh?key=" + encodeURIComponent(getKey()), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-admin-key": getKey()
+          },
+          body: JSON.stringify({
+            activationCode: code
+          })
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok || !data.success) {
+          throw new Error(data.message || "No se pudo actualizar contenido.");
+        }
+
+        const counts = data.counts || {};
+        showMessage(
+          "Contenido actualizado: TV " + (counts.live || 0) +
+          " · Películas " + (counts.movies || 0) +
+          " · Series " + (counts.series || 0)
+        );
+      } catch (error) {
+        showMessage(error.message);
+      }
+    }
+
 
     function renderReports() {
       renderReportQuickTabs();
