@@ -1452,6 +1452,29 @@
       margin-bottom: 4px;
     }
 
+  
+    .m3u-form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .m3u-import-box {
+      min-height: 220px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 13px;
+    }
+
+    .m3u-help {
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(15, 23, 42, 0.06);
+      color: #374151;
+      font-size: 13px;
+      line-height: 1.45;
+      margin-bottom: 14px;
+    }
+
   </style>
 </head>
 <body>
@@ -1572,6 +1595,7 @@
         <button id="tabReports" class="tab" onclick="showTab('reports')">Reportes</button>
         <button id="tabGrouped" class="tab" onclick="showTab('grouped')">Canales más reportados</button>
         <button id="tabBrokenLinks" class="tab" onclick="showTab('brokenLinks')">Enlaces caídos</button>
+        <button id="tabM3uTools" class="tab" onclick="showTab('m3uTools')">Agregar M3U</button>
       </div>
 
       <section id="sectionClients">
@@ -1697,6 +1721,86 @@
       </section>
 
       
+      
+      <section id="sectionM3uTools" class="hidden">
+        <section class="card">
+          <h2>Agregar links a lista.m3u</h2>
+
+          <div class="m3u-help">
+            Agrega contenido directo a tu Gist <strong>lista.m3u</strong>. Después de agregar, usá
+            <strong>Actualizar contenido</strong> para regenerar Películas, Series y TV en la APK.
+          </div>
+
+          <h3>Agregar link individual</h3>
+
+          <div class="m3u-form-grid">
+            <div>
+              <label>Nombre</label>
+              <input id="m3uEntryName" placeholder="Ej: Película nueva (2026)" />
+            </div>
+
+            <div>
+              <label>Categoría</label>
+              <input id="m3uEntryGroup" placeholder="Ej: Peliculas | 2026" />
+            </div>
+
+            <div>
+              <label>URL del contenido</label>
+              <input id="m3uEntryUrl" placeholder="https://..." />
+            </div>
+
+            <div>
+              <label>Logo opcional</label>
+              <input id="m3uEntryLogo" placeholder="https://..." />
+            </div>
+
+            <div>
+              <label>Tvg-id opcional</label>
+              <input id="m3uEntryTvgId" placeholder="opcional" />
+            </div>
+
+            <div>
+              <label>Código para actualizar después</label>
+              <input id="m3uEntryActivationCode" placeholder="Ej: 253698" />
+            </div>
+          </div>
+
+          <div class="actions">
+            <button onclick="addM3uEntry()">Agregar link</button>
+            <button class="secondary" onclick="refreshOptimizedContentForCode(document.getElementById('m3uEntryActivationCode').value)">Actualizar contenido</button>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Importar lista M3U o varios links</h2>
+
+          <div class="m3u-help">
+            Podés pegar una lista M3U completa con bloques <strong>#EXTINF + URL</strong>,
+            o pegar varios links sueltos, uno por línea.
+          </div>
+
+          <div class="m3u-form-grid">
+            <div>
+              <label>Categoría por defecto para links sueltos</label>
+              <input id="m3uImportDefaultGroup" placeholder="Ej: Agregados" value="Agregados" />
+            </div>
+
+            <div>
+              <label>Código para actualizar después</label>
+              <input id="m3uImportActivationCode" placeholder="Ej: 253698" />
+            </div>
+          </div>
+
+          <label>Lista M3U o links</label>
+          <textarea id="m3uImportText" class="m3u-import-box" placeholder="#EXTM3U&#10;#EXTINF:-1 group-title=&quot;Peliculas | 2026&quot;,Mi Película&#10;https://..."></textarea>
+
+          <div class="actions">
+            <button onclick="importM3uList()">Importar a lista.m3u</button>
+            <button class="secondary" onclick="refreshOptimizedContentForCode(document.getElementById('m3uImportActivationCode').value)">Actualizar contenido</button>
+          </div>
+        </section>
+      </section>
+
       <section id="sectionBrokenLinks" class="hidden">
         <section class="card">
           <h2>Enlaces caídos globales</h2>
@@ -1812,11 +1916,13 @@
       document.getElementById("sectionReports").classList.toggle("hidden", tab !== "reports");
       document.getElementById("sectionGrouped").classList.toggle("hidden", tab !== "grouped");
       document.getElementById("sectionBrokenLinks")?.classList.toggle("hidden", tab !== "brokenLinks");
+      document.getElementById("sectionM3uTools")?.classList.toggle("hidden", tab !== "m3uTools");
 
       document.getElementById("tabClients").classList.toggle("active", tab === "clients");
       document.getElementById("tabReports").classList.toggle("active", tab === "reports");
       document.getElementById("tabGrouped").classList.toggle("active", tab === "grouped");
       document.getElementById("tabBrokenLinks")?.classList.toggle("active", tab === "brokenLinks");
+      document.getElementById("tabM3uTools")?.classList.toggle("active", tab === "m3uTools");
     }
 
     async function api(path, options = {}) {
@@ -2495,6 +2601,89 @@
       }
 
       return Array.from(map.values());
+    }
+
+
+
+    async function addM3uEntry() {
+      const body = {
+        name: document.getElementById("m3uEntryName")?.value || "",
+        group: document.getElementById("m3uEntryGroup")?.value || "",
+        streamUrl: document.getElementById("m3uEntryUrl")?.value || "",
+        logoUrl: document.getElementById("m3uEntryLogo")?.value || "",
+        tvgId: document.getElementById("m3uEntryTvgId")?.value || ""
+      };
+
+      if (!body.name.trim()) {
+        showMessage("Ingresá el nombre del contenido.");
+        return;
+      }
+
+      if (!body.streamUrl.trim()) {
+        showMessage("Ingresá la URL del contenido.");
+        return;
+      }
+
+      try {
+        showMessage("Agregando link a lista.m3u...");
+
+        const data = await api("/admin/api/m3u/add-entry", {
+          method: "POST",
+          body: JSON.stringify(body)
+        });
+
+        showMessage(data.message || "Link agregado.");
+
+        document.getElementById("m3uEntryName").value = "";
+        document.getElementById("m3uEntryUrl").value = "";
+        document.getElementById("m3uEntryLogo").value = "";
+        document.getElementById("m3uEntryTvgId").value = "";
+
+        const code = document.getElementById("m3uEntryActivationCode")?.value || "";
+
+        if (code.trim() && confirm("¿Actualizar contenido optimizado ahora?")) {
+          await refreshOptimizedContentForCode(code);
+        }
+      } catch (error) {
+        showMessage(error.message);
+      }
+    }
+
+    async function importM3uList() {
+      const body = {
+        m3uText: document.getElementById("m3uImportText")?.value || "",
+        defaultGroup: document.getElementById("m3uImportDefaultGroup")?.value || "Agregados"
+      };
+
+      if (!body.m3uText.trim()) {
+        showMessage("Pegá una lista M3U o links para importar.");
+        return;
+      }
+
+      if (!confirm("¿Importar estas entradas a lista.m3u?")) {
+        return;
+      }
+
+      try {
+        showMessage("Importando entradas a lista.m3u...");
+
+        const data = await api("/admin/api/m3u/import", {
+          method: "POST",
+          body: JSON.stringify(body)
+        });
+
+        showMessage(data.message || "Lista importada.");
+
+        document.getElementById("m3uImportText").value = "";
+
+        const code = document.getElementById("m3uImportActivationCode")?.value || "";
+
+        if (code.trim() && confirm("¿Actualizar contenido optimizado ahora?")) {
+          await refreshOptimizedContentForCode(code);
+        }
+      } catch (error) {
+        showMessage(error.message);
+      }
     }
 
 
