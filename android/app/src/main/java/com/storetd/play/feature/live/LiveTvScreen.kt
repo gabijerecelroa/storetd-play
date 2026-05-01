@@ -75,6 +75,9 @@ import androidx.compose.ui.input.key.onKeyEvent
 import com.storetd.play.core.network.OptimizedContentApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 
 private data class SeriesFolder(
     val key: String,
@@ -482,9 +485,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                 }
             }
 
-            items(visibleMovieCategories) { category ->
+            itemsIndexed(visibleMovieCategories) { index, category ->
                 MovieCategoryLiteRow(
                     category = category,
+                    requestInitialFocus = index == 0 && selectedMovieCategoryKey == null && !showLazySearch,
                     onOpen = { onSelectMovieCategory(category.key) }
                 )
             }
@@ -496,11 +500,12 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                 )
             }
 
-            items(lazyMovieItems) { movie ->
+            itemsIndexed(lazyMovieItems) { index, movie ->
                 ChannelRow(
                     channel = movie,
                     currentProgram = null,
                     nextProgram = null,
+                    requestInitialFocus = index == 0,
                     onPlay = { onPlay(movie, lazyMovieItems) }
                 )
             }
@@ -544,9 +549,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                 }
             }
 
-            items(visibleSeriesFolders) { folder ->
+            itemsIndexed(visibleSeriesFolders) { index, folder ->
                 SeriesFolderLiteRow(
                     folder = folder,
+                    requestInitialFocus = index == 0 && selectedSeriesKey == null && !showLazySearch,
                     onOpen = { onSelectSeries(folder.key) }
                 )
             }
@@ -558,11 +564,12 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                 )
             }
 
-            items(lazySeriesEpisodes) { episode ->
+            itemsIndexed(lazySeriesEpisodes) { index, episode ->
                 ChannelRow(
                     channel = episode,
                     currentProgram = null,
                     nextProgram = null,
+                    requestInitialFocus = index == 0,
                     onPlay = { onPlay(episode, lazySeriesEpisodes) }
                 )
             }
@@ -1006,14 +1013,34 @@ private fun LazySearchHeader(
 @Composable
 private fun MovieCategoryLiteRow(
     category: OptimizedContentApi.MovieCategoryLite,
+    requestInitialFocus: Boolean = false,
     onOpen: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(requestInitialFocus) {
+        if (requestInitialFocus) {
+            runCatching { focusRequester.requestFocus() }
+        }
+    }
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
+            .focusRequester(focusRequester)
             .onFocusChanged { isFocused = it.isFocused || it.hasFocus }
+            .onPreviewKeyEvent { event ->
+                if (
+                    event.type == KeyEventType.KeyUp &&
+                    (event.key == Key.DirectionCenter || event.key == Key.Enter || event.key == Key.NumPadEnter)
+                ) {
+                    onOpen()
+                    true
+                } else {
+                    false
+                }
+            }
             .focusable()
             .clickable { onOpen() },
         color = if (isFocused) {
@@ -1053,6 +1080,8 @@ private fun MovieCategoryLiteRow(
         }
     }
 }
+
+
 
 
 
@@ -1105,14 +1134,34 @@ private fun MovieCategoryHeader(
 @Composable
 private fun SeriesFolderLiteRow(
     folder: OptimizedContentApi.SeriesFolderLite,
+    requestInitialFocus: Boolean = false,
     onOpen: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(requestInitialFocus) {
+        if (requestInitialFocus) {
+            runCatching { focusRequester.requestFocus() }
+        }
+    }
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
+            .focusRequester(focusRequester)
             .onFocusChanged { isFocused = it.isFocused || it.hasFocus }
+            .onPreviewKeyEvent { event ->
+                if (
+                    event.type == KeyEventType.KeyUp &&
+                    (event.key == Key.DirectionCenter || event.key == Key.Enter || event.key == Key.NumPadEnter)
+                ) {
+                    onOpen()
+                    true
+                } else {
+                    false
+                }
+            }
             .focusable()
             .clickable { onOpen() },
         color = if (isFocused) {
@@ -1152,6 +1201,8 @@ private fun SeriesFolderLiteRow(
         }
     }
 }
+
+
 
 
 
@@ -1369,8 +1420,17 @@ private fun ChannelRow(
     channel: Channel,
     currentProgram: EpgProgram?,
     nextProgram: EpgProgram?,
+    requestInitialFocus: Boolean = false,
     onPlay: () -> Unit
 ) {
+    val rowFocusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(requestInitialFocus) {
+        if (requestInitialFocus) {
+            runCatching { rowFocusRequester.requestFocus() }
+        }
+    }
+
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(22.dp)
 
@@ -1378,6 +1438,7 @@ private fun ChannelRow(
         onClick = onPlay,
         modifier = Modifier
             .fillMaxWidth()
+            .focusRequester(rowFocusRequester)
             .onFocusChanged { focused = it.isFocused || it.hasFocus }
             .onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) {
