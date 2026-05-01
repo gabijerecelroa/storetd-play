@@ -575,6 +575,31 @@
       font-weight: 700;
     }
 
+  
+    .client-refresh-status {
+      margin-top: 10px;
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--muted);
+    }
+
+    .client-refresh-status.loading {
+      color: var(--yellow);
+    }
+
+    .client-refresh-status.ok {
+      color: var(--green);
+    }
+
+    .client-refresh-status.error {
+      color: var(--red);
+    }
+
+    button.loading {
+      opacity: 0.72;
+      pointer-events: none;
+    }
+
   </style>
 </head>
 <body>
@@ -964,13 +989,28 @@
       }
     }
 
-    async function refreshClientContent(code) {
+    async function refreshClientContent(code, index) {
       if (!code) {
         showMessage("Cliente sin código de activación.");
         return;
       }
 
+      const button = document.getElementById(`refresh-content-${index}`);
+      const statusBox = document.getElementById(`refresh-status-${index}`);
+      const originalText = button ? button.textContent : "";
+
       try {
+        if (button) {
+          button.disabled = true;
+          button.classList.add("loading");
+          button.textContent = "Actualizando...";
+        }
+
+        if (statusBox) {
+          statusBox.className = "client-refresh-status loading";
+          statusBox.textContent = "Preparando contenido optimizado...";
+        }
+
         showMessage(`Actualizando contenido optimizado de ${code}...`);
 
         const data = await api("/api/content/refresh", {
@@ -979,12 +1019,28 @@
         });
 
         const counts = data.counts || {};
+        const message =
+          `Listo: TV ${counts.live || 0} · Películas ${counts.movies || 0} · Series ${counts.series || 0} · Carpetas ${counts.seriesFolders || 0} · Categorías ${counts.movieCategories || 0}`;
 
-        showMessage(
-          `Contenido listo para ${code}: TV ${counts.live || 0} · Películas ${counts.movies || 0} · Series ${counts.series || 0} · Carpetas ${counts.seriesFolders || 0} · Categorías ${counts.movieCategories || 0}`
-        );
+        if (statusBox) {
+          statusBox.className = "client-refresh-status ok";
+          statusBox.textContent = message;
+        }
+
+        showMessage(`Contenido listo para ${code}: ${message}`);
       } catch (error) {
+        if (statusBox) {
+          statusBox.className = "client-refresh-status error";
+          statusBox.textContent = error.message || "No se pudo actualizar contenido.";
+        }
+
         showMessage(error.message);
+      } finally {
+        if (button) {
+          button.disabled = false;
+          button.classList.remove("loading");
+          button.textContent = originalText || "Actualizar contenido";
+        }
       }
     }
 
@@ -1134,10 +1190,11 @@
                   </div>
 
                   <div class="client-actions">
-                    <button class="small" onclick='refreshClientContent(${JSON.stringify(code)})'>Actualizar contenido</button>
+                    <button id="refresh-content-${index}" class="small" onclick='refreshClientContent(${JSON.stringify(code)}, ${index})'>Actualizar contenido</button>
                     <button class="secondary small" onclick='unlinkDevices(${JSON.stringify(code)})'>Desvincular</button>
                     <button class="danger small" onclick='deleteClient(${JSON.stringify(code)})'>Eliminar</button>
                   </div>
+                  <div id="refresh-status-${index}" class="client-refresh-status"></div>
                 </div>
 
                 <details class="client-editor">
