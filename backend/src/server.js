@@ -2007,6 +2007,121 @@ function dbBrokenLinkToApi(row) {
 
 
 
+
+function normalizeAdminM3uType(value, group) {
+  const raw = String(value || "").trim().toLowerCase();
+  const groupText = String(group || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  if (raw === "movie" || raw === "pelicula" || raw === "peliculas") return "movie";
+  if (raw === "serie" || raw === "series") return "serie";
+  if (raw === "live" || raw === "tv" || raw === "canal") return "live";
+
+  if (groupText.startsWith("peliculas")) return "movie";
+  if (groupText.startsWith("series")) return "serie";
+  if (groupText.startsWith("tv")) return "live";
+
+  return "live";
+}
+
+function rewriteM3uGroupTitleAndType(m3uText, fromGroup, toGroup, contentType) {
+  const sourceGroup = String(fromGroup || "").trim();
+  const targetGroup = String(toGroup || "").trim();
+  const safeType = normalizeAdminM3uType(contentType, targetGroup);
+
+  if (!sourceGroup || !targetGroup) {
+    return {
+      content: String(m3uText || ""),
+      changed: 0
+    };
+  }
+
+  const lines = String(m3uText || "").replace(/\r/g, "").split("\n");
+  let changed = 0;
+
+  const nextLines = lines.map((line) => {
+    if (!line.trim().startsWith("#EXTINF")) return line;
+
+    const groupMatch = line.match(/group-title="([^"]*)"/i);
+    const currentGroup = groupMatch ? groupMatch[1] : "";
+
+    if (currentGroup !== sourceGroup) return line;
+
+    let nextLine = line.replace(/group-title="[^"]*"/i, `group-title="${targetGroup}"`);
+
+    if (/tvg-type="[^"]*"/i.test(nextLine)) {
+      nextLine = nextLine.replace(/tvg-type="[^"]*"/i, `tvg-type="${safeType}"`);
+    } else {
+      nextLine = nextLine.replace("#EXTINF:-1", `#EXTINF:-1 tvg-type="${safeType}"`);
+    }
+
+    changed += 1;
+    return nextLine;
+  });
+
+  return {
+    content: nextLines.join("\n"),
+    changed
+  };
+}
+
+
+
+app.post("/admin/api/m3u/rename-group", requireAdmin, async (req, res) => {
+  try {
+    const config = requireGistConfig(res);
+    if (!config) return;
+
+    const fromGroup = String(req.body.fromGroup || "").trim();
+    const toGroup = String(req.body.toGroup || "").trim();
+    const contentType = String(req.body.contentType || "").trim();
+
+    if (!fromGroup || !toGroup) {
+      return res.status(400).json({
+        success: false,
+        message: "Falta grupo origen o grupo destino."
+      });
+    }
+
+    const originalM3u = await downloadGistM3uRaw(config.rawUrl);
+    const result = rewriteM3uGroupTitleAndType(
+      originalM3u,
+      fromGroup,
+      toGroup,
+      contentType
+    );
+
+    if (result.changed <= 0) {
+      return res.status(404).json({
+        success: false,
+        message: `No encontré entradas con la categoría: ${fromGroup}`
+      });
+    }
+
+    await updateGistFile({
+      token: config.token,
+      gistId: config.gistId,
+      filename: config.filename,
+      content: result.content
+    });
+
+    res.json({
+      success: true,
+      message: `Categoría actualizada: ${result.changed} entrada/s movida/s de "${fromGroup}" a "${toGroup}".`,
+      changed: result.changed
+    });
+  } catch (error) {
+    console.error("Rename M3U group error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "No se pudo renombrar la categoría."
+    });
+  }
+});
+
+
 app.post("/admin/api/m3u/add-entry", requireAdmin, async (req, res) => {
   try {
     const config = requireGistConfig(res);
