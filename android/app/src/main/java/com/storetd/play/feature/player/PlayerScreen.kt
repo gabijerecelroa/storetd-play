@@ -646,14 +646,14 @@ fun PlayerScreen(
             PlaybackErrorCard(
                 message = message,
                 isLandscape = isLandscape,
+                isSendingReport = isSendingReport,
                 onRetry = {
                     selectedControlIndex = 6
                     retryPlayback()
                 },
                 onReport = {
                     selectedControlIndex = 5
-                    showControls = true
-                    showReportDialog = true
+                    sendReport("Enlace caído / contenido no disponible")
                 },
                 onBack = onBack,
                 modifier = Modifier.align(Alignment.BottomCenter)
@@ -768,6 +768,7 @@ fun PlayerScreen(
 private fun PlaybackErrorCard(
     message: String,
     isLandscape: Boolean,
+    isSendingReport: Boolean,
     onRetry: () -> Unit,
     onReport: () -> Unit,
     onBack: () -> Unit,
@@ -813,9 +814,13 @@ private fun PlaybackErrorCard(
 
                     OutlinedButton(
                         onClick = onReport,
+                        enabled = !isSendingReport,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("Reportar", maxLines = 1)
+                        Text(
+                            text = if (isSendingReport) "Enviando..." else "Reportar",
+                            maxLines = 1
+                        )
                     }
 
                     TextButton(
@@ -839,9 +844,10 @@ private fun PlaybackErrorCard(
 
                     OutlinedButton(
                         onClick = onReport,
+                        enabled = !isSendingReport,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Reportar")
+                        Text(if (isSendingReport) "Enviando reporte..." else "Reportar enlace")
                     }
 
                     TextButton(
