@@ -1787,22 +1787,6 @@ function buildM3uEntry({ name, group, streamUrl, logoUrl, tvgId, contentType }) 
 
   return `#EXTINF:-1 ${attrs},${safeName}\n${cleanUrl}`;
 }
-) {
-  const safeName = escapeM3uAttribute(name) || "Contenido agregado";
-  const safeGroup = escapeM3uAttribute(group) || "Agregados";
-  const safeLogo = escapeM3uAttribute(logoUrl);
-  const safeTvgId = escapeM3uAttribute(tvgId);
-  const cleanUrl = String(streamUrl || "").trim();
-
-  const attrs = [
-    `tvg-id="${safeTvgId}"`,
-    `tvg-name="${safeName}"`,
-    safeLogo ? `tvg-logo="${safeLogo}"` : "",
-    `group-title="${safeGroup}"`
-  ].filter(Boolean).join(" ");
-
-  return `#EXTINF:-1 ${attrs},${safeName}\n${cleanUrl}`;
-}
 
 function parseM3uBlocksForAppend(rawText, defaultGroup, defaultType = "live") {
   const lines = String(rawText || "")
