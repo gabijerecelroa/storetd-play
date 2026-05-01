@@ -58,6 +58,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
@@ -142,6 +143,7 @@ fun PlayerScreen(
     var reconnectMessage by remember(currentChannel.streamUrl) { mutableStateOf<String?>(null) }
     var showControls by remember(currentChannel.streamUrl) { mutableStateOf(true) }
     var selectedControlIndex by remember(currentChannel.streamUrl) { mutableStateOf(0) }
+    var selectedErrorActionIndex by remember(currentChannel.streamUrl) { mutableStateOf(0) }
     var showReportDialog by remember { mutableStateOf(false) }
     var reportMessage by remember { mutableStateOf<String?>(null) }
     var isSendingReport by remember { mutableStateOf(false) }
@@ -437,6 +439,52 @@ fun PlayerScreen(
         selectedControlIndex = 2
     }
 
+    fun errorActionCount(): Int {
+        return if (PlayerSession.hasNext()) 5 else 3
+    }
+
+    fun activateSelectedErrorAction() {
+        showControls = true
+
+        val hasNext = PlayerSession.hasNext()
+
+        when (selectedErrorActionIndex.coerceIn(0, errorActionCount() - 1)) {
+            0 -> retryPlayback()
+
+            1 -> {
+                if (hasNext) {
+                    selectedControlIndex = 2
+                    zapNext()
+                } else {
+                    selectedControlIndex = 5
+                    sendReport("Enlace caído / contenido no disponible")
+                }
+            }
+
+            2 -> {
+                if (hasNext) {
+                    selectedControlIndex = 5
+                    sendReport("Enlace caído / contenido no disponible")
+                } else {
+                    onBack()
+                }
+            }
+
+            3 -> {
+                if (hasNext) {
+                    selectedControlIndex = 2
+                    sendReport("Enlace caído / contenido no disponible") {
+                        zapNext()
+                    }
+                } else {
+                    onBack()
+                }
+            }
+
+            else -> onBack()
+        }
+    }
+
     fun activateSelectedControl() {
         showControls = true
 
@@ -653,6 +701,7 @@ fun PlayerScreen(
                 isLandscape = isLandscape,
                 isSendingReport = isSendingReport,
                 canNext = PlayerSession.hasNext(),
+                selectedActionIndex = selectedErrorActionIndex,
                 onRetry = {
                     selectedControlIndex = 6
                     retryPlayback()
@@ -782,12 +831,16 @@ private fun PlaybackErrorCard(
     isLandscape: Boolean,
     isSendingReport: Boolean,
     canNext: Boolean,
+    selectedActionIndex: Int,
     onRetry: () -> Unit,
+    onNext: () -> Unit,
     onReport: () -> Unit,
     onReportAndNext: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val safeSelectedIndex = selectedActionIndex.coerceIn(0, if (canNext) 4 else 2)
+
     Card(
         modifier = modifier
             .navigationBarsPadding()
@@ -819,83 +872,150 @@ private fun PlaybackErrorCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Button(
+                    ErrorActionButton(
+                        text = "Reintentar",
+                        selected = safeSelectedIndex == 0,
+                        enabled = !isSendingReport,
+                        primary = true,
                         onClick = onRetry,
                         modifier = Modifier.weight(1f)
-                    ) {
-                        Text("Reintentar", maxLines = 1)
-                    }
+                    )
 
-                    OutlinedButton(
-                        onClick = onReport,
-                        enabled = !isSendingReport,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(
-                            text = if (isSendingReport) "Enviando..." else "Reportar",
-                            maxLines = 1
+                    if (canNext) {
+                        ErrorActionButton(
+                            text = "Siguiente",
+                            selected = safeSelectedIndex == 1,
+                            enabled = !isSendingReport,
+                            onClick = onNext,
+                            modifier = Modifier.weight(1f)
                         )
                     }
 
+                    ErrorActionButton(
+                        text = if (isSendingReport) "Enviando..." else "Reportar",
+                        selected = safeSelectedIndex == if (canNext) 2 else 1,
+                        enabled = !isSendingReport,
+                        onClick = onReport,
+                        modifier = Modifier.weight(1f)
+                    )
+
                     if (canNext) {
-                        OutlinedButton(
-                            onClick = onReportAndNext,
+                        ErrorActionButton(
+                            text = if (isSendingReport) "Enviando..." else "Reportar + sig.",
+                            selected = safeSelectedIndex == 3,
                             enabled = !isSendingReport,
+                            onClick = onReportAndNext,
                             modifier = Modifier.weight(1f)
-                        ) {
-                            Text(
-                                text = if (isSendingReport) "Enviando..." else "Reportar + sig.",
-                                maxLines = 1
-                            )
-                        }
+                        )
                     }
 
-                    TextButton(
+                    ErrorActionButton(
+                        text = "Volver",
+                        selected = safeSelectedIndex == if (canNext) 4 else 2,
+                        enabled = true,
                         onClick = onBack,
                         modifier = Modifier.weight(1f)
-                    ) {
-                        Text("Volver", maxLines = 1)
-                    }
+                    )
                 }
             } else {
                 Column(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Button(
+                    ErrorActionButton(
+                        text = "Reintentar",
+                        selected = safeSelectedIndex == 0,
+                        enabled = !isSendingReport,
+                        primary = true,
                         onClick = onRetry,
                         modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Reintentar")
-                    }
-
-                    OutlinedButton(
-                        onClick = onReport,
-                        enabled = !isSendingReport,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(if (isSendingReport) "Enviando reporte..." else "Reportar enlace")
-                    }
+                    )
 
                     if (canNext) {
-                        Button(
-                            onClick = onReportAndNext,
+                        ErrorActionButton(
+                            text = "Siguiente",
+                            selected = safeSelectedIndex == 1,
                             enabled = !isSendingReport,
+                            onClick = onNext,
                             modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(if (isSendingReport) "Enviando reporte..." else "Reportar y seguir")
-                        }
+                        )
                     }
 
-                    TextButton(
+                    ErrorActionButton(
+                        text = if (isSendingReport) "Enviando reporte..." else "Reportar enlace",
+                        selected = safeSelectedIndex == if (canNext) 2 else 1,
+                        enabled = !isSendingReport,
+                        onClick = onReport,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    if (canNext) {
+                        ErrorActionButton(
+                            text = if (isSendingReport) "Enviando reporte..." else "Reportar y seguir",
+                            selected = safeSelectedIndex == 3,
+                            enabled = !isSendingReport,
+                            onClick = onReportAndNext,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    ErrorActionButton(
+                        text = "Volver",
+                        selected = safeSelectedIndex == if (canNext) 4 else 2,
+                        enabled = true,
                         onClick = onBack,
                         modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Volver")
-                    }
+                    )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ErrorActionButton(
+    text: String,
+    selected: Boolean,
+    enabled: Boolean,
+    primary: Boolean = false,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val shape = RoundedCornerShape(999.dp)
+
+    Surface(
+        modifier = modifier
+            .border(
+                width = if (selected) 4.dp else 1.dp,
+                color = if (selected) {
+                    MaterialTheme.colorScheme.onPrimary
+                } else {
+                    MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)
+                },
+                shape = shape
+            )
+            .clickable(enabled = enabled) { onClick() },
+        color = when {
+            selected -> MaterialTheme.colorScheme.primary
+            primary -> MaterialTheme.colorScheme.primary.copy(alpha = 0.88f)
+            else -> MaterialTheme.colorScheme.surface
+        },
+        shape = shape,
+        shadowElevation = if (selected) 12.dp else 2.dp
+    ) {
+        Text(
+            text = text,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.Bold,
+            color = if (selected || primary) {
+                MaterialTheme.colorScheme.onPrimary
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            },
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
+        )
     }
 }
 
