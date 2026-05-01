@@ -780,6 +780,7 @@ private fun PlaybackErrorCard(
     message: String,
     isLandscape: Boolean,
     isSendingReport: Boolean,
+    canNext: Boolean,
     onRetry: () -> Unit,
     onReport: () -> Unit,
     onReportAndNext: () -> Unit,
