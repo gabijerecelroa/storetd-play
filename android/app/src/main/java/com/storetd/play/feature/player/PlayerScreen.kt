@@ -84,6 +84,8 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.DefaultRenderersFactory
 
 @OptIn(UnstableApi::class)
 private enum class VideoResizeMode(
@@ -200,11 +202,27 @@ fun PlayerScreen(
 
 
     val player = remember(currentChannel.streamUrl) {
-        ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(currentChannel.streamUrl))
-            prepare()
-            playWhenReady = true
-        }
+        val renderersFactory = DefaultRenderersFactory(context)
+            .setEnableDecoderFallback(true)
+
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                5_000,
+                30_000,
+                1_000,
+                2_000
+            )
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .build()
+
+        ExoPlayer.Builder(context, renderersFactory)
+            .setLoadControl(loadControl)
+            .build()
+            .apply {
+                setMediaItem(MediaItem.fromUri(currentChannel.streamUrl))
+                prepare()
+                playWhenReady = true
+            }
     }
 
     LaunchedEffect(player, currentChannel.streamUrl, isVodContent) {
@@ -302,6 +320,13 @@ fun PlayerScreen(
 
         onDispose {
             player.removeListener(listener)
+
+            runCatching {
+                player.playWhenReady = false
+                player.stop()
+                player.clearMediaItems()
+            }
+
             player.release()
         }
     }
