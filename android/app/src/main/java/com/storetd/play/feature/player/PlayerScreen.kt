@@ -407,6 +407,8 @@ fun PlayerScreen(
         problemType: String,
         afterSend: (() -> Unit)? = null
     ) {
+        if (isSendingReport) return
+
         isSendingReport = true
         reportMessage = null
 
@@ -552,8 +554,16 @@ fun PlayerScreen(
     }
 
     LaunchedEffect(currentChannel.streamUrl) {
+        selectedErrorActionIndex = 0
         runCatching {
             playerFocusRequester.requestFocus()
+        }
+    }
+
+    LaunchedEffect(errorMessage) {
+        if (errorMessage != null) {
+            selectedErrorActionIndex = 0
+            showControls = true
         }
     }
 
