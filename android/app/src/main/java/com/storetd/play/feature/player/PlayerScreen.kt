@@ -706,6 +706,10 @@ fun PlayerScreen(
                     selectedControlIndex = 6
                     retryPlayback()
                 },
+                onNext = {
+                    selectedControlIndex = 2
+                    zapNext()
+                },
                 onReport = {
                     selectedControlIndex = 5
                     sendReport("Enlace caído / contenido no disponible")
