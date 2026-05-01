@@ -6,9 +6,11 @@ import androidx.lifecycle.viewModelScope
 import com.storetd.play.core.cache.PlaylistDiskCache
 import com.storetd.play.core.cache.PlaylistMemoryCache
 import com.storetd.play.core.model.Channel
+import com.storetd.play.core.network.OptimizedContentApi
 import com.storetd.play.core.parser.M3uValidator
 import com.storetd.play.core.preload.PlaylistPreloader
 import com.storetd.play.core.repository.IptvRepository
+import com.storetd.play.core.storage.LocalAccount
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -131,6 +133,11 @@ class LiveTvViewModel(
         val mode = _uiState.value.contentMode
         val key = cacheKey(cleanUrl, mode)
 
+        if (mode == ContentMode.LiveTv) {
+            loadOptimizedLiveFromBackend(appContext, cleanUrl)
+            return
+        }
+
         screenStateCache[key]?.let { cachedState ->
             if (cachedState.channels.isNotEmpty()) {
                 _uiState.value = cachedState.copy(
@@ -221,7 +228,79 @@ class LiveTvViewModel(
         PlaylistMemoryCache.clear(url)
         PlaylistDiskCache.clear(context, url)
 
+        if (_uiState.value.contentMode == ContentMode.LiveTv) {
+            loadOptimizedLiveFromBackend(context.applicationContext, url)
+            return
+        }
+
         loadPlaylistFrom(context, url, forceRefresh = true)
+    }
+
+    private fun loadOptimizedLiveFromBackend(context: Context, urlValue: String) {
+        val appContext = context.applicationContext
+        val url = urlValue.trim()
+
+        if (loadInProgress) return
+
+        loadInProgress = true
+
+        val currentBeforeLoad = _uiState.value
+        val hasVisibleCache = currentBeforeLoad.channels.isNotEmpty()
+
+        _uiState.value = currentBeforeLoad.copy(
+            playlistUrl = url,
+            isLoading = !hasVisibleCache,
+            isFiltering = false,
+            loadedFromCache = false,
+            errorMessage = null,
+            visibleChannels = if (hasVisibleCache) currentBeforeLoad.visibleChannels else emptyList(),
+            groupItems = if (hasVisibleCache) currentBeforeLoad.groupItems else emptyMap(),
+            totalVisibleCount = if (hasVisibleCache) currentBeforeLoad.totalVisibleCount else 0
+        )
+
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                val account = LocalAccount.getAccount(appContext)
+                val activationCode = account.activationCode.trim()
+
+                if (activationCode.isBlank()) {
+                    emptyList()
+                } else {
+                    OptimizedContentApi.loadSection(
+                        activationCode = activationCode,
+                        section = "live"
+                    )
+                }
+            }.onSuccess { channels ->
+                loadInProgress = false
+
+                if (channels.isNotEmpty()) {
+                    PlaylistDiskCache.save(
+                        context = appContext,
+                        url = sectionCacheKey(url, ContentMode.LiveTv),
+                        channels = channels
+                    )
+
+                    _uiState.value = _uiState.value.copy(
+                        playlistUrl = url,
+                        isLoading = false,
+                        channels = channels,
+                        selectedGroup = "Todos",
+                        searchQuery = "",
+                        loadedFromCache = false,
+                        errorMessage = null
+                    )
+
+                    refreshVisibleContent()
+                    return@onSuccess
+                }
+
+                loadPlaylistFrom(appContext, url, forceRefresh = true)
+            }.onFailure {
+                loadInProgress = false
+                loadPlaylistFrom(appContext, url, forceRefresh = true)
+            }
+        }
     }
 
     private fun loadPlaylistFrom(context: Context, urlValue: String, forceRefresh: Boolean) {
