@@ -1375,10 +1375,6 @@ private fun SeriesFolderRow(
     onOpen: () -> Unit
 ) {
     var focused by remember { mutableStateOf(false) }
-    val context = LocalContext.current
-    val isReportedBroken = remember(channel.streamUrl) {
-        BrokenLinkStore.isReported(context, channel.streamUrl)
-    }
     val shape = RoundedCornerShape(22.dp)
 
     Card(
@@ -1576,6 +1572,10 @@ private fun ChannelRow(
     }
 
     var focused by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val isReportedBroken = remember(channel.streamUrl) {
+        BrokenLinkStore.isReported(context, channel.streamUrl)
+    }
     val shape = RoundedCornerShape(22.dp)
 
     Card(
@@ -1615,6 +1615,8 @@ private fun ChannelRow(
         colors = CardDefaults.cardColors(
             containerColor = if (focused) {
                 MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
+            } else if (isReportedBroken) {
+                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.32f)
             } else {
                 MaterialTheme.colorScheme.surfaceVariant
             }
