@@ -797,29 +797,57 @@ private fun PlaybackErrorCard(
                 color = MaterialTheme.colorScheme.onSurface
             )
 
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Button(
-                    onClick = onRetry,
-                    modifier = Modifier.weight(1f)
+            if (isLandscape) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Reintentar")
-                }
+                    Button(
+                        onClick = onRetry,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Reintentar", maxLines = 1)
+                    }
 
-                OutlinedButton(
-                    onClick = onReport,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Reportar")
-                }
+                    OutlinedButton(
+                        onClick = onReport,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Reportar", maxLines = 1)
+                    }
 
-                TextButton(
-                    onClick = onBack,
-                    modifier = Modifier.weight(1f)
+                    TextButton(
+                        onClick = onBack,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Volver", maxLines = 1)
+                    }
+                }
+            } else {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Volver")
+                    Button(
+                        onClick = onRetry,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Reintentar")
+                    }
+
+                    OutlinedButton(
+                        onClick = onReport,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Reportar")
+                    }
+
+                    TextButton(
+                        onClick = onBack,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Volver")
+                    }
                 }
             }
         }
@@ -1323,15 +1351,7 @@ private fun shouldAutoRetryForPlaybackError(error: PlaybackException): Boolean {
         return false
     }
 
-    if (
-        raw.contains("source") &&
-        (
-            raw.contains("response") ||
-                raw.contains("http") ||
-                raw.contains("server") ||
-                raw.contains("unrecognized")
-        )
-    ) {
+    if (raw.contains("source")) {
         return false
     }
 
