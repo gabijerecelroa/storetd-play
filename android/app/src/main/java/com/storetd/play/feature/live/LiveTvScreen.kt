@@ -41,6 +41,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -98,6 +99,8 @@ fun LiveTvScreen(
 
     var selectedSeriesKey by remember(contentMode) { mutableStateOf<String?>(null) }
     var selectedMovieCategoryKey by remember(contentMode) { mutableStateOf<String?>(null) }
+    var showLazySearch by remember(contentMode) { mutableStateOf(false) }
+    var lazySearchQuery by remember(contentMode) { mutableStateOf("") }
 
     var lazySeriesFolders by remember(contentMode) {
         mutableStateOf<List<OptimizedContentApi.SeriesFolderLite>>(emptyList())
@@ -122,6 +125,8 @@ fun LiveTvScreen(
     LaunchedEffect(contentMode) {
         selectedSeriesKey = null
         selectedMovieCategoryKey = null
+        showLazySearch = false
+        lazySearchQuery = ""
         lazySeriesFolders = emptyList()
         lazySeriesEpisodes = emptyList()
         lazyMovieCategories = emptyList()
@@ -289,6 +294,15 @@ fun LiveTvScreen(
                     isLazyMoviesLoading = isLazyMoviesLoading,
                     onSelectMovieCategory = { selectedMovieCategoryKey = it },
                     onClearMovieCategory = { selectedMovieCategoryKey = null },
+                    showLazySearch = showLazySearch,
+                    lazySearchQuery = lazySearchQuery,
+                    onLazySearchQueryChange = { lazySearchQuery = it },
+                    onToggleLazySearch = {
+                        if (showLazySearch) {
+                            lazySearchQuery = ""
+                        }
+                        showLazySearch = !showLazySearch
+                    },
                     onPlay = onPlay
                 )
             }
@@ -349,6 +363,15 @@ fun LiveTvScreen(
                     isLazyMoviesLoading = isLazyMoviesLoading,
                     onSelectMovieCategory = { selectedMovieCategoryKey = it },
                     onClearMovieCategory = { selectedMovieCategoryKey = null },
+                    showLazySearch = showLazySearch,
+                    lazySearchQuery = lazySearchQuery,
+                    onLazySearchQueryChange = { lazySearchQuery = it },
+                    onToggleLazySearch = {
+                        if (showLazySearch) {
+                            lazySearchQuery = ""
+                        }
+                        showLazySearch = !showLazySearch
+                    },
                     onPlay = onPlay
                     )
                 }
@@ -372,6 +395,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
     isLazyMoviesLoading: Boolean,
     onSelectMovieCategory: (String) -> Unit,
     onClearMovieCategory: () -> Unit,
+    showLazySearch: Boolean,
+    lazySearchQuery: String,
+    onLazySearchQueryChange: (String) -> Unit,
+    onToggleLazySearch: () -> Unit,
     onPlay: (Channel, List<Channel>) -> Unit
 ) {
     if (state.isLoading || state.isFiltering) {
@@ -401,19 +428,40 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
     }
 
     if (contentMode == ContentMode.Movies && lazyMovieCategories.isNotEmpty()) {
+        val movieSearchText = lazySearchQuery.trim().lowercase(Locale.getDefault())
+        val visibleMovieCategories = if (movieSearchText.isBlank()) {
+            lazyMovieCategories
+        } else {
+            lazyMovieCategories.filter {
+                it.title.lowercase(Locale.getDefault()).contains(movieSearchText)
+            }
+        }
+
         val selectedCategory = lazyMovieCategories.firstOrNull { it.key == selectedMovieCategoryKey }
 
         if (selectedCategory == null) {
             item {
-                Text(
-                    text = "${lazyMovieCategories.size} categorías encontradas",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontWeight = FontWeight.Bold
+                LazySearchHeader(
+                    title = "${visibleMovieCategories.size} categorías encontradas",
+                    placeholder = "Buscar película o categoría...",
+                    showSearch = showLazySearch,
+                    query = lazySearchQuery,
+                    onQueryChange = onLazySearchQueryChange,
+                    onToggleSearch = onToggleLazySearch
                 )
             }
 
-            items(lazyMovieCategories) { category ->
+            if (visibleMovieCategories.isEmpty()) {
+                item {
+                    Text(
+                        text = "Sin resultados para \"$lazySearchQuery\"",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f)
+                    )
+                }
+            }
+
+            items(visibleMovieCategories) { category ->
                 MovieCategoryLiteRow(
                     category = category,
                     onOpen = { onSelectMovieCategory(category.key) }
@@ -441,19 +489,41 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
     }
 
     if (contentMode == ContentMode.Series && lazySeriesFolders.isNotEmpty()) {
+        val seriesSearchText = lazySearchQuery.trim().lowercase(Locale.getDefault())
+        val visibleSeriesFolders = if (seriesSearchText.isBlank()) {
+            lazySeriesFolders
+        } else {
+            lazySeriesFolders.filter {
+                it.title.lowercase(Locale.getDefault()).contains(seriesSearchText) ||
+                    it.group.lowercase(Locale.getDefault()).contains(seriesSearchText)
+            }
+        }
+
         val selectedFolder = lazySeriesFolders.firstOrNull { it.key == selectedSeriesKey }
 
         if (selectedFolder == null) {
             item {
-                Text(
-                    text = "${lazySeriesFolders.size} series encontradas",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontWeight = FontWeight.Bold
+                LazySearchHeader(
+                    title = "${visibleSeriesFolders.size} series encontradas",
+                    placeholder = "Buscar serie...",
+                    showSearch = showLazySearch,
+                    query = lazySearchQuery,
+                    onQueryChange = onLazySearchQueryChange,
+                    onToggleSearch = onToggleLazySearch
                 )
             }
 
-            items(lazySeriesFolders) { folder ->
+            if (visibleSeriesFolders.isEmpty()) {
+                item {
+                    Text(
+                        text = "Sin resultados para \"$lazySearchQuery\"",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f)
+                    )
+                }
+            }
+
+            items(visibleSeriesFolders) { folder ->
                 SeriesFolderLiteRow(
                     folder = folder,
                     onOpen = { onSelectSeries(folder.key) }
@@ -841,6 +911,76 @@ private fun StatusBlock(
     }
 }
 
+
+
+@Composable
+private fun LazySearchHeader(
+    title: String,
+    placeholder: String,
+    showSearch: Boolean,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onToggleSearch: () -> Unit
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f)
+            )
+
+            Surface(
+                modifier = Modifier.clickable { onToggleSearch() },
+                color = if (showSearch) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.surface.copy(alpha = 0.65f)
+                },
+                shape = RoundedCornerShape(999.dp),
+                border = BorderStroke(
+                    1.dp,
+                    if (showSearch) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f)
+                    }
+                )
+            ) {
+                Text(
+                    text = if (showSearch) "Cerrar" else "🔍 Buscar",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = if (showSearch) {
+                        MaterialTheme.colorScheme.onPrimary
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                )
+            }
+        }
+
+        if (showSearch) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                placeholder = { Text(placeholder) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
 
 @Composable
 private fun MovieCategoryLiteRow(
