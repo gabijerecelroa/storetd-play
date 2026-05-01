@@ -652,6 +652,7 @@ fun PlayerScreen(
                 message = message,
                 isLandscape = isLandscape,
                 isSendingReport = isSendingReport,
+                canNext = PlayerSession.hasNext(),
                 onRetry = {
                     selectedControlIndex = 6
                     retryPlayback()
