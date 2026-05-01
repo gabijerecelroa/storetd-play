@@ -1733,15 +1733,49 @@
 
           <h3>Agregar link individual</h3>
 
+          <datalist id="storetdM3uGroups">
+            <option value="TV | 01 Noticias"></option>
+            <option value="TV | 02 Deportes"></option>
+            <option value="TV | 03 Musica"></option>
+            <option value="TV | 06 Cine y Peliculas"></option>
+            <option value="TV | 07 Series TV"></option>
+            <option value="TV | 09 Infantiles"></option>
+            <option value="TV | 10 Entretenimiento"></option>
+            <option value="TV | 11 Internacionales"></option>
+            <option value="Peliculas | 2026"></option>
+            <option value="Peliculas | 2025"></option>
+            <option value="Peliculas | 2024"></option>
+            <option value="Peliculas | 2023"></option>
+            <option value="Peliculas | Accion"></option>
+            <option value="Peliculas | Ciencia Ficcion"></option>
+            <option value="Peliculas | Terror"></option>
+            <option value="Peliculas | Comedia"></option>
+            <option value="Series | Netflix"></option>
+            <option value="Series | Prime Video"></option>
+            <option value="Series | HBO/MAX"></option>
+            <option value="Series | Disney+"></option>
+            <option value="Series | Anime"></option>
+          </datalist>
+
+
           <div class="m3u-form-grid">
             <div>
+              <label>Tipo</label>
+              <select id="m3uEntryType">
+                <option value="live">TV en vivo</option>
+                <option value="movie">Película</option>
+                <option value="serie">Serie</option>
+              </select>
+            </div>
+
+            <div>
               <label>Nombre</label>
-              <input id="m3uEntryName" placeholder="Ej: Película nueva (2026)" />
+              <input id="m3uEntryName" placeholder="Ej: Canal o Película nueva" />
             </div>
 
             <div>
               <label>Categoría</label>
-              <input id="m3uEntryGroup" placeholder="Ej: Peliculas | 2026" />
+              <input id="m3uEntryGroup" list="storetdM3uGroups" placeholder="Ej: TV | 01 Noticias" />
             </div>
 
             <div>
@@ -1781,8 +1815,17 @@
 
           <div class="m3u-form-grid">
             <div>
+              <label>Tipo por defecto</label>
+              <select id="m3uImportDefaultType">
+                <option value="live">TV en vivo</option>
+                <option value="movie">Película</option>
+                <option value="serie">Serie</option>
+              </select>
+            </div>
+
+            <div>
               <label>Categoría por defecto para links sueltos</label>
-              <input id="m3uImportDefaultGroup" placeholder="Ej: Agregados" value="Agregados" />
+              <input id="m3uImportDefaultGroup" list="storetdM3uGroups" placeholder="Ej: TV | 01 Noticias" value="TV | Agregados" />
             </div>
 
             <div>
@@ -2611,7 +2654,8 @@
         group: document.getElementById("m3uEntryGroup")?.value || "",
         streamUrl: document.getElementById("m3uEntryUrl")?.value || "",
         logoUrl: document.getElementById("m3uEntryLogo")?.value || "",
-        tvgId: document.getElementById("m3uEntryTvgId")?.value || ""
+        tvgId: document.getElementById("m3uEntryTvgId")?.value || "",
+        contentType: document.getElementById("m3uEntryType")?.value || "live"
       };
 
       if (!body.name.trim()) {
@@ -2652,7 +2696,8 @@
     async function importM3uList() {
       const body = {
         m3uText: document.getElementById("m3uImportText")?.value || "",
-        defaultGroup: document.getElementById("m3uImportDefaultGroup")?.value || "Agregados"
+        defaultGroup: document.getElementById("m3uImportDefaultGroup")?.value || "TV | Agregados",
+        defaultType: document.getElementById("m3uImportDefaultType")?.value || "live"
       };
 
       if (!body.m3uText.trim()) {

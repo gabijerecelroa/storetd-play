@@ -1701,6 +1701,41 @@ app.get("/admin/api/device-events", requireAdmin, async (req, res) => {
 
 
 
+
+function normalizeM3uContentType(value, group) {
+  const raw = String(value || "").trim().toLowerCase();
+  const groupText = String(group || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  if (raw === "movie" || raw === "pelicula" || raw === "peliculas") return "movie";
+  if (raw === "serie" || raw === "series") return "serie";
+  if (raw === "live" || raw === "tv" || raw === "canal") return "live";
+
+  if (groupText.startsWith("peliculas") || groupText.startsWith("peliculas |")) return "movie";
+  if (groupText.startsWith("series") || groupText.startsWith("series |")) return "serie";
+  if (groupText.startsWith("tv") || groupText.startsWith("tv |")) return "live";
+
+  return "live";
+}
+
+function normalizeM3uExtinfLine(extinfLine, defaultType, defaultGroup) {
+  const line = String(extinfLine || "").trim();
+  if (!line.startsWith("#EXTINF")) return line;
+
+  const groupMatch = line.match(/group-title="([^"]*)"/i);
+  const group = groupMatch ? groupMatch[1] : defaultGroup;
+  const contentType = normalizeM3uContentType(defaultType, group);
+
+  if (/tvg-type="/i.test(line)) {
+    return line;
+  }
+
+  return line.replace("#EXTINF:-1", `#EXTINF:-1 tvg-type="${contentType}"`);
+}
+
+
 function escapeM3uAttribute(value) {
   return String(value || "")
     .replace(/"/g, "'")
@@ -1734,7 +1769,25 @@ function getM3uExistingUrlHashes(m3uText) {
   return hashes;
 }
 
-function buildM3uEntry({ name, group, streamUrl, logoUrl, tvgId }) {
+function buildM3uEntry({ name, group, streamUrl, logoUrl, tvgId, contentType }) {
+  const safeName = escapeM3uAttribute(name) || "Contenido agregado";
+  const safeGroup = escapeM3uAttribute(group) || "TV | Agregados";
+  const safeLogo = escapeM3uAttribute(logoUrl);
+  const safeTvgId = escapeM3uAttribute(tvgId);
+  const safeType = normalizeM3uContentType(contentType, safeGroup);
+  const cleanUrl = String(streamUrl || "").trim();
+
+  const attrs = [
+    `tvg-type="${safeType}"`,
+    safeTvgId ? `tvg-id="${safeTvgId}"` : "",
+    `tvg-name="${safeName}"`,
+    safeLogo ? `tvg-logo="${safeLogo}"` : "",
+    `group-title="${safeGroup}"`
+  ].filter(Boolean).join(" ");
+
+  return `#EXTINF:-1 ${attrs},${safeName}\n${cleanUrl}`;
+}
+) {
   const safeName = escapeM3uAttribute(name) || "Contenido agregado";
   const safeGroup = escapeM3uAttribute(group) || "Agregados";
   const safeLogo = escapeM3uAttribute(logoUrl);
@@ -1751,7 +1804,7 @@ function buildM3uEntry({ name, group, streamUrl, logoUrl, tvgId }) {
   return `#EXTINF:-1 ${attrs},${safeName}\n${cleanUrl}`;
 }
 
-function parseM3uBlocksForAppend(rawText, defaultGroup) {
+function parseM3uBlocksForAppend(rawText, defaultGroup, defaultType = "live") {
   const lines = String(rawText || "")
     .replace(/\r/g, "")
     .split("\n")
@@ -1771,7 +1824,8 @@ function parseM3uBlocksForAppend(rawText, defaultGroup) {
       const url = lines[i + 1] || "";
 
       if (url && !url.startsWith("#") && /^https?:\/\//i.test(url)) {
-        entries.push(`${line}\n${url}`);
+        const normalizedExtinf = normalizeM3uExtinfLine(line, defaultType, defaultGroup);
+        entries.push(`${normalizedExtinf}\n${url}`);
         i += 1;
       }
 
@@ -1782,16 +1836,18 @@ function parseM3uBlocksForAppend(rawText, defaultGroup) {
       const index = entries.length + 1;
       entries.push(buildM3uEntry({
         name: `Contenido agregado ${index}`,
-        group: defaultGroup || "Agregados",
+        group: defaultGroup || "TV | Agregados",
         streamUrl: line,
         logoUrl: "",
-        tvgId: ""
+        tvgId: "",
+        contentType: defaultType
       }));
     }
   }
 
   return entries;
 }
+
 
 function appendUniqueM3uEntries(originalM3u, entries) {
   const existingHashes = getM3uExistingUrlHashes(originalM3u);
@@ -1977,6 +2033,7 @@ app.post("/admin/api/m3u/add-entry", requireAdmin, async (req, res) => {
     const streamUrl = String(req.body.streamUrl || "").trim();
     const logoUrl = String(req.body.logoUrl || "").trim();
     const tvgId = String(req.body.tvgId || "").trim();
+    const contentType = normalizeM3uContentType(req.body.contentType, group);
 
     if (!name) {
       return res.status(400).json({
@@ -1993,7 +2050,7 @@ app.post("/admin/api/m3u/add-entry", requireAdmin, async (req, res) => {
     }
 
     const originalM3u = await downloadGistM3uRaw(config.rawUrl);
-    const entry = buildM3uEntry({ name, group, streamUrl, logoUrl, tvgId });
+    const entry = buildM3uEntry({ name, group, streamUrl, logoUrl, tvgId, contentType });
     const result = appendUniqueM3uEntries(originalM3u, [entry]);
 
     if (result.added <= 0) {
@@ -2032,7 +2089,8 @@ app.post("/admin/api/m3u/import", requireAdmin, async (req, res) => {
     if (!config) return;
 
     const m3uText = String(req.body.m3uText || "").trim();
-    const defaultGroup = String(req.body.defaultGroup || "Agregados").trim();
+    const defaultGroup = String(req.body.defaultGroup || "TV | Agregados").trim();
+    const defaultType = normalizeM3uContentType(req.body.defaultType, defaultGroup);
 
     if (!m3uText) {
       return res.status(400).json({
@@ -2041,7 +2099,7 @@ app.post("/admin/api/m3u/import", requireAdmin, async (req, res) => {
       });
     }
 
-    const entries = parseM3uBlocksForAppend(m3uText, defaultGroup);
+    const entries = parseM3uBlocksForAppend(m3uText, defaultGroup, defaultType);
 
     if (!entries.length) {
       return res.status(400).json({
