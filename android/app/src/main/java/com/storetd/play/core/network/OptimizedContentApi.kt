@@ -8,6 +8,20 @@ import java.net.URL
 import java.net.URLEncoder
 
 object OptimizedContentApi {
+    data class SeriesFolderLite(
+        val key: String,
+        val title: String,
+        val group: String,
+        val posterUrl: String?,
+        val episodeCount: Int
+    )
+
+    data class MovieCategoryLite(
+        val key: String,
+        val title: String,
+        val itemCount: Int
+    )
+
     private const val CONNECT_TIMEOUT_MS = 8000
     private const val READ_TIMEOUT_MS = 15000
 
@@ -75,6 +89,172 @@ object OptimizedContentApi {
         }
 
         return result
+    }
+
+
+    fun loadSeriesFoldersLite(activationCode: String): List<SeriesFolderLite> {
+        val base = BuildConfig.API_BASE_URL.trim().trimEnd('/')
+        val code = activationCode.trim()
+
+        if (base.isBlank() || code.isBlank()) return emptyList()
+
+        val encodedCode = URLEncoder.encode(code, "UTF-8")
+        val requestUrl = "$base/api/content/series-folders-lite?code=$encodedCode&autoRefresh=0"
+        val raw = readUrl(requestUrl)
+        val json = JSONObject(raw)
+
+        if (!json.optBoolean("success", true)) return emptyList()
+
+        val folders = json.optJSONArray("folders") ?: return emptyList()
+        val result = mutableListOf<SeriesFolderLite>()
+
+        for (i in 0 until folders.length()) {
+            val obj = folders.optJSONObject(i) ?: continue
+
+            val key = readString(obj, "key")
+            val title = readString(obj, "title", "name").ifBlank { "Serie sin título" }
+
+            if (key.isNotBlank()) {
+                result.add(
+                    SeriesFolderLite(
+                        key = key,
+                        title = title,
+                        group = readString(obj, "group").ifBlank { title },
+                        posterUrl = readNullableString(obj, "posterUrl", "poster_url", "logoUrl", "logo"),
+                        episodeCount = obj.optInt("episodeCount", 0)
+                    )
+                )
+            }
+        }
+
+        return result
+    }
+
+    fun loadSeriesFolderEpisodes(
+        activationCode: String,
+        key: String
+    ): List<Channel> {
+        val base = BuildConfig.API_BASE_URL.trim().trimEnd('/')
+        val code = activationCode.trim()
+        val safeKey = key.trim()
+
+        if (base.isBlank() || code.isBlank() || safeKey.isBlank()) return emptyList()
+
+        val encodedCode = URLEncoder.encode(code, "UTF-8")
+        val encodedKey = URLEncoder.encode(safeKey, "UTF-8")
+        val requestUrl = "$base/api/content/series-folder?code=$encodedCode&key=$encodedKey&autoRefresh=0"
+        val raw = readUrl(requestUrl)
+        val json = JSONObject(raw)
+
+        if (!json.optBoolean("success", true)) return emptyList()
+
+        val folder = json.optJSONObject("folder")
+        val folderTitle = folder?.optString("title").orEmpty().ifBlank { "Serie" }
+        val folderPoster = folder?.optString("posterUrl").orEmpty().ifBlank { null }
+
+        val items = json.optJSONArray("items") ?: return emptyList()
+        val result = mutableListOf<Channel>()
+
+        for (i in 0 until items.length()) {
+            val obj = items.optJSONObject(i) ?: continue
+            val channel = parseSeriesEpisode(obj, folderTitle, folderPoster)
+
+            if (channel.streamUrl.isNotBlank()) {
+                result.add(channel)
+            }
+        }
+
+        return result
+    }
+
+    fun loadMovieCategoriesLite(activationCode: String): List<MovieCategoryLite> {
+        val base = BuildConfig.API_BASE_URL.trim().trimEnd('/')
+        val code = activationCode.trim()
+
+        if (base.isBlank() || code.isBlank()) return emptyList()
+
+        val encodedCode = URLEncoder.encode(code, "UTF-8")
+        val requestUrl = "$base/api/content/movie-categories-lite?code=$encodedCode&autoRefresh=0"
+        val raw = readUrl(requestUrl)
+        val json = JSONObject(raw)
+
+        if (!json.optBoolean("success", true)) return emptyList()
+
+        val categories = json.optJSONArray("categories") ?: return emptyList()
+        val result = mutableListOf<MovieCategoryLite>()
+
+        for (i in 0 until categories.length()) {
+            val obj = categories.optJSONObject(i) ?: continue
+
+            val key = readString(obj, "key")
+            val title = readString(obj, "title", "name").ifBlank { "Sin categoría" }
+
+            if (key.isNotBlank()) {
+                result.add(
+                    MovieCategoryLite(
+                        key = key,
+                        title = title,
+                        itemCount = obj.optInt("itemCount", 0)
+                    )
+                )
+            }
+        }
+
+        return result
+    }
+
+    fun loadMovieCategoryItems(
+        activationCode: String,
+        key: String
+    ): List<Channel> {
+        val base = BuildConfig.API_BASE_URL.trim().trimEnd('/')
+        val code = activationCode.trim()
+        val safeKey = key.trim()
+
+        if (base.isBlank() || code.isBlank() || safeKey.isBlank()) return emptyList()
+
+        val encodedCode = URLEncoder.encode(code, "UTF-8")
+        val encodedKey = URLEncoder.encode(safeKey, "UTF-8")
+        val requestUrl = "$base/api/content/movie-category?code=$encodedCode&key=$encodedKey&autoRefresh=0"
+        val raw = readUrl(requestUrl)
+        val json = JSONObject(raw)
+
+        if (!json.optBoolean("success", true)) return emptyList()
+
+        val items = json.optJSONArray("items") ?: return emptyList()
+        val result = mutableListOf<Channel>()
+
+        for (i in 0 until items.length()) {
+            val obj = items.optJSONObject(i) ?: continue
+            val channel = parseChannel(obj)
+
+            if (channel.streamUrl.isNotBlank()) {
+                result.add(channel)
+            }
+        }
+
+        return result
+    }
+
+    private fun parseSeriesEpisode(
+        obj: JSONObject,
+        folderTitle: String,
+        folderPoster: String?
+    ): Channel {
+        val name = readString(obj, "name", "title").ifBlank { folderTitle }
+        val streamUrl = readString(obj, "streamUrl", "stream_url", "url")
+        val id = readString(obj, "id").ifBlank {
+            "$folderTitle|$name|$streamUrl".hashCode().toString()
+        }
+
+        return Channel(
+            id = id,
+            name = name,
+            streamUrl = streamUrl,
+            logoUrl = readNullableString(obj, "logoUrl", "logo_url", "logo") ?: folderPoster,
+            group = folderTitle,
+            tvgId = readNullableString(obj, "tvgId", "tvg_id")
+        )
     }
 
     fun loadSection(
@@ -196,27 +376,6 @@ object OptimizedContentApi {
         }
 
         return channels
-    }
-
-    private fun parseSeriesEpisode(
-        obj: JSONObject,
-        folderTitle: String,
-        folderPoster: String?
-    ): Channel {
-        val name = readString(obj, "name", "title").ifBlank { folderTitle }
-        val streamUrl = readString(obj, "streamUrl", "stream_url", "url")
-        val id = readString(obj, "id").ifBlank {
-            "$folderTitle|$name|$streamUrl".hashCode().toString()
-        }
-
-        return Channel(
-            id = id,
-            name = name,
-            streamUrl = streamUrl,
-            logoUrl = readNullableString(obj, "logoUrl", "logo_url", "logo") ?: folderPoster,
-            group = folderTitle,
-            tvgId = readNullableString(obj, "tvgId", "tvg_id")
-        )
     }
 
     private fun readUrl(requestUrl: String): String {
