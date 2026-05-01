@@ -173,7 +173,10 @@ fun LiveTvScreen(
             isLazySeriesLoading = true
             val folders = withContext(Dispatchers.IO) {
                 runCatching {
-                    OptimizedContentApi.loadSeriesFoldersLite(activationCode)
+                    OptimizedContentApi.loadSeriesFoldersLite(
+                        activationCode = activationCode,
+                        includeAdult = !ParentalControl.isAdultContentHidden(context)
+                    )
                 }.getOrDefault(emptyList())
             }
             isLazySeriesLoading = false
@@ -188,7 +191,10 @@ fun LiveTvScreen(
             isLazyMoviesLoading = true
             val categories = withContext(Dispatchers.IO) {
                 runCatching {
-                    OptimizedContentApi.loadMovieCategoriesLite(activationCode)
+                    OptimizedContentApi.loadMovieCategoriesLite(
+                        activationCode = activationCode,
+                        includeAdult = !ParentalControl.isAdultContentHidden(context)
+                    )
                 }.getOrDefault(emptyList())
             }
             isLazyMoviesLoading = false
@@ -231,7 +237,8 @@ fun LiveTvScreen(
                 runCatching {
                     OptimizedContentApi.loadSeriesFolderEpisodes(
                         activationCode = activationCode,
-                        key = key
+                        key = key,
+                        includeAdult = !ParentalControl.isAdultContentHidden(context)
                     )
                 }.getOrDefault(emptyList())
             }
@@ -255,7 +262,8 @@ fun LiveTvScreen(
                 runCatching {
                     OptimizedContentApi.loadMovieCategoryItems(
                         activationCode = activationCode,
-                        key = key
+                        key = key,
+                        includeAdult = !ParentalControl.isAdultContentHidden(context)
                     )
                 }.getOrDefault(emptyList())
             }

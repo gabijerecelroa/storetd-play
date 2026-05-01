@@ -92,14 +92,18 @@ object OptimizedContentApi {
     }
 
 
-    fun loadSeriesFoldersLite(activationCode: String): List<SeriesFolderLite> {
+    fun loadSeriesFoldersLite(
+        activationCode: String,
+        includeAdult: Boolean = false
+    ): List<SeriesFolderLite> {
         val base = BuildConfig.API_BASE_URL.trim().trimEnd('/')
         val code = activationCode.trim()
 
         if (base.isBlank() || code.isBlank()) return emptyList()
 
         val encodedCode = URLEncoder.encode(code, "UTF-8")
-        val requestUrl = "$base/api/content/series-folders-lite?code=$encodedCode&autoRefresh=0"
+        val adultParam = if (includeAdult) "&includeAdult=1" else ""
+        val requestUrl = "$base/api/content/series-folders-lite?code=$encodedCode&autoRefresh=0$adultParam"
         val raw = readUrl(requestUrl)
         val json = JSONObject(raw)
 
@@ -132,7 +136,8 @@ object OptimizedContentApi {
 
     fun loadSeriesFolderEpisodes(
         activationCode: String,
-        key: String
+        key: String,
+        includeAdult: Boolean = false
     ): List<Channel> {
         val base = BuildConfig.API_BASE_URL.trim().trimEnd('/')
         val code = activationCode.trim()
@@ -142,7 +147,8 @@ object OptimizedContentApi {
 
         val encodedCode = URLEncoder.encode(code, "UTF-8")
         val encodedKey = URLEncoder.encode(safeKey, "UTF-8")
-        val requestUrl = "$base/api/content/series-folder?code=$encodedCode&key=$encodedKey&autoRefresh=0"
+        val adultParam = if (includeAdult) "&includeAdult=1" else ""
+        val requestUrl = "$base/api/content/series-folder?code=$encodedCode&key=$encodedKey&autoRefresh=0$adultParam"
         val raw = readUrl(requestUrl)
         val json = JSONObject(raw)
 
@@ -167,14 +173,18 @@ object OptimizedContentApi {
         return result
     }
 
-    fun loadMovieCategoriesLite(activationCode: String): List<MovieCategoryLite> {
+    fun loadMovieCategoriesLite(
+        activationCode: String,
+        includeAdult: Boolean = false
+    ): List<MovieCategoryLite> {
         val base = BuildConfig.API_BASE_URL.trim().trimEnd('/')
         val code = activationCode.trim()
 
         if (base.isBlank() || code.isBlank()) return emptyList()
 
         val encodedCode = URLEncoder.encode(code, "UTF-8")
-        val requestUrl = "$base/api/content/movie-categories-lite?code=$encodedCode&autoRefresh=0"
+        val adultParam = if (includeAdult) "&includeAdult=1" else ""
+        val requestUrl = "$base/api/content/movie-categories-lite?code=$encodedCode&autoRefresh=0$adultParam"
         val raw = readUrl(requestUrl)
         val json = JSONObject(raw)
 
@@ -205,7 +215,8 @@ object OptimizedContentApi {
 
     fun loadMovieCategoryItems(
         activationCode: String,
-        key: String
+        key: String,
+        includeAdult: Boolean = false
     ): List<Channel> {
         val base = BuildConfig.API_BASE_URL.trim().trimEnd('/')
         val code = activationCode.trim()
@@ -215,7 +226,8 @@ object OptimizedContentApi {
 
         val encodedCode = URLEncoder.encode(code, "UTF-8")
         val encodedKey = URLEncoder.encode(safeKey, "UTF-8")
-        val requestUrl = "$base/api/content/movie-category?code=$encodedCode&key=$encodedKey&autoRefresh=0"
+        val adultParam = if (includeAdult) "&includeAdult=1" else ""
+        val requestUrl = "$base/api/content/movie-category?code=$encodedCode&key=$encodedKey&autoRefresh=0$adultParam"
         val raw = readUrl(requestUrl)
         val json = JSONObject(raw)
 
