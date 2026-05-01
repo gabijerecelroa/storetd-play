@@ -1740,6 +1740,57 @@ private fun ChannelRow(
             }
         }
     }
+    if (showReportedDialog) {
+        AlertDialog(
+            onDismissRequest = { showReportedDialog = false },
+            title = { Text("Este contenido fue reportado") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Este enlace fue marcado como caído o no disponible en este dispositivo.")
+
+                    Button(
+                        onClick = {
+                            showReportedDialog = false
+                            onPlay()
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Reproducir igual")
+                    }
+
+                    if (onSkipNext != null) {
+                        OutlinedButton(
+                            onClick = {
+                                showReportedDialog = false
+                                onSkipNext()
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Siguiente")
+                        }
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            BrokenLinkStore.clear(context, channel.streamUrl)
+                            isReportedBroken = false
+                            showReportedDialog = false
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Quitar marca local")
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showReportedDialog = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
 }
 
 
@@ -2086,55 +2137,6 @@ private fun fastEpisodeKey(name: String): String {
 
 private fun formatLiveEpgTime(value: Long): String {
     return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(value))
-    if (showReportedDialog) {
-        AlertDialog(
-            onDismissRequest = { showReportedDialog = false },
-            title = { Text("Este contenido fue reportado") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Este enlace fue marcado como caído o no disponible en este dispositivo.")
 
-                    Button(
-                        onClick = {
-                            showReportedDialog = false
-                            onPlay()
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Reproducir igual")
-                    }
-
-                    if (onSkipNext != null) {
-                        OutlinedButton(
-                            onClick = {
-                                showReportedDialog = false
-                                onSkipNext()
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Siguiente")
-                        }
-                    }
-
-                    OutlinedButton(
-                        onClick = {
-                            BrokenLinkStore.clear(context, channel.streamUrl)
-                            isReportedBroken = false
-                            showReportedDialog = false
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Quitar marca local")
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { showReportedDialog = false }) {
-                    Text("Cancelar")
-                }
-            }
-        )
-    }
 
 }
