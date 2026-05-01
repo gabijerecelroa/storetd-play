@@ -409,13 +409,25 @@ fun PlayerScreen(
     ) {
         if (isSendingReport) return
 
+        val isBrokenLinkReport =
+            problemType.contains("enlace caído", ignoreCase = true) ||
+                problemType.contains("contenido no disponible", ignoreCase = true)
+
+        if (
+            isBrokenLinkReport &&
+            BrokenLinkStore.isReported(context, currentChannel.streamUrl)
+        ) {
+            reportMessage = "Este enlace ya estaba reportado."
+            showReportDialog = false
+            showControls = true
+            afterSend?.invoke()
+            return
+        }
+
         isSendingReport = true
         reportMessage = null
 
-        if (
-            problemType.contains("enlace caído", ignoreCase = true) ||
-            problemType.contains("contenido no disponible", ignoreCase = true)
-        ) {
+        if (isBrokenLinkReport) {
             BrokenLinkStore.markReported(context, currentChannel.streamUrl)
         }
 
