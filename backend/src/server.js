@@ -1713,11 +1713,11 @@ function normalizeM3uContentType(value, group) {
     .toLowerCase();
 
   if (raw === "movie" || raw === "pelicula" || raw === "peliculas") return "movie";
-  if (raw === "serie" || raw === "series") return "series";
+  if (raw === "serie" || raw === "series") return "serie";
   if (raw === "live" || raw === "tv" || raw === "canal") return "live";
 
   if (groupText.startsWith("peliculas") || groupText.startsWith("peliculas |")) return "movie";
-  if (groupText.startsWith("series") || groupText.startsWith("series |")) return "series";
+  if (groupText.startsWith("series") || groupText.startsWith("series |")) return "serie";
   if (groupText.startsWith("tv") || groupText.startsWith("tv |")) return "live";
 
   return "live";
@@ -2019,11 +2019,11 @@ function normalizeAdminM3uType(value, group) {
     .toLowerCase();
 
   if (raw === "movie" || raw === "pelicula" || raw === "peliculas") return "movie";
-  if (raw === "serie" || raw === "series") return "series";
+  if (raw === "serie" || raw === "series") return "serie";
   if (raw === "live" || raw === "tv" || raw === "canal") return "live";
 
   if (groupText.startsWith("peliculas")) return "movie";
-  if (groupText.startsWith("series")) return "series";
+  if (groupText.startsWith("series")) return "serie";
   if (groupText.startsWith("tv")) return "live";
 
   return "live";
@@ -3232,6 +3232,47 @@ app.post("/admin/api/m3u/normalize-series-type", requireAdmin, async (req, res) 
     res.status(500).json({
       success: false,
       message: "No se pudo normalizar tvg-type de series.",
+      error: error.message
+    });
+  }
+});
+
+
+
+app.post("/admin/api/m3u/normalize-series-type-legacy", requireAdmin, async (req, res) => {
+  const config = requireGistConfig(res);
+  if (!config) return;
+
+  try {
+    const original = await downloadGistM3uRaw(config.rawUrl);
+    const normalized = original.replace(/tvg-type="series"/gi, 'tvg-type="serie"');
+    const changed = (original.match(/tvg-type="series"/gi) || []).length;
+
+    if (changed === 0) {
+      return res.json({
+        success: true,
+        changed: 0,
+        message: "No había entradas con tvg-type=series para volver a serie."
+      });
+    }
+
+    await updateGistFile({
+      token: config.token,
+      gistId: config.gistId,
+      filename: config.filename,
+      content: normalized
+    });
+
+    res.json({
+      success: true,
+      changed,
+      message: `Series restauradas: ${changed} entradas cambiadas a tvg-type=serie.`
+    });
+  } catch (error) {
+    console.error("Normalize series type legacy error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudo restaurar tvg-type de series.",
       error: error.message
     });
   }
