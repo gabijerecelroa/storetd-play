@@ -2253,7 +2253,8 @@
       }
 
       if (!response.ok) {
-        throw new Error(data.message || "Error de servidor");
+        const detail = data.message || data.error || data.details || response.statusText || "Error de servidor";
+        throw new Error(`${detail} (HTTP ${response.status})`);
       }
 
       return data;
