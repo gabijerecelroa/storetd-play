@@ -25,7 +25,10 @@ object OptimizedContentApi {
     private const val CONNECT_TIMEOUT_MS = 8000
     private const val READ_TIMEOUT_MS = 15000
 
-    fun refreshContent(activationCode: String): Boolean {
+    fun refreshContent(
+        activationCode: String,
+        async: Boolean = true
+    ): Boolean {
         val code = activationCode.trim()
         val base = BuildConfig.API_BASE_URL
             .trim()
@@ -34,7 +37,8 @@ object OptimizedContentApi {
         if (code.isBlank() || base.isBlank()) return false
 
         val encodedCode = URLEncoder.encode(code, "UTF-8")
-        val requestUrl = "$base/api/content/refresh-app?code=$encodedCode&async=1"
+        val asyncParam = if (async) "&async=1" else ""
+        val requestUrl = "$base/api/content/refresh-app?code=$encodedCode$asyncParam"
 
         val raw = postUrl(requestUrl)
         val json = JSONObject(raw)

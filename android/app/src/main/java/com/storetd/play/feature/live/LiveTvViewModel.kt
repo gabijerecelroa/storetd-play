@@ -229,14 +229,22 @@ class LiveTvViewModel(
         PlaylistDiskCache.clear(context, url)
 
         if (_uiState.value.contentMode == ContentMode.LiveTv) {
-            loadOptimizedLiveFromBackend(context.applicationContext, url)
+            loadOptimizedLiveFromBackend(
+                context = context.applicationContext,
+                urlValue = url,
+                forceBackendRefresh = true
+            )
             return
         }
 
         loadPlaylistFrom(context, url, forceRefresh = true)
     }
 
-    private fun loadOptimizedLiveFromBackend(context: Context, urlValue: String) {
+    private fun loadOptimizedLiveFromBackend(
+        context: Context,
+        urlValue: String,
+        forceBackendRefresh: Boolean = false
+    ) {
         val appContext = context.applicationContext
         val url = urlValue.trim()
 
@@ -266,6 +274,15 @@ class LiveTvViewModel(
                 if (activationCode.isBlank()) {
                     emptyList()
                 } else {
+                    if (forceBackendRefresh) {
+                        runCatching {
+                            OptimizedContentApi.refreshContent(
+                                activationCode = activationCode,
+                                async = false
+                            )
+                        }
+                    }
+
                     OptimizedContentApi.loadSection(
                         activationCode = activationCode,
                         section = "live"
