@@ -2457,6 +2457,156 @@ app.post("/admin/api/m3u/remove-duplicates", requireAdmin, async (req, res) => {
 });
 
 
+
+function listM3uCategoriesForAdmin(m3uText) {
+  const lines = String(m3uText || "").replace(/\r/g, "").split("\n");
+  const categories = new Map();
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const extinf = lines[i] || "";
+    const url = lines[i + 1] || "";
+
+    if (!extinf.trim().startsWith("#EXTINF")) continue;
+    if (!url.trim() || url.trim().startsWith("#")) continue;
+
+    const group = readM3uAttributeFromLine(extinf, "group-title") || "Sin categoría";
+    const name = readM3uDisplayName(extinf) || readM3uAttributeFromLine(extinf, "tvg-name") || "Sin nombre";
+
+    if (!categories.has(group)) {
+      categories.set(group, {
+        name: group,
+        count: 0,
+        samples: []
+      });
+    }
+
+    const item = categories.get(group);
+    item.count += 1;
+
+    if (item.samples.length < 3) {
+      item.samples.push(name);
+    }
+  }
+
+  return Array.from(categories.values())
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function removeM3uEntriesByGroup(m3uText, targetGroup) {
+  const groupToRemove = String(targetGroup || "").trim();
+  const lines = String(m3uText || "").replace(/\r/g, "").split("\n");
+  const output = [];
+  let removed = 0;
+
+  if (!groupToRemove) {
+    return {
+      content: String(m3uText || ""),
+      removed: 0
+    };
+  }
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i] || "";
+    const nextLine = lines[i + 1] || "";
+
+    if (
+      line.trim().startsWith("#EXTINF") &&
+      nextLine.trim() &&
+      !nextLine.trim().startsWith("#")
+    ) {
+      const group = readM3uAttributeFromLine(line, "group-title") || "Sin categoría";
+
+      if (group === groupToRemove) {
+        removed += 1;
+        i += 1;
+        continue;
+      }
+
+      output.push(line);
+      output.push(nextLine);
+      i += 1;
+      continue;
+    }
+
+    output.push(line);
+  }
+
+  return {
+    content: output.join("\n"),
+    removed
+  };
+}
+
+
+
+app.get("/admin/api/m3u/categories", requireAdmin, async (req, res) => {
+  try {
+    const config = requireGistConfig(res);
+    if (!config) return;
+
+    const originalM3u = await downloadGistM3uRaw(config.rawUrl);
+    const categories = listM3uCategoriesForAdmin(originalM3u);
+
+    res.json({
+      success: true,
+      count: categories.length,
+      categories
+    });
+  } catch (error) {
+    console.error("M3U categories list error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "No se pudieron cargar categorías."
+    });
+  }
+});
+
+app.post("/admin/api/m3u/delete-group", requireAdmin, async (req, res) => {
+  try {
+    const config = requireGistConfig(res);
+    if (!config) return;
+
+    const group = String(req.body.group || "").trim();
+
+    if (!group) {
+      return res.status(400).json({
+        success: false,
+        message: "Falta categoría para eliminar."
+      });
+    }
+
+    const originalM3u = await downloadGistM3uRaw(config.rawUrl);
+    const result = removeM3uEntriesByGroup(originalM3u, group);
+
+    if (result.removed <= 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No encontré entradas con esa categoría."
+      });
+    }
+
+    await updateGistFile({
+      token: config.token,
+      gistId: config.gistId,
+      filename: config.filename,
+      content: result.content
+    });
+
+    res.json({
+      success: true,
+      message: `Categoría eliminada de lista.m3u: ${group}. Entradas eliminadas: ${result.removed}.`,
+      removed: result.removed
+    });
+  } catch (error) {
+    console.error("M3U delete group error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "No se pudo eliminar la categoría."
+    });
+  }
+});
+
+
 app.get("/admin/api/m3u/validate", requireAdmin, async (req, res) => {
   try {
     const config = requireGistConfig(res);
