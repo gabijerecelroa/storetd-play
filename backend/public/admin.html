@@ -2056,6 +2056,13 @@
           <label>Lista M3U o links</label>
           <textarea id="m3uImportText" class="m3u-import-box" placeholder="#EXTM3U&#10;#EXTINF:-1 group-title=&quot;Peliculas | 2026&quot;,Mi Película&#10;https://..."></textarea>
 
+          <label>O seleccionar archivo M3U desde el dispositivo</label>
+          <input id="m3uImportFile" type="file" accept=".m3u,.m3u8,.txt,text/plain,application/x-mpegURL" />
+
+          <div class="actions">
+            <button class="secondary" onclick="importM3uFile()">Importar archivo seleccionado</button>
+          </div>
+
           <div class="actions">
             <button onclick="importM3uList()">Importar a lista.m3u</button>
             <button class="secondary" onclick="refreshOptimizedContentForCode(document.getElementById('m3uImportActivationCode').value)">Actualizar contenido</button>
@@ -3397,6 +3404,59 @@
         showMessage(error.message);
       }
     }
+
+
+    async function importM3uFile() {
+      const fileInput = document.getElementById("m3uImportFile");
+      const file = fileInput?.files?.[0];
+
+      if (!file) {
+        showMessage("Seleccioná un archivo M3U primero.");
+        return;
+      }
+
+      const defaultGroup = document.getElementById("m3uImportDefaultGroup")?.value || "TV | Agregados";
+      const defaultType = document.getElementById("m3uImportDefaultType")?.value || "live";
+
+      if (!confirm(`¿Importar el archivo ${file.name} a lista.m3u?`)) {
+        return;
+      }
+
+      try {
+        showMessage("Leyendo archivo M3U...");
+
+        const m3uText = await file.text();
+
+        if (!m3uText.trim()) {
+          showMessage("El archivo está vacío.");
+          return;
+        }
+
+        showMessage("Importando archivo a lista.m3u...");
+
+        const data = await api("/admin/api/m3u/import", {
+          method: "POST",
+          body: JSON.stringify({
+            m3uText,
+            defaultGroup,
+            defaultType
+          })
+        });
+
+        showMessage(data.message || "Archivo importado.");
+
+        fileInput.value = "";
+
+        const code = document.getElementById("m3uImportActivationCode")?.value || "";
+
+        if (code.trim() && confirm("¿Actualizar contenido optimizado ahora?")) {
+          await refreshOptimizedContentForCode(code);
+        }
+      } catch (error) {
+        showMessage(error.message || "No se pudo importar el archivo.");
+      }
+    }
+
 
     async function importM3uList() {
       const body = {
