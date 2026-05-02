@@ -1578,6 +1578,32 @@
       border-bottom: 0;
     }
 
+  
+    .m3u-duplicate-list {
+      margin-top: 14px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .m3u-duplicate-card {
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(239, 68, 68, 0.24);
+      background: rgba(254, 242, 242, 0.75);
+    }
+
+    .m3u-duplicate-card strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .m3u-duplicate-card small {
+      display: block;
+      color: #6b7280;
+      word-break: break-word;
+      margin-top: 4px;
+    }
+
   </style>
 </head>
 <body>
@@ -1839,9 +1865,14 @@
           <div class="actions">
             <button class="secondary" onclick="downloadM3uBackup()">Descargar backup lista.m3u</button>
             <button class="secondary" onclick="validateM3uList()">Validar lista.m3u</button>
+
+            <button class="secondary" onclick="findM3uDuplicates()">Buscar duplicados</button>
+            <button class="danger" onclick="removeM3uDuplicates()">Limpiar duplicados</button>
+
           </div>
 
           <div id="m3uValidationResult"></div>
+          <div id="m3uDuplicatesResult"></div>
 
 
           <div class="toolbar">
@@ -2792,6 +2823,81 @@
 
 
 
+
+
+
+    async function findM3uDuplicates() {
+      const box = document.getElementById("m3uDuplicatesResult");
+
+      try {
+        showMessage("Buscando duplicados en lista.m3u...");
+
+        const data = await api("/admin/api/m3u/duplicates");
+        const duplicates = data.duplicates || [];
+
+        if (box) {
+          if (!duplicates.length) {
+            box.innerHTML = "<p class='muted'>No se encontraron URLs duplicadas.</p>";
+          } else {
+            box.innerHTML = `
+              <div class="m3u-help">
+                Duplicados encontrados: <strong>${escapeHtml(data.duplicateEntries || 0)}</strong>.
+                Se muestra la primera copia que se conserva y las copias repetidas.
+              </div>
+
+              <div class="m3u-duplicate-list">
+                ${duplicates.map((item) => `
+                  <div class="m3u-duplicate-card">
+                    <strong>${escapeHtml(item.keep?.name || "Sin nombre")}</strong>
+                    <div class="muted">Copias de la misma URL: ${escapeHtml(item.count || 0)}</div>
+                    <small>Se conserva: línea ${escapeHtml(item.keep?.lineNumber || "")} · ${escapeHtml(item.keep?.group || "")}</small>
+                    ${(item.duplicates || []).map((dup) => `
+                      <small>Duplicado: línea ${escapeHtml(dup.lineNumber || "")} · ${escapeHtml(dup.name || "")} · ${escapeHtml(dup.group || "")}</small>
+                    `).join("")}
+                  </div>
+                `).join("")}
+              </div>
+            `;
+          }
+        }
+
+        showMessage(`Duplicados encontrados: ${data.duplicateEntries || 0}`);
+      } catch (error) {
+        showMessage(error.message);
+      }
+    }
+
+    async function removeM3uDuplicates() {
+      if (!confirm("¿Limpiar URLs duplicadas de lista.m3u? Se conservará la primera aparición de cada URL.")) {
+        return;
+      }
+
+      if (!confirm("Recomendado: descargá un backup antes. ¿Continuar igualmente?")) {
+        return;
+      }
+
+      try {
+        showMessage("Limpiando duplicados de lista.m3u...");
+
+        const data = await api("/admin/api/m3u/remove-duplicates", {
+          method: "POST",
+          body: JSON.stringify({})
+        });
+
+        showMessage(data.message || "Duplicados limpiados.");
+
+        await validateM3uList();
+        await findM3uDuplicates();
+
+        const code = document.getElementById("m3uAdminActivationCode")?.value || "";
+
+        if (code.trim() && confirm("¿Actualizar contenido optimizado ahora?")) {
+          await refreshOptimizedContentForCode(code);
+        }
+      } catch (error) {
+        showMessage(error.message);
+      }
+    }
 
 
     async function downloadM3uBackup() {
