@@ -90,6 +90,7 @@ fun SettingsScreen(
 
     var message by remember { mutableStateOf("") }
     var isMaintenanceRunning by remember { mutableStateOf(false) }
+    var isDiagnosticRunning by remember { mutableStateOf(false) }
     var syncStatusText by remember { mutableStateOf(formatContentSyncStatus(context)) }
     var showUnlockDialog by remember { mutableStateOf(false) }
     var showChangePinDialog by remember { mutableStateOf(false) }
@@ -337,6 +338,67 @@ fun SettingsScreen(
                             "Sincronizando..."
                         } else {
                             "Limpiar caché local y sincronizar"
+                        }
+                    )
+                }
+
+                OutlinedButton(
+                    onClick = {
+                        if (isDiagnosticRunning) return@OutlinedButton
+
+                        val activationCode = account.activationCode.trim()
+
+                        if (activationCode.isBlank()) {
+                            message = "No hay código de activación para probar contenido."
+                            return@OutlinedButton
+                        }
+
+                        isDiagnosticRunning = true
+                        message = "Probando conexión y contenido..."
+
+                        maintenanceScope.launch {
+                            val includeAdult = !adultHidden
+
+                            val result = withContext(Dispatchers.IO) {
+                                runCatching {
+                                    val liveCount = OptimizedContentApi.loadSection(
+                                        activationCode = activationCode,
+                                        section = "live",
+                                        includeAdult = includeAdult
+                                    ).size
+
+                                    val movieCategories = OptimizedContentApi.loadMovieCategoriesLite(
+                                        activationCode = activationCode,
+                                        includeAdult = includeAdult
+                                    )
+
+                                    val movieCount = movieCategories.sumOf { it.itemCount }
+
+                                    val seriesFolders = OptimizedContentApi.loadSeriesFoldersLite(
+                                        activationCode = activationCode,
+                                        includeAdult = includeAdult
+                                    )
+
+                                    val episodeCount = seriesFolders.sumOf { it.episodeCount }
+
+                                    "Backend conectado. TV: $liveCount · Películas: $movieCount · Series: ${seriesFolders.size} carpetas / $episodeCount episodios"
+                                }.getOrElse {
+                                    "No se pudo conectar con el backend."
+                                }
+                            }
+
+                            message = result
+                            isDiagnosticRunning = false
+                        }
+                    },
+                    enabled = !isDiagnosticRunning,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        if (isDiagnosticRunning) {
+                            "Probando conexión..."
+                        } else {
+                            "Probar conexión y contenido"
                         }
                     )
                 }
