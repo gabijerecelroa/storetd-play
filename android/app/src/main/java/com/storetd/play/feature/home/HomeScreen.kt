@@ -161,87 +161,86 @@ fun HomeScreen(
             return
         }
 
+        if (activationCode.isBlank()) {
+            globalRefreshMessage = "No hay código de activación para actualizar"
+            return
+        }
+
         globalRefreshRunning = true
-        globalRefreshMessage = "Iniciando actualización..."
+        globalRefreshMessage = "Actualizando contenido..."
 
         refreshScope.launch {
-            val started = withContext(Dispatchers.IO) {
-                if (activationCode.isNotBlank()) {
-                    runCatching {
-                        OptimizedContentApi.refreshContent(activationCode)
-                    }.getOrDefault(false)
-                } else {
-                    false
-                }
-            }
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val refreshed = OptimizedContentApi.refreshContent(
+                        activationCode = activationCode,
+                        async = false
+                    )
 
-            if (started) {
-                globalRefreshMessage = "Actualización iniciada en backend"
-                delay(1600)
-                globalRefreshRunning = false
-                globalRefreshMessage = null
-
-                // Tomar la versión nueva en segundo plano sin bloquear la app.
-                refreshScope.launch {
-                    delay(25000)
-
-                    val updatedItems = withContext(Dispatchers.IO) {
-                        val optimizedSections = if (activationCode.isNotBlank()) {
-                            runCatching {
-                                OptimizedContentApi.loadAllSections(activationCode)
-                            }.getOrDefault(emptyMap())
-                        } else {
-                            emptyMap()
-                        }
-
-                        if (optimizedSections.isNotEmpty()) {
-                            val allItems = mutableListOf<Channel>()
-
-                            optimizedSections.forEach { entry ->
-                                val mode = when (entry.key) {
-                                    "live" -> ContentMode.LiveTv
-                                    "movies" -> ContentMode.Movies
-                                    "series" -> ContentMode.Series
-                                    else -> null
-                                }
-
-                                if (mode != null && entry.value.isNotEmpty()) {
-                                    PlaylistDiskCache.save(
-                                        context = context.applicationContext,
-                                        url = LiveTvViewModel.sectionCacheKey(playlistUrl, mode),
-                                        channels = entry.value
-                                    )
-
-                                    allItems.addAll(entry.value)
-                                }
-                            }
-
-                            if (allItems.isNotEmpty()) {
-                                PlaylistMemoryCache.save(playlistUrl, allItems)
-                                PlaylistDiskCache.save(context.applicationContext, playlistUrl, allItems)
-                            }
-
-                            allItems
-                        } else {
-                            emptyList()
-                        }
+                    if (!refreshed) {
+                        return@runCatching 0
                     }
 
-                    if (updatedItems.isNotEmpty()) {
-                        withContext(Dispatchers.Default) {
-                            LiveTvViewModel.warmScreenStateCaches(
-                                url = playlistUrl,
-                                channels = updatedItems
+                    PlaylistMemoryCache.clear(playlistUrl)
+                    PlaylistDiskCache.clear(context.applicationContext, playlistUrl)
+
+                    ContentMode.values().forEach { mode ->
+                        PlaylistDiskCache.clear(
+                            context = context.applicationContext,
+                            url = LiveTvViewModel.sectionCacheKey(playlistUrl, mode)
+                        )
+                    }
+
+                    val optimizedSections = OptimizedContentApi.loadAllSections(activationCode)
+
+                    if (optimizedSections.isEmpty()) {
+                        return@runCatching 0
+                    }
+
+                    val allItems = mutableListOf<Channel>()
+
+                    optimizedSections.forEach { entry ->
+                        val mode = when (entry.key) {
+                            "live" -> ContentMode.LiveTv
+                            "movies" -> ContentMode.Movies
+                            "series" -> ContentMode.Series
+                            else -> null
+                        }
+
+                        if (mode != null && entry.value.isNotEmpty()) {
+                            PlaylistDiskCache.save(
+                                context = context.applicationContext,
+                                url = LiveTvViewModel.sectionCacheKey(playlistUrl, mode),
+                                channels = entry.value
                             )
+
+                            allItems.addAll(entry.value)
                         }
                     }
-                }
-            } else {
-                globalRefreshMessage = "Backend no respondió. Se mantiene el contenido guardado."
-                delay(1800)
-                globalRefreshRunning = false
-                globalRefreshMessage = null
+
+                    if (allItems.isNotEmpty()) {
+                        PlaylistMemoryCache.save(playlistUrl, allItems)
+                        PlaylistDiskCache.save(context.applicationContext, playlistUrl, allItems)
+
+                        LiveTvViewModel.warmScreenStateCaches(
+                            url = playlistUrl,
+                            channels = allItems
+                        )
+                    }
+
+                    allItems.size
+                }.getOrDefault(0)
             }
+
+            if (result > 0) {
+                globalRefreshMessage = "Contenido actualizado."
+            } else {
+                globalRefreshMessage = "No se pudo actualizar. Se mantiene el contenido guardado."
+            }
+
+            delay(2500)
+            globalRefreshRunning = false
+            globalRefreshMessage = null
         }
     }
 
