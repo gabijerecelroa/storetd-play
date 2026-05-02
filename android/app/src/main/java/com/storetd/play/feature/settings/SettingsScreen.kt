@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -34,6 +35,10 @@ import com.storetd.play.BuildConfig
 import com.storetd.play.core.cache.AppCacheManager
 import com.storetd.play.core.parental.ParentalControl
 import com.storetd.play.core.storage.LocalAccount
+import com.storetd.play.core.network.OptimizedContentApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun SettingsScreen(
@@ -46,7 +51,10 @@ fun SettingsScreen(
         mutableStateOf(ParentalControl.isAdultContentHidden(context))
     }
 
+    val maintenanceScope = rememberCoroutineScope()
+
     var message by remember { mutableStateOf("") }
+    var isMaintenanceRunning by remember { mutableStateOf(false) }
     var showUnlockDialog by remember { mutableStateOf(false) }
     var showChangePinDialog by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
@@ -216,6 +224,53 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Limpiar caché de contenido")
+                }
+
+                Button(
+                    onClick = {
+                        if (isMaintenanceRunning) return@Button
+
+                        val activationCode = account.activationCode.trim()
+
+                        if (activationCode.isBlank()) {
+                            message = "No hay código de activación para sincronizar."
+                            return@Button
+                        }
+
+                        isMaintenanceRunning = true
+                        message = "Limpiando caché local y sincronizando..."
+
+                        maintenanceScope.launch {
+                            val started = withContext(Dispatchers.IO) {
+                                AppCacheManager.clearContentCache(context.applicationContext)
+
+                                runCatching {
+                                    OptimizedContentApi.refreshContent(
+                                        activationCode = activationCode,
+                                        async = true
+                                    )
+                                }.getOrDefault(false)
+                            }
+
+                            message = if (started) {
+                                "Caché limpiada. Sincronización enviada al backend."
+                            } else {
+                                "Caché limpiada. No se pudo iniciar sincronización."
+                            }
+
+                            isMaintenanceRunning = false
+                        }
+                    },
+                    enabled = !isMaintenanceRunning,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        if (isMaintenanceRunning) {
+                            "Sincronizando..."
+                        } else {
+                            "Limpiar caché local y sincronizar"
+                        }
+                    )
                 }
 
                 OutlinedButton(
