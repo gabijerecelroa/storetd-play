@@ -2424,7 +2424,7 @@
 
         const data = await api("/api/content/refresh", {
           method: "POST",
-          body: JSON.stringify({ activationCode: code })
+          body: JSON.stringify({ activationCode: code, section })
         });
 
         const counts = data.counts || {};
@@ -3484,6 +3484,28 @@
 
 
 
+
+    function getM3uImportRefreshSection() {
+      const type = String(document.getElementById("m3uImportDefaultType")?.value || "")
+        .trim()
+        .toLowerCase();
+
+      if (type === "movie" || type === "pelicula" || type === "peliculas") {
+        return "movies";
+      }
+
+      if (type === "serie" || type === "series") {
+        return "series";
+      }
+
+      if (type === "live" || type === "tv" || type === "canal") {
+        return "live";
+      }
+
+      return "all";
+    }
+
+
     async function importM3uFile() {
       const fileInput = document.getElementById("m3uImportFile");
       const fileButton = document.getElementById("m3uImportFileButton");
@@ -3567,7 +3589,7 @@
             "info"
           );
 
-          await refreshOptimizedContentForCode(code);
+          await refreshOptimizedContentForCode(code, getM3uImportRefreshSection());
 
           setM3uImportStatus(
             "Importación y actualización enviadas",
@@ -3623,7 +3645,7 @@
         const code = document.getElementById("m3uImportActivationCode")?.value || "";
 
         if (code.trim() && confirm("¿Actualizar contenido optimizado ahora?")) {
-          await refreshOptimizedContentForCode(code);
+          await refreshOptimizedContentForCode(code, getM3uImportRefreshSection());
         }
       } catch (error) {
         showMessage(error.message);
@@ -3775,7 +3797,7 @@
       }
     }
 
-    async function refreshOptimizedContentForCode(activationCode) {
+    async function refreshOptimizedContentForCode(activationCode, section = "all") {
       const code = String(activationCode || "").trim();
 
       if (!code) {
