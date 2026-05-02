@@ -77,6 +77,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.ui.input.key.onKeyEvent
 import com.storetd.play.core.network.OptimizedContentApi
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -110,6 +111,7 @@ fun LiveTvScreen(
     var showLazySearch by remember(contentMode) { mutableStateOf(false) }
     var lazySearchQuery by remember(contentMode) { mutableStateOf("") }
     var lazyRefreshToken by remember(contentMode) { mutableStateOf(0) }
+    var refreshMessage by remember(contentMode) { mutableStateOf<String?>(null) }
 
     var lazySeriesFolders by remember(contentMode) {
         mutableStateOf<List<OptimizedContentApi.SeriesFolderLite>>(emptyList())
@@ -137,6 +139,8 @@ fun LiveTvScreen(
         val account = LocalAccount.getAccount(context)
         val activationCode = account.activationCode.trim()
 
+        refreshMessage = "Actualizando contenido..."
+
         if (
             activationCode.isNotBlank() &&
             (contentMode == ContentMode.Movies || contentMode == ContentMode.Series)
@@ -148,14 +152,14 @@ fun LiveTvScreen(
                     isLazySeriesLoading = true
                 }
 
-                runCatching {
+                val refreshed = runCatching {
                     withContext(Dispatchers.IO) {
                         OptimizedContentApi.refreshContent(
                             activationCode = activationCode,
                             async = false
                         )
                     }
-                }
+                }.getOrDefault(false)
 
                 selectedSeriesKey = null
                 selectedMovieCategoryKey = null
@@ -169,11 +173,24 @@ fun LiveTvScreen(
                 lazyMovieItems = emptyList()
 
                 lazyRefreshToken += 1
+                refreshMessage = if (refreshed) {
+                    "Contenido actualizado."
+                } else {
+                    "No se pudo confirmar la actualización. Reintentando carga..."
+                }
             }
             return
         }
 
         viewModel.refreshPlaylist(context)
+        refreshMessage = "Actualizando TV en vivo..."
+    }
+
+    LaunchedEffect(refreshMessage) {
+        if (refreshMessage != null) {
+            delay(3000)
+            refreshMessage = null
+        }
     }
 
     BackHandler(enabled = true) {
@@ -425,6 +442,7 @@ fun LiveTvScreen(
                             viewModel.setHideAdultContent(hidden)
                         },
                         onRefresh = { refreshCurrentContent() },
+                        refreshMessage = refreshMessage,
                         onBack = onBack
                     )
                 }
@@ -494,6 +512,7 @@ fun LiveTvScreen(
                             viewModel.setHideAdultContent(hidden)
                         },
                         onRefresh = { refreshCurrentContent() },
+                        refreshMessage = refreshMessage,
                         onBack = onBack
                     )
 
@@ -844,6 +863,7 @@ private fun ContentControls(
     onSearchChange: (String) -> Unit,
     onHideAdultChange: (Boolean) -> Unit,
     onRefresh: () -> Unit,
+    refreshMessage: String? = null,
     onBack: () -> Unit
 ) {
     Surface(
@@ -879,6 +899,16 @@ private fun ContentControls(
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.86f),
                     maxLines = 1
                 )
+
+                refreshMessage?.let { message ->
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                }
             }
 
             Surface(
