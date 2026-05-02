@@ -47,6 +47,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.storetd.play.R
 import com.storetd.play.core.storage.LocalAccount
+import com.storetd.play.core.storage.LocalLibrary
 import com.storetd.play.core.preload.PlaylistPreloader
 import com.storetd.play.ui.components.premiumStoreTdBackground
 import android.content.Context
@@ -192,6 +193,61 @@ fun HomeScreen(
                             context = context.applicationContext,
                             url = LiveTvViewModel.sectionCacheKey(playlistUrl, mode)
                         )
+                    }
+                }
+
+                // Limpieza en segundo plano: no bloquea el Home.
+                refreshScope.launch {
+                    delay(30000)
+
+                    withContext(Dispatchers.IO) {
+                        val optimizedSections = runCatching {
+                            OptimizedContentApi.loadAllSections(activationCode)
+                        }.getOrDefault(emptyMap())
+
+                        val validUrls = optimizedSections
+                            .values
+                            .flatten()
+                            .map { it.streamUrl.trim() }
+                            .filter { it.isNotBlank() }
+                            .toSet()
+
+                        if (validUrls.isNotEmpty()) {
+                            LocalLibrary.cleanupMissingUrls(
+                                context = context.applicationContext,
+                                validUrls = validUrls
+                            )
+
+                            PlaybackProgressStore.cleanupMissingUrls(
+                                context = context.applicationContext,
+                                validUrls = validUrls
+                            )
+
+                            val allItems = optimizedSections.values.flatten()
+
+                            if (allItems.isNotEmpty()) {
+                                PlaylistMemoryCache.save(playlistUrl, allItems)
+                                PlaylistDiskCache.save(
+                                    context = context.applicationContext,
+                                    url = playlistUrl,
+                                    channels = allItems
+                                )
+
+                                LiveTvViewModel.saveSectionDiskCaches(
+                                    context = context.applicationContext,
+                                    url = playlistUrl,
+                                    channels = allItems,
+                                    hideAdultContent = true
+                                )
+
+                                withContext(Dispatchers.Default) {
+                                    LiveTvViewModel.warmScreenStateCaches(
+                                        url = playlistUrl,
+                                        channels = allItems
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             } else {

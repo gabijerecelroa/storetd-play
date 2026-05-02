@@ -76,6 +76,25 @@ object LocalLibrary {
         writeList(context, HISTORY, emptyList())
     }
 
+    fun cleanupMissingUrls(
+        context: Context,
+        validUrls: Set<String>
+    ): Int {
+        if (validUrls.isEmpty()) return 0
+
+        val beforeFavorites = favorites(context)
+        val beforeHistory = history(context)
+
+        val nextFavorites = beforeFavorites.filter { it.streamUrl in validUrls }
+        val nextHistory = beforeHistory.filter { it.streamUrl in validUrls }
+
+        writeList(context, FAVORITES, nextFavorites)
+        writeList(context, HISTORY, nextHistory)
+
+        return (beforeFavorites.size - nextFavorites.size) +
+            (beforeHistory.size - nextHistory.size)
+    }
+
     fun maskUrl(url: String): String {
         if (url.length <= 24) return "***"
         return url.take(12) + "..." + url.takeLast(8)

@@ -69,6 +69,20 @@ object PlaybackProgressStore {
         write(context, all(context).filterNot { it.streamUrl == streamUrl })
     }
 
+    fun cleanupMissingUrls(
+        context: Context,
+        validUrls: Set<String>
+    ): Int {
+        if (validUrls.isEmpty()) return 0
+
+        val before = all(context)
+        val next = before.filter { it.streamUrl in validUrls }
+
+        write(context, next)
+
+        return before.size - next.size
+    }
+
     fun unfinished(context: Context): List<PlaybackProgress> {
         return all(context)
             .filter { !it.finished && it.positionMs > 15000L && it.durationMs > 0L }
