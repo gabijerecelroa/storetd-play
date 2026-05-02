@@ -1713,11 +1713,11 @@ function normalizeM3uContentType(value, group) {
     .toLowerCase();
 
   if (raw === "movie" || raw === "pelicula" || raw === "peliculas") return "movie";
-  if (raw === "serie" || raw === "series") return "serie";
+  if (raw === "serie" || raw === "series") return "series";
   if (raw === "live" || raw === "tv" || raw === "canal") return "live";
 
   if (groupText.startsWith("peliculas") || groupText.startsWith("peliculas |")) return "movie";
-  if (groupText.startsWith("series") || groupText.startsWith("series |")) return "serie";
+  if (groupText.startsWith("series") || groupText.startsWith("series |")) return "series";
   if (groupText.startsWith("tv") || groupText.startsWith("tv |")) return "live";
 
   return "live";
@@ -2019,11 +2019,11 @@ function normalizeAdminM3uType(value, group) {
     .toLowerCase();
 
   if (raw === "movie" || raw === "pelicula" || raw === "peliculas") return "movie";
-  if (raw === "serie" || raw === "series") return "serie";
+  if (raw === "serie" || raw === "series") return "series";
   if (raw === "live" || raw === "tv" || raw === "canal") return "live";
 
   if (groupText.startsWith("peliculas")) return "movie";
-  if (groupText.startsWith("series")) return "serie";
+  if (groupText.startsWith("series")) return "series";
   if (groupText.startsWith("tv")) return "live";
 
   return "live";
@@ -3192,6 +3192,47 @@ app.get("/api/broken-links", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "No se pudieron cargar enlaces reportados."
+    });
+  }
+});
+
+
+
+app.post("/admin/api/m3u/normalize-series-type", requireAdmin, async (req, res) => {
+  const config = requireGistConfig(res);
+  if (!config) return;
+
+  try {
+    const original = await downloadGistM3uRaw(config.rawUrl);
+    const normalized = original.replace(/tvg-type="serie"/gi, 'tvg-type="series"');
+    const changed = (original.match(/tvg-type="serie"/gi) || []).length;
+
+    if (changed === 0) {
+      return res.json({
+        success: true,
+        changed: 0,
+        message: "No había entradas con tvg-type=serie para normalizar."
+      });
+    }
+
+    await updateGistFile({
+      token: config.token,
+      gistId: config.gistId,
+      filename: config.filename,
+      content: normalized
+    });
+
+    res.json({
+      success: true,
+      changed,
+      message: `Series normalizadas: ${changed} entradas cambiadas a tvg-type=series.`
+    });
+  } catch (error) {
+    console.error("Normalize series type error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudo normalizar tvg-type de series.",
+      error: error.message
     });
   }
 });
