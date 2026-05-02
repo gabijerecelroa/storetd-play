@@ -167,20 +167,23 @@ fun HomeScreen(
         }
 
         globalRefreshRunning = true
-        globalRefreshMessage = "Actualizando contenido..."
+        globalRefreshMessage = "Enviando actualización..."
 
         refreshScope.launch {
-            val result = withContext(Dispatchers.IO) {
+            val started = withContext(Dispatchers.IO) {
                 runCatching {
-                    val refreshed = OptimizedContentApi.refreshContent(
+                    OptimizedContentApi.refreshContent(
                         activationCode = activationCode,
-                        async = false
+                        async = true
                     )
+                }.getOrDefault(false)
+            }
 
-                    if (!refreshed) {
-                        return@runCatching 0
-                    }
+            if (started) {
+                globalRefreshMessage = "Actualización enviada. Puede tardar unos segundos."
 
+                // Limpia caché local para que al entrar a cada sección pida datos nuevos.
+                withContext(Dispatchers.IO) {
                     PlaylistMemoryCache.clear(playlistUrl)
                     PlaylistDiskCache.clear(context.applicationContext, playlistUrl)
 
@@ -190,52 +193,9 @@ fun HomeScreen(
                             url = LiveTvViewModel.sectionCacheKey(playlistUrl, mode)
                         )
                     }
-
-                    val optimizedSections = OptimizedContentApi.loadAllSections(activationCode)
-
-                    if (optimizedSections.isEmpty()) {
-                        return@runCatching 0
-                    }
-
-                    val allItems = mutableListOf<Channel>()
-
-                    optimizedSections.forEach { entry ->
-                        val mode = when (entry.key) {
-                            "live" -> ContentMode.LiveTv
-                            "movies" -> ContentMode.Movies
-                            "series" -> ContentMode.Series
-                            else -> null
-                        }
-
-                        if (mode != null && entry.value.isNotEmpty()) {
-                            PlaylistDiskCache.save(
-                                context = context.applicationContext,
-                                url = LiveTvViewModel.sectionCacheKey(playlistUrl, mode),
-                                channels = entry.value
-                            )
-
-                            allItems.addAll(entry.value)
-                        }
-                    }
-
-                    if (allItems.isNotEmpty()) {
-                        PlaylistMemoryCache.save(playlistUrl, allItems)
-                        PlaylistDiskCache.save(context.applicationContext, playlistUrl, allItems)
-
-                        LiveTvViewModel.warmScreenStateCaches(
-                            url = playlistUrl,
-                            channels = allItems
-                        )
-                    }
-
-                    allItems.size
-                }.getOrDefault(0)
-            }
-
-            if (result > 0) {
-                globalRefreshMessage = "Contenido actualizado."
+                }
             } else {
-                globalRefreshMessage = "No se pudo actualizar. Se mantiene el contenido guardado."
+                globalRefreshMessage = "No se pudo iniciar la actualización."
             }
 
             delay(2500)
