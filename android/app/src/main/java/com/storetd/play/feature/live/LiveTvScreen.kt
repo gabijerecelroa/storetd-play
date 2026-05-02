@@ -927,7 +927,43 @@ private fun ContentControls(
                 }
             }
 
-            Surface(
+                        Surface(
+                modifier = Modifier
+                    .onPreviewKeyEvent { event ->
+                        if (event.type != KeyEventType.KeyDown) {
+                            return@onPreviewKeyEvent false
+                        }
+
+                        when (event.key) {
+                            Key.DirectionCenter,
+                            Key.Enter,
+                            Key.NumPadEnter -> {
+                                onRefresh()
+                                true
+                            }
+
+                            else -> false
+                        }
+                    }
+                    .focusable()
+                    .clickable { onRefresh() },
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.92f),
+                shape = RoundedCornerShape(999.dp),
+                border = BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.35f)
+                )
+            ) {
+                Text(
+                    text = "Actualizar",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 22.dp, vertical = 10.dp)
+                )
+            }
+
+Surface(
                 modifier = Modifier.clickable { onBack() },
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.34f),
                 shape = RoundedCornerShape(999.dp),
