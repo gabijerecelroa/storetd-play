@@ -11,6 +11,7 @@ import com.storetd.play.core.parser.M3uValidator
 import com.storetd.play.core.preload.PlaylistPreloader
 import com.storetd.play.core.repository.IptvRepository
 import com.storetd.play.core.storage.LocalAccount
+import com.storetd.play.core.storage.LocalSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -293,6 +294,11 @@ class LiveTvViewModel(
                 loadInProgress = false
 
                 if (channels.isNotEmpty()) {
+                    LocalSettings.markContentSyncSuccess(
+                        context = appContext,
+                        message = "TV en vivo sincronizada."
+                    )
+
                     PlaylistDiskCache.save(
                         context = appContext,
                         url = sectionCacheKey(url, ContentMode.LiveTv),

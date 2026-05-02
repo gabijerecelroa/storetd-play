@@ -65,6 +65,7 @@ import com.storetd.play.core.epg.EpgProgram
 import com.storetd.play.core.model.Channel
 import com.storetd.play.core.storage.BrokenLinkStore
 import com.storetd.play.core.storage.LocalAccount
+import com.storetd.play.core.storage.LocalSettings
 import com.storetd.play.core.parental.ParentalControl
 import java.net.URLEncoder
 import java.text.Normalizer
@@ -140,6 +141,7 @@ fun LiveTvScreen(
         val activationCode = account.activationCode.trim()
 
         refreshMessage = "Actualizando contenido..."
+        LocalSettings.markContentSyncStarted(context.applicationContext)
 
         if (
             activationCode.isNotBlank() &&
@@ -173,10 +175,22 @@ fun LiveTvScreen(
                 lazyMovieItems = emptyList()
 
                 lazyRefreshToken += 1
-                refreshMessage = if (refreshed) {
-                    "Contenido actualizado."
+                if (refreshed) {
+                    LocalSettings.markContentSyncSuccess(
+                        context = context.applicationContext,
+                        message = if (contentMode == ContentMode.Movies) {
+                            "Películas sincronizadas."
+                        } else {
+                            "Series sincronizadas."
+                        }
+                    )
+                    refreshMessage = "Contenido actualizado."
                 } else {
-                    "No se pudo confirmar la actualización. Reintentando carga..."
+                    LocalSettings.markContentSyncFailed(
+                        context = context.applicationContext,
+                        message = "No se pudo confirmar la actualización."
+                    )
+                    refreshMessage = "No se pudo confirmar la actualización. Reintentando carga..."
                 }
             }
             return

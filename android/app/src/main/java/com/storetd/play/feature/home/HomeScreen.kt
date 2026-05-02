@@ -47,6 +47,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.storetd.play.R
 import com.storetd.play.core.storage.LocalAccount
+import com.storetd.play.core.storage.LocalSettings
 import com.storetd.play.core.storage.LocalLibrary
 import com.storetd.play.core.preload.PlaylistPreloader
 import com.storetd.play.ui.components.premiumStoreTdBackground
@@ -129,6 +130,34 @@ private fun loadContinueWatchingItems(context: Context): List<ContinueWatchingIt
         }
 }
 
+
+private fun formatContentSyncStatus(context: Context): String {
+    val lastSuccessAt = LocalSettings.getContentSyncSuccessAt(context)
+    val message = LocalSettings.getContentSyncMessage(context).ifBlank {
+        "Sin sincronización confirmada"
+    }
+
+    if (lastSuccessAt <= 0L) {
+        return message
+    }
+
+    val elapsedMinutes = ((System.currentTimeMillis() - lastSuccessAt) / 60000L)
+        .coerceAtLeast(0L)
+
+    val age = when {
+        elapsedMinutes < 1L -> "recién"
+        elapsedMinutes == 1L -> "hace 1 minuto"
+        elapsedMinutes < 60L -> "hace $elapsedMinutes minutos"
+        elapsedMinutes < 120L -> "hace 1 hora"
+        elapsedMinutes < 1440L -> "hace ${elapsedMinutes / 60L} horas"
+        elapsedMinutes < 2880L -> "ayer"
+        else -> "hace ${elapsedMinutes / 1440L} días"
+    }
+
+    return "$message ($age)"
+}
+
+
 @Composable
 fun HomeScreen(
     onOpenLiveTv: () -> Unit,
@@ -150,6 +179,7 @@ fun HomeScreen(
     val refreshScope = rememberCoroutineScope()
     var globalRefreshRunning by remember { mutableStateOf(false) }
     var globalRefreshMessage by remember { mutableStateOf<String?>(null) }
+    var syncStatusText by remember { mutableStateOf(formatContentSyncStatus(context)) }
 
     fun refreshAllContentFromHome() {
         if (globalRefreshRunning) return
@@ -169,6 +199,8 @@ fun HomeScreen(
 
         globalRefreshRunning = true
         globalRefreshMessage = "Enviando actualización..."
+        LocalSettings.markContentSyncStarted(context.applicationContext)
+        syncStatusText = formatContentSyncStatus(context)
 
         refreshScope.launch {
             val started = withContext(Dispatchers.IO) {
@@ -182,6 +214,11 @@ fun HomeScreen(
 
             if (started) {
                 globalRefreshMessage = "Actualización enviada. Puede tardar unos segundos."
+                LocalSettings.markContentSyncSuccess(
+                    context = context.applicationContext,
+                    message = "Actualización enviada al backend."
+                )
+                syncStatusText = formatContentSyncStatus(context)
 
                 // Limpia caché local para que al entrar a cada sección pida datos nuevos.
                 withContext(Dispatchers.IO) {
@@ -252,6 +289,11 @@ fun HomeScreen(
                 }
             } else {
                 globalRefreshMessage = "No se pudo iniciar la actualización."
+                LocalSettings.markContentSyncFailed(
+                    context = context.applicationContext,
+                    message = "No se pudo iniciar la actualización."
+                )
+                syncStatusText = formatContentSyncStatus(context)
             }
 
             delay(2500)
@@ -401,6 +443,14 @@ fun HomeScreen(
                     text = "Elegí una sección con el control remoto",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.92f)
+                )
+
+                Text(
+                    text = syncStatusText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
 
                 if (!isTvWide) {

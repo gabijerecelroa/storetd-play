@@ -35,10 +35,39 @@ import com.storetd.play.BuildConfig
 import com.storetd.play.core.cache.AppCacheManager
 import com.storetd.play.core.parental.ParentalControl
 import com.storetd.play.core.storage.LocalAccount
+import com.storetd.play.core.storage.LocalSettings
 import com.storetd.play.core.network.OptimizedContentApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+
+private fun formatContentSyncStatus(context: Context): String {
+    val lastSuccessAt = LocalSettings.getContentSyncSuccessAt(context)
+    val message = LocalSettings.getContentSyncMessage(context).ifBlank {
+        "Sin sincronización confirmada"
+    }
+
+    if (lastSuccessAt <= 0L) {
+        return message
+    }
+
+    val elapsedMinutes = ((System.currentTimeMillis() - lastSuccessAt) / 60000L)
+        .coerceAtLeast(0L)
+
+    val age = when {
+        elapsedMinutes < 1L -> "recién"
+        elapsedMinutes == 1L -> "hace 1 minuto"
+        elapsedMinutes < 60L -> "hace $elapsedMinutes minutos"
+        elapsedMinutes < 120L -> "hace 1 hora"
+        elapsedMinutes < 1440L -> "hace ${elapsedMinutes / 60L} horas"
+        elapsedMinutes < 2880L -> "ayer"
+        else -> "hace ${elapsedMinutes / 1440L} días"
+    }
+
+    return "$message ($age)"
+}
+
 
 @Composable
 fun SettingsScreen(
@@ -55,6 +84,7 @@ fun SettingsScreen(
 
     var message by remember { mutableStateOf("") }
     var isMaintenanceRunning by remember { mutableStateOf(false) }
+    var syncStatusText by remember { mutableStateOf(formatContentSyncStatus(context)) }
     var showUnlockDialog by remember { mutableStateOf(false) }
     var showChangePinDialog by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
@@ -219,6 +249,12 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f)
                 )
 
+                Text(
+                    text = "Última sincronización: $syncStatusText",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
                 Button(
                     onClick = { showClearContentDialog = true },
                     modifier = Modifier.fillMaxWidth()
@@ -239,6 +275,8 @@ fun SettingsScreen(
 
                         isMaintenanceRunning = true
                         message = "Limpiando caché local y sincronizando..."
+                        LocalSettings.markContentSyncStarted(context.applicationContext)
+                        syncStatusText = formatContentSyncStatus(context)
 
                         maintenanceScope.launch {
                             val started = withContext(Dispatchers.IO) {
@@ -253,11 +291,20 @@ fun SettingsScreen(
                             }
 
                             message = if (started) {
+                                LocalSettings.markContentSyncSuccess(
+                                    context = context.applicationContext,
+                                    message = "Sincronización enviada al backend."
+                                )
                                 "Caché limpiada. Sincronización enviada al backend."
                             } else {
+                                LocalSettings.markContentSyncFailed(
+                                    context = context.applicationContext,
+                                    message = "No se pudo iniciar sincronización."
+                                )
                                 "Caché limpiada. No se pudo iniciar sincronización."
                             }
 
+                            syncStatusText = formatContentSyncStatus(context)
                             isMaintenanceRunning = false
                         }
                     },
