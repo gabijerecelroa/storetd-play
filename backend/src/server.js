@@ -3202,6 +3202,9 @@ app.post("/api/content/refresh-app", async (req, res) => {
 
   try {
     const activationCode = normalizeCode(req.body?.activationCode || req.query.code);
+    const section = String(req.body?.section || req.query.section || "all")
+      .trim()
+      .toLowerCase();
 
     if (!activationCode) {
       return res.status(400).json({
@@ -3216,7 +3219,7 @@ app.post("/api/content/refresh-app", async (req, res) => {
       req.body?.async === "1";
 
     if (runAsync) {
-      refreshContentCacheForClient(activationCode)
+      refreshContentCacheForClient(activationCode, { section })
         .then((result) => {
           console.log("Async content refresh finished:", activationCode, result);
         })
@@ -3232,7 +3235,7 @@ app.post("/api/content/refresh-app", async (req, res) => {
       });
     }
 
-    const result = await refreshContentCacheForClient(activationCode);
+    const result = await refreshContentCacheForClient(activationCode, { section });
     res.status(result.success ? 200 : 400).json(result);
   } catch (error) {
     console.error("App content refresh error:", error);
@@ -3249,6 +3252,9 @@ app.post("/api/content/refresh", requireAdmin, async (req, res) => {
 
   try {
     const activationCode = normalizeCode(req.body?.activationCode || req.query.code);
+    const section = String(req.body?.section || req.query.section || "all")
+      .trim()
+      .toLowerCase();
 
     if (!activationCode) {
       return res.status(400).json({
@@ -3257,7 +3263,7 @@ app.post("/api/content/refresh", requireAdmin, async (req, res) => {
       });
     }
 
-    const result = await refreshContentCacheForClient(activationCode);
+    const result = await refreshContentCacheForClient(activationCode, { section });
     res.status(result.success ? 200 : 400).json(result);
   } catch (error) {
     console.error("Content refresh error:", error);

@@ -539,8 +539,22 @@ async function saveSectionCache({ activationCode, playlistUrl, section, items })
   return payload;
 }
 
-async function refreshContentCacheForClient(activationCode) {
+async function refreshContentCacheForClient(activationCode, options = {}) {
   const code = normalizeCode(activationCode);
+  const requestedSection = String(options.section || options.sections || "all")
+    .trim()
+    .toLowerCase();
+
+  const allowedSections = new Set(["all", "live", "movies", "series"]);
+  const refreshSection = allowedSections.has(requestedSection)
+    ? requestedSection
+    : "all";
+
+  const shouldRefresh = (section) => {
+    if (refreshSection === "all") return true;
+    return refreshSection === section;
+  };
+
   const client = await getClientByActivationCode(code);
   const invalidReason = validateClient(client);
 
@@ -554,62 +568,89 @@ async function refreshContentCacheForClient(activationCode) {
   const raw = await fetchPlaylist(client.playlist_url);
   const parsed = parseM3u(raw);
   const sections = splitSections(parsed);
+  const tasks = [];
+  const counts = {};
 
-  const seriesFoldersPayload = buildSeriesFoldersPayload({
-    activationCode: code,
-    playlistUrl: client.playlist_url,
-    items: sections.series
-  });
+  if (shouldRefresh("live")) {
+    tasks.push(
+      saveSectionCache({
+        activationCode: code,
+        playlistUrl: client.playlist_url,
+        section: "live",
+        items: sections.live
+      }).then((payload) => {
+        counts.live = payload.itemCount;
+      })
+    );
+  }
 
-  const movieCategoriesPayload = buildMovieCategoriesPayload({
-    activationCode: code,
-    playlistUrl: client.playlist_url,
-    items: sections.movies
-  });
-
-  const [live, movies, series, seriesFolders, movieCategories] = await Promise.all([
-    saveSectionCache({
+  if (shouldRefresh("movies")) {
+    const movieCategoriesPayload = buildMovieCategoriesPayload({
       activationCode: code,
       playlistUrl: client.playlist_url,
-      section: "live",
-      items: sections.live
-    }),
-    saveSectionCache({
-      activationCode: code,
-      playlistUrl: client.playlist_url,
-      section: "movies",
       items: sections.movies
-    }),
-    saveSectionCache({
+    });
+
+    tasks.push(
+      saveSectionCache({
+        activationCode: code,
+        playlistUrl: client.playlist_url,
+        section: "movies",
+        items: sections.movies
+      }).then((payload) => {
+        counts.movies = payload.itemCount;
+      })
+    );
+
+    tasks.push(
+      saveRawPayloadCache({
+        activationCode: code,
+        playlistUrl: client.playlist_url,
+        section: "movie-categories",
+        payload: movieCategoriesPayload
+      }).then((payload) => {
+        counts.movieCategories = payload.categoryCount;
+      })
+    );
+  }
+
+  if (shouldRefresh("series")) {
+    const seriesFoldersPayload = buildSeriesFoldersPayload({
       activationCode: code,
       playlistUrl: client.playlist_url,
-      section: "series",
       items: sections.series
-    }),
-    saveRawPayloadCache({
-      activationCode: code,
-      playlistUrl: client.playlist_url,
-      section: "series-folders",
-      payload: seriesFoldersPayload
-    }),
-    saveRawPayloadCache({
-      activationCode: code,
-      playlistUrl: client.playlist_url,
-      section: "movie-categories",
-      payload: movieCategoriesPayload
-    })
-  ]);
+    });
+
+    tasks.push(
+      saveSectionCache({
+        activationCode: code,
+        playlistUrl: client.playlist_url,
+        section: "series",
+        items: sections.series
+      }).then((payload) => {
+        counts.series = payload.itemCount;
+      })
+    );
+
+    tasks.push(
+      saveRawPayloadCache({
+        activationCode: code,
+        playlistUrl: client.playlist_url,
+        section: "series-folders",
+        payload: seriesFoldersPayload
+      }).then((payload) => {
+        counts.seriesFolders = payload.folderCount;
+      })
+    );
+  }
+
+  await Promise.all(tasks);
 
   return {
     success: true,
     activationCode: code,
-    counts: {
-      live: live.itemCount,
-      movies: movies.itemCount,
-      series: series.itemCount,
-      seriesFolders: seriesFolders.folderCount,
-      movieCategories: movieCategories.categoryCount
-    },
+    section: refreshSection,
+    counts,
     updatedAt: new Date().toISOString()
   };
 }
