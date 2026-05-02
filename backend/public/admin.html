@@ -1604,6 +1604,50 @@
       margin-top: 4px;
     }
 
+  
+    .m3u-category-admin-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .m3u-category-admin-card {
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(15, 23, 42, 0.10);
+      background: rgba(255, 255, 255, 0.94);
+    }
+
+    .m3u-category-admin-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .m3u-category-admin-head strong {
+      font-size: 16px;
+    }
+
+    .m3u-category-admin-samples {
+      margin-top: 8px;
+      color: #6b7280;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .m3u-category-admin-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .m3u-category-admin-actions button {
+      margin: 0;
+    }
+
   </style>
 </head>
 <body>
@@ -1866,6 +1910,9 @@
             <button class="secondary" onclick="downloadM3uBackup()">Descargar backup lista.m3u</button>
             <button class="secondary" onclick="validateM3uList()">Validar lista.m3u</button>
 
+            <button class="secondary" onclick="loadM3uCategories()">Ver categorías</button>
+
+
             <button class="secondary" onclick="findM3uDuplicates()">Buscar duplicados</button>
             <button class="danger" onclick="removeM3uDuplicates()">Limpiar duplicados</button>
 
@@ -1873,6 +1920,7 @@
 
           <div id="m3uValidationResult"></div>
           <div id="m3uDuplicatesResult"></div>
+          <div id="m3uCategoriesResult"></div>
 
 
           <div class="toolbar">
@@ -2824,6 +2872,130 @@
 
 
 
+
+
+
+    async function loadM3uCategories() {
+      const box = document.getElementById("m3uCategoriesResult");
+
+      try {
+        showMessage("Cargando categorías de lista.m3u...");
+
+        const data = await api("/admin/api/m3u/categories");
+        const categories = data.categories || [];
+
+        if (box) {
+          if (!categories.length) {
+            box.innerHTML = "<p class='muted'>No hay categorías para mostrar.</p>";
+          } else {
+            box.innerHTML = `
+              <div class="m3u-help">
+                Categorías encontradas: <strong>${escapeHtml(data.count || categories.length)}</strong>
+              </div>
+
+              <div class="m3u-category-admin-list">
+                ${categories.map((category) => `
+                  <div class="m3u-category-admin-card">
+                    <div class="m3u-category-admin-head">
+                      <div>
+                        <strong>${escapeHtml(category.name)}</strong>
+                        <div class="muted">${escapeHtml(category.count)} entrada/s</div>
+                      </div>
+                      <span class="m3u-pill">${escapeHtml(inferM3uTypeFromGroup(category.name))}</span>
+                    </div>
+
+                    <div class="m3u-category-admin-samples">
+                      ${escapeHtml((category.samples || []).join(" · "))}
+                    </div>
+
+                    <div class="m3u-category-admin-actions">
+                      <button onclick='renameM3uCategory(${JSON.stringify(category.name)})'>Mover categoría</button>
+                      <button class="danger" onclick='deleteM3uCategory(${JSON.stringify(category.name)}, ${JSON.stringify(category.count)})'>Eliminar categoría</button>
+                    </div>
+                  </div>
+                `).join("")}
+              </div>
+            `;
+          }
+        }
+
+        showMessage("Categorías cargadas.");
+      } catch (error) {
+        showMessage(error.message);
+      }
+    }
+
+    async function renameM3uCategory(fromGroup) {
+      const toGroup = prompt("Nueva categoría destino:", fromGroup);
+
+      if (!toGroup || !toGroup.trim()) return;
+
+      const contentType = inferM3uTypeFromGroup(toGroup);
+
+      if (!confirm(`¿Mover toda la categoría "${fromGroup}" a "${toGroup}"?`)) {
+        return;
+      }
+
+      try {
+        showMessage("Moviendo categoría en lista.m3u...");
+
+        const data = await api("/admin/api/m3u/rename-group", {
+          method: "POST",
+          body: JSON.stringify({
+            fromGroup,
+            toGroup: toGroup.trim(),
+            contentType
+          })
+        });
+
+        showMessage(data.message || "Categoría movida.");
+
+        await loadM3uCategories();
+        await validateM3uList();
+
+        const code = document.getElementById("m3uAdminActivationCode")?.value || "";
+
+        if (code.trim() && confirm("¿Actualizar contenido optimizado ahora?")) {
+          await refreshOptimizedContentForCode(code);
+        }
+      } catch (error) {
+        showMessage(error.message);
+      }
+    }
+
+    async function deleteM3uCategory(group, count) {
+      if (!confirm(`¿Eliminar la categoría completa "${group}" con ${count || 0} entrada/s?`)) {
+        return;
+      }
+
+      if (!confirm("Esto borra entradas reales de lista.m3u. Recomendado descargar backup antes. ¿Continuar?")) {
+        return;
+      }
+
+      try {
+        showMessage("Eliminando categoría de lista.m3u...");
+
+        const data = await api("/admin/api/m3u/delete-group", {
+          method: "POST",
+          body: JSON.stringify({
+            group
+          })
+        });
+
+        showMessage(data.message || "Categoría eliminada.");
+
+        await loadM3uCategories();
+        await validateM3uList();
+
+        const code = document.getElementById("m3uAdminActivationCode")?.value || "";
+
+        if (code.trim() && confirm("¿Actualizar contenido optimizado ahora?")) {
+          await refreshOptimizedContentForCode(code);
+        }
+      } catch (error) {
+        showMessage(error.message);
+      }
+    }
 
 
     async function findM3uDuplicates() {
