@@ -2307,6 +2307,156 @@ app.get("/admin/api/m3u/download", requireAdmin, async (req, res) => {
   }
 });
 
+
+function findM3uDuplicateEntries(m3uText, limit = 200) {
+  const lines = String(m3uText || "").replace(/\r/g, "").split("\n");
+  const byHash = new Map();
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const extinf = lines[i] || "";
+    const url = lines[i + 1] || "";
+
+    if (!extinf.trim().startsWith("#EXTINF")) continue;
+    if (!url.trim() || url.trim().startsWith("#")) continue;
+
+    const cleanUrl = url.trim();
+    const hash = streamUrlHash(cleanUrl);
+    const name = readM3uDisplayName(extinf) || readM3uAttributeFromLine(extinf, "tvg-name") || "Sin nombre";
+    const group = readM3uAttributeFromLine(extinf, "group-title") || "Sin categoría";
+
+    if (!byHash.has(hash)) {
+      byHash.set(hash, []);
+    }
+
+    byHash.get(hash).push({
+      streamUrlHash: hash,
+      name,
+      group,
+      streamUrlMasked: maskUrl(cleanUrl),
+      lineNumber: i + 1
+    });
+  }
+
+  const duplicates = [];
+
+  for (const [hash, entries] of byHash.entries()) {
+    if (entries.length <= 1) continue;
+
+    duplicates.push({
+      streamUrlHash: hash,
+      count: entries.length,
+      keep: entries[0],
+      duplicates: entries.slice(1)
+    });
+
+    if (duplicates.length >= limit) break;
+  }
+
+  return duplicates;
+}
+
+function removeDuplicateM3uEntriesKeepingFirst(m3uText) {
+  const lines = String(m3uText || "").replace(/\r/g, "").split("\n");
+  const seen = new Set();
+  const output = [];
+  let removed = 0;
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i] || "";
+    const nextLine = lines[i + 1] || "";
+
+    if (
+      line.trim().startsWith("#EXTINF") &&
+      nextLine.trim() &&
+      !nextLine.trim().startsWith("#")
+    ) {
+      const hash = streamUrlHash(nextLine.trim());
+
+      if (seen.has(hash)) {
+        removed += 1;
+        i += 1;
+        continue;
+      }
+
+      seen.add(hash);
+      output.push(line);
+      output.push(nextLine);
+      i += 1;
+      continue;
+    }
+
+    output.push(line);
+  }
+
+  return {
+    content: output.join("\n"),
+    removed
+  };
+}
+
+
+
+app.get("/admin/api/m3u/duplicates", requireAdmin, async (req, res) => {
+  try {
+    const config = requireGistConfig(res);
+    if (!config) return;
+
+    const originalM3u = await downloadGistM3uRaw(config.rawUrl);
+    const duplicates = findM3uDuplicateEntries(originalM3u, 300);
+
+    res.json({
+      success: true,
+      duplicateGroups: duplicates.length,
+      duplicateEntries: duplicates.reduce((sum, item) => sum + Math.max(0, item.count - 1), 0),
+      duplicates
+    });
+  } catch (error) {
+    console.error("M3U duplicates list error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "No se pudieron buscar duplicados."
+    });
+  }
+});
+
+app.post("/admin/api/m3u/remove-duplicates", requireAdmin, async (req, res) => {
+  try {
+    const config = requireGistConfig(res);
+    if (!config) return;
+
+    const originalM3u = await downloadGistM3uRaw(config.rawUrl);
+    const result = removeDuplicateM3uEntriesKeepingFirst(originalM3u);
+
+    if (result.removed <= 0) {
+      return res.json({
+        success: true,
+        message: "No había URLs duplicadas para limpiar.",
+        removed: 0
+      });
+    }
+
+    await updateGistFile({
+      token: config.token,
+      gistId: config.gistId,
+      filename: config.filename,
+      content: result.content
+    });
+
+    res.json({
+      success: true,
+      message: `Duplicados eliminados: ${result.removed}. Se conservó la primera aparición de cada URL.`,
+      removed: result.removed
+    });
+  } catch (error) {
+    console.error("M3U remove duplicates error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "No se pudieron limpiar duplicados."
+    });
+  }
+});
+
+
 app.get("/admin/api/m3u/validate", requireAdmin, async (req, res) => {
   try {
     const config = requireGistConfig(res);
