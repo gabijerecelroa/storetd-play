@@ -51,6 +51,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Modifier
@@ -77,6 +78,7 @@ import androidx.compose.ui.input.key.onKeyEvent
 import com.storetd.play.core.network.OptimizedContentApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -107,6 +109,7 @@ fun LiveTvScreen(
     var lastMovieCategoryFocusKey by remember(contentMode) { mutableStateOf<String?>(null) }
     var showLazySearch by remember(contentMode) { mutableStateOf(false) }
     var lazySearchQuery by remember(contentMode) { mutableStateOf("") }
+    var lazyRefreshToken by remember(contentMode) { mutableStateOf(0) }
 
     var lazySeriesFolders by remember(contentMode) {
         mutableStateOf<List<OptimizedContentApi.SeriesFolderLite>>(emptyList())
@@ -126,6 +129,51 @@ fun LiveTvScreen(
     }
     var isLazyMoviesLoading by remember(contentMode, selectedMovieCategoryKey) {
         mutableStateOf(false)
+    }
+
+    val refreshScope = rememberCoroutineScope()
+
+    fun refreshCurrentContent() {
+        val account = LocalAccount.getAccount(context)
+        val activationCode = account.activationCode.trim()
+
+        if (
+            activationCode.isNotBlank() &&
+            (contentMode == ContentMode.Movies || contentMode == ContentMode.Series)
+        ) {
+            refreshScope.launch {
+                if (contentMode == ContentMode.Movies) {
+                    isLazyMoviesLoading = true
+                } else {
+                    isLazySeriesLoading = true
+                }
+
+                runCatching {
+                    withContext(Dispatchers.IO) {
+                        OptimizedContentApi.refreshContent(
+                            activationCode = activationCode,
+                            async = false
+                        )
+                    }
+                }
+
+                selectedSeriesKey = null
+                selectedMovieCategoryKey = null
+                lastSeriesFocusKey = null
+                lastMovieCategoryFocusKey = null
+                showLazySearch = false
+                lazySearchQuery = ""
+                lazySeriesFolders = emptyList()
+                lazySeriesEpisodes = emptyList()
+                lazyMovieCategories = emptyList()
+                lazyMovieItems = emptyList()
+
+                lazyRefreshToken += 1
+            }
+            return
+        }
+
+        viewModel.refreshPlaylist(context)
     }
 
     BackHandler(enabled = true) {
@@ -166,7 +214,7 @@ fun LiveTvScreen(
         }
     }
 
-    LaunchedEffect(contentMode) {
+    LaunchedEffect(contentMode, lazyRefreshToken) {
         selectedSeriesKey = null
         selectedMovieCategoryKey = null
         lastSeriesFocusKey = null
@@ -376,7 +424,7 @@ fun LiveTvScreen(
                             ParentalControl.setAdultContentHidden(context, hidden)
                             viewModel.setHideAdultContent(hidden)
                         },
-                        onRefresh = { viewModel.refreshPlaylist(context) },
+                        onRefresh = { refreshCurrentContent() },
                         onBack = onBack
                     )
                 }
@@ -445,7 +493,7 @@ fun LiveTvScreen(
                             ParentalControl.setAdultContentHidden(context, hidden)
                             viewModel.setHideAdultContent(hidden)
                         },
-                        onRefresh = { viewModel.refreshPlaylist(context) },
+                        onRefresh = { refreshCurrentContent() },
                         onBack = onBack
                     )
 
