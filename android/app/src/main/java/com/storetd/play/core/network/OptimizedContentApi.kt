@@ -275,7 +275,8 @@ object OptimizedContentApi {
 
     fun loadSection(
         activationCode: String,
-        section: String
+        section: String,
+        includeAdult: Boolean = false
     ): List<Channel> {
         val base = BuildConfig.API_BASE_URL
             .trim()
@@ -290,7 +291,8 @@ object OptimizedContentApi {
         }
 
         val encodedCode = URLEncoder.encode(activationCode.trim(), "UTF-8")
-        val requestUrl = "$base/api/content/$safeSection?code=$encodedCode&autoRefresh=0"
+        val adultParam = if (includeAdult) "&includeAdult=1" else ""
+        val requestUrl = "$base/api/content/$safeSection?code=$encodedCode&autoRefresh=0$adultParam"
 
         val raw = readUrl(requestUrl)
         val json = JSONObject(raw)

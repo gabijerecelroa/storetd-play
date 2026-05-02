@@ -285,7 +285,8 @@ class LiveTvViewModel(
 
                     OptimizedContentApi.loadSection(
                         activationCode = activationCode,
-                        section = "live"
+                        section = "live",
+                        includeAdult = !_uiState.value.hideAdultContent
                     )
                 }
             }.onSuccess { channels ->

@@ -440,6 +440,7 @@ fun LiveTvScreen(
                         onHideAdultChange = { hidden ->
                             ParentalControl.setAdultContentHidden(context, hidden)
                             viewModel.setHideAdultContent(hidden)
+                            refreshCurrentContent()
                         },
                         onRefresh = { refreshCurrentContent() },
                         refreshMessage = refreshMessage,
@@ -510,6 +511,7 @@ fun LiveTvScreen(
                         onHideAdultChange = { hidden ->
                             ParentalControl.setAdultContentHidden(context, hidden)
                             viewModel.setHideAdultContent(hidden)
+                            refreshCurrentContent()
                         },
                         onRefresh = { refreshCurrentContent() },
                         refreshMessage = refreshMessage,
