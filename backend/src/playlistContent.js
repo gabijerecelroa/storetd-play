@@ -621,16 +621,9 @@ async function refreshContentCacheForClient(activationCode, options = {}) {
       items: sections.series
     });
 
-    tasks.push(
-      saveSectionCache({
-        activationCode: code,
-        playlistUrl: client.playlist_url,
-        section: "series",
-        items: sections.series
-      }).then((payload) => {
-        counts.series = payload.itemCount;
-      })
-    );
+    // Series usa carpetas lazy en la APK. Evitamos guardar también la lista plana
+    // "series" porque con muchos episodios puede disparar timeout en Supabase.
+    counts.series = Number(seriesFoldersPayload.itemCount || sections.series.length || 0);
 
     tasks.push(
       saveRawPayloadCache({
