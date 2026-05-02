@@ -1648,6 +1648,41 @@
       margin: 0;
     }
 
+  
+    .m3u-import-status {
+      margin-top: 10px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(15, 23, 42, 0.12);
+      background: rgba(15, 23, 42, 0.05);
+      color: #111827;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .m3u-import-status strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .m3u-import-status.success {
+      border-color: rgba(22, 163, 74, 0.35);
+      background: rgba(220, 252, 231, 0.80);
+      color: #14532d;
+    }
+
+    .m3u-import-status.error {
+      border-color: rgba(220, 38, 38, 0.35);
+      background: rgba(254, 226, 226, 0.85);
+      color: #7f1d1d;
+    }
+
+    .m3u-import-status.info {
+      border-color: rgba(37, 99, 235, 0.25);
+      background: rgba(219, 234, 254, 0.70);
+      color: #1e3a8a;
+    }
+
   </style>
 </head>
 <body>
@@ -2060,8 +2095,10 @@
           <input id="m3uImportFile" type="file" accept=".m3u,.m3u8,.txt,text/plain,application/x-mpegURL" />
 
           <div class="actions">
-            <button class="secondary" onclick="importM3uFile()">Importar archivo seleccionado</button>
+            <button id="m3uImportFileButton" class="secondary" onclick="importM3uFile()">Importar archivo seleccionado</button>
           </div>
+
+          <div id="m3uImportStatus" class="m3u-import-status info" style="display:none;"></div>
 
           <div class="actions">
             <button onclick="importM3uList()">Importar a lista.m3u</button>
@@ -3406,11 +3443,53 @@
     }
 
 
+
+    function formatFileSize(bytes) {
+      const value = Number(bytes || 0);
+
+      if (value < 1024) return `${value} B`;
+      if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+
+      return `${(value / 1024 / 1024).toFixed(2)} MB`;
+    }
+
+    function setM3uImportStatus(title, detail = "", tone = "info") {
+      const box = document.getElementById("m3uImportStatus");
+
+      if (!box) return;
+
+      box.style.display = "block";
+      box.className = `m3u-import-status ${tone}`;
+      box.innerHTML = `
+        <strong>${escapeHtml(title)}</strong>
+        <div>${escapeHtml(detail)}</div>
+      `;
+    }
+
+    function summarizeM3uImportResult(data, detectedEntries) {
+      const parts = [];
+
+      if (data.message) parts.push(data.message);
+      if (detectedEntries) parts.push(`Entradas detectadas en archivo: ${detectedEntries}`);
+
+      ["added", "inserted", "imported", "created", "changed", "duplicates", "skipped", "ignored", "total"].forEach((key) => {
+        if (data[key] !== undefined && data[key] !== null) {
+          parts.push(`${key}: ${data[key]}`);
+        }
+      });
+
+      return parts.join(" · ") || "Archivo importado correctamente.";
+    }
+
+
+
     async function importM3uFile() {
       const fileInput = document.getElementById("m3uImportFile");
+      const fileButton = document.getElementById("m3uImportFileButton");
       const file = fileInput?.files?.[0];
 
       if (!file) {
+        setM3uImportStatus("Falta seleccionar archivo", "Seleccioná un archivo .m3u, .m3u8 o .txt primero.", "error");
         showMessage("Seleccioná un archivo M3U primero.");
         return;
       }
@@ -3422,17 +3501,40 @@
         return;
       }
 
+      const originalButtonText = fileButton?.textContent || "Importar archivo seleccionado";
+
       try {
-        showMessage("Leyendo archivo M3U...");
+        if (fileButton) {
+          fileButton.disabled = true;
+          fileButton.textContent = "Importando...";
+        }
+
+        setM3uImportStatus(
+          "Leyendo archivo M3U...",
+          `${file.name} · ${formatFileSize(file.size)}`,
+          "info"
+        );
+
+        await new Promise((resolve) => setTimeout(resolve, 80));
 
         const m3uText = await file.text();
 
         if (!m3uText.trim()) {
+          setM3uImportStatus("Archivo vacío", "El archivo seleccionado no tiene contenido.", "error");
           showMessage("El archivo está vacío.");
           return;
         }
 
-        showMessage("Importando archivo a lista.m3u...");
+        const detectedEntries = (m3uText.match(/#EXTINF/gi) || []).length;
+        const detectedUrls = (m3uText.match(/^https?:\/\/.+$/gim) || []).length;
+
+        setM3uImportStatus(
+          "Importando al backend...",
+          `Entradas detectadas: ${detectedEntries} · URLs detectadas: ${detectedUrls}. No cierres esta pantalla.`,
+          "info"
+        );
+
+        await new Promise((resolve) => setTimeout(resolve, 80));
 
         const data = await api("/admin/api/m3u/import", {
           method: "POST",
@@ -3443,17 +3545,48 @@
           })
         });
 
+        const summary = summarizeM3uImportResult(data, detectedEntries);
+
+        setM3uImportStatus(
+          "Importación finalizada",
+          summary,
+          "success"
+        );
+
         showMessage(data.message || "Archivo importado.");
 
         fileInput.value = "";
 
         const code = document.getElementById("m3uImportActivationCode")?.value || "";
 
-        if (code.trim() && confirm("¿Actualizar contenido optimizado ahora?")) {
+        if (code.trim() && confirm("Archivo importado. ¿Actualizar contenido optimizado ahora?")) {
+          setM3uImportStatus(
+            "Actualizando contenido optimizado...",
+            `Cliente/código: ${code}`,
+            "info"
+          );
+
           await refreshOptimizedContentForCode(code);
+
+          setM3uImportStatus(
+            "Importación y actualización enviadas",
+            "Ahora abrí la APK y tocá Actualizar en la sección correspondiente.",
+            "success"
+          );
         }
       } catch (error) {
+        setM3uImportStatus(
+          "No se pudo importar el archivo",
+          error.message || "Error desconocido.",
+          "error"
+        );
+
         showMessage(error.message || "No se pudo importar el archivo.");
+      } finally {
+        if (fileButton) {
+          fileButton.disabled = false;
+          fileButton.textContent = originalButtonText;
+        }
       }
     }
 
