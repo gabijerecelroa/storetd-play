@@ -38,7 +38,13 @@ object OptimizedContentApi {
 
         val encodedCode = URLEncoder.encode(code, "UTF-8")
         val asyncParam = if (async) "&async=1" else ""
-        val requestUrl = "$base/api/content/refresh-app?code=$encodedCode$asyncParam"
+        val cleanSection = section.trim().lowercase()
+        val sectionParam = if (cleanSection.isNotBlank() && cleanSection != "all") {
+            "&section=${URLEncoder.encode(cleanSection, "UTF-8")}"
+        } else {
+            ""
+        }
+        val requestUrl = "$base/api/content/refresh-app?code=$encodedCode$asyncParam$sectionParam"
 
         val raw = postUrl(requestUrl)
         val json = JSONObject(raw)

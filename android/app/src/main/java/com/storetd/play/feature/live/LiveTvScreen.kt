@@ -158,7 +158,12 @@ fun LiveTvScreen(
                     withContext(Dispatchers.IO) {
                         OptimizedContentApi.refreshContent(
                             activationCode = activationCode,
-                            async = false
+                            async = false,
+                            section = when (contentMode) {
+                                ContentMode.Movies -> "movies"
+                                ContentMode.Series -> "series"
+                                else -> "all"
+                            }
                         )
                     }
                 }.getOrDefault(false)
