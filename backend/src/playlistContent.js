@@ -533,6 +533,60 @@ function finalSeriesFolderTitleFromItem(item) {
 }
 
 
+
+function mergeGeneratedSeriesFolders(folders) {
+  const merged = new Map();
+
+  for (const folder of folders || []) {
+    const cleanTitle = finalCleanSeriesFolderTitle(folder.title, folder.group);
+    const title = cleanTitle || folder.title || "Sin título";
+    const key = slugKey(title) || folder.key || slugKey(folder.title);
+
+    if (!merged.has(key)) {
+      merged.set(key, {
+        ...folder,
+        key,
+        title,
+        episodes: []
+      });
+    }
+
+    const target = merged.get(key);
+
+    if (!target.posterUrl && folder.posterUrl) {
+      target.posterUrl = folder.posterUrl;
+    }
+
+    const episodes = Array.isArray(folder.episodes) ? folder.episodes : [];
+    target.episodes.push(...episodes.map((episode) => ({
+      ...episode,
+      group: title
+    })));
+  }
+
+  return Array.from(merged.values())
+    .map((folder) => {
+      const unique = new Map();
+
+      for (const episode of folder.episodes || []) {
+        const key = episode.streamUrl || `${episode.name}|${episode.season}|${episode.episode}`;
+        if (!unique.has(key)) unique.set(key, episode);
+      }
+
+      folder.episodes = Array.from(unique.values()).sort((a, b) => {
+        return (a.season - b.season) ||
+          (a.episode - b.episode) ||
+          String(a.name).localeCompare(String(b.name));
+      });
+
+      folder.episodeCount = folder.episodes.length;
+      return folder;
+    })
+    .filter((folder) => folder.episodeCount > 0)
+    .sort((a, b) => String(a.title).localeCompare(String(b.title)));
+}
+
+
 function buildSeriesFoldersPayload({ activationCode, playlistUrl, items }) {
   const foldersMap = new Map();
 
@@ -597,7 +651,7 @@ function buildSeriesFoldersPayload({ activationCode, playlistUrl, items }) {
     mergedFolder.episodes.push(...folder.episodes);
   }
 
-  const folders = Array.from(mergedFoldersMap.values())
+  let folders = Array.from(mergedFoldersMap.values())
     .map((folder) => {
       const unique = new Map();
 
@@ -618,9 +672,11 @@ function buildSeriesFoldersPayload({ activationCode, playlistUrl, items }) {
     .filter((folder) => folder.episodeCount > 0)
     .sort((a, b) => String(a.title).localeCompare(String(b.title)));
 
+  folders = mergeGeneratedSeriesFolders(folders);
+
   return {
     section: "series-folders",
-    groupingVersion: "series-grouping-v7",
+    groupingVersion: "series-grouping-v8",
     activationCode,
     playlistUrlMasked: maskUrl(playlistUrl),
     updatedAt: new Date().toISOString(),
