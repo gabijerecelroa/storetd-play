@@ -608,11 +608,76 @@ function hardCleanGeneratedSeriesTitle(value, fallbackGroup = "") {
   return finalCleanSeriesFolderTitle(raw, fallbackGroup) || raw;
 }
 
+
+function hardCleanSeriesTitleV13(value, fallbackGroup = "") {
+  const raw = String(value || "")
+    .replace(/[\u00a0\u2007\u202f]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!raw) {
+    return String(fallbackGroup || "").trim() || "Sin título";
+  }
+
+  const directCleaned = raw
+    .replace(/\s+[sS]\s*\d{1,4}\s*[eE]\s*\d{1,4}\b.*$/, "")
+    .replace(/\s+[tT]\s*\d{1,4}\s*[eE]\s*\d{1,4}\b.*$/, "")
+    .replace(/\s+\d{1,4}\s*x\s*\d{1,4}\b.*$/i, "")
+    .replace(/\s+temporada\s*\d{1,4}\b.*$/i, "")
+    .replace(/\s+season\s*\d{1,4}\b.*$/i, "")
+    .replace(/\s+cap[ií]tulo\s*\d{1,4}\b.*$/i, "")
+    .replace(/\s+episodio\s*\d{1,4}\b.*$/i, "")
+    .replace(/\s+episode\s*\d{1,4}\b.*$/i, "")
+    .replace(/\s+ep\s*\d{1,4}\b.*$/i, "")
+    .replace(/[\s._\-|:]+$/g, "")
+    .trim();
+
+  if (
+    directCleaned &&
+    directCleaned !== raw &&
+    !looksLikeGenericSeriesGroup(directCleaned)
+  ) {
+    return directCleaned;
+  }
+
+  const tokens = raw.split(/\s+/);
+  const markerIndex = tokens.findIndex((token) => {
+    const clean = String(token || "")
+      .replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, "")
+      .toLowerCase();
+
+    return /^s\d{1,4}e\d{1,4}$/.test(clean) ||
+      /^t\d{1,4}e\d{1,4}$/.test(clean) ||
+      /^\d{1,4}x\d{1,4}$/.test(clean);
+  });
+
+  if (markerIndex > 0) {
+    const tokenCleaned = tokens
+      .slice(0, markerIndex)
+      .join(" ")
+      .replace(/[\s._\-|:]+$/g, "")
+      .trim();
+
+    if (tokenCleaned && !looksLikeGenericSeriesGroup(tokenCleaned)) {
+      return tokenCleaned;
+    }
+  }
+
+  const fallback = String(fallbackGroup || "").trim();
+
+  if (fallback && !looksLikeGenericSeriesGroup(fallback)) {
+    return fallback;
+  }
+
+  return raw;
+}
+
+
 function mergeGeneratedSeriesFolders(folders) {
   const merged = new Map();
 
   for (const folder of folders || []) {
-    const title = hardCleanGeneratedSeriesTitle(folder.title, folder.group);
+    const title = hardCleanSeriesTitleV13(folder.title, folder.group);
     const key = slugKey(title) || folder.key || slugKey(folder.title);
 
     if (!merged.has(key)) {
@@ -756,7 +821,7 @@ function buildSeriesFoldersPayload({ activationCode, playlistUrl, items }) {
 
   return {
     section: "series-folders",
-    groupingVersion: "series-lite-clean-v12",
+    groupingVersion: "series-direct-clean-v13",
     activationCode,
     playlistUrlMasked: maskUrl(playlistUrl),
     updatedAt: new Date().toISOString(),
@@ -1178,7 +1243,7 @@ async function getSeriesFoldersLite({ activationCode, autoRefresh = true }) {
   const liteMap = new Map();
 
   for (const folder of folders) {
-    const title = hardCleanGeneratedSeriesTitle(folder.title, folder.group);
+    const title = hardCleanSeriesTitleV13(folder.title, folder.group);
     const key = slugKey(title) || folder.key;
     const episodeCount = Number(folder.episodeCount || folder.episodes?.length || 0);
 
@@ -1210,7 +1275,7 @@ async function getSeriesFoldersLite({ activationCode, autoRefresh = true }) {
     fromCache: result.fromCache,
     payload: {
       section: "series-folders-lite",
-      groupingVersion: "series-lite-clean-v12",
+      groupingVersion: "series-direct-clean-v13",
       activationCode: payload.activationCode,
       playlistUrlMasked: payload.playlistUrlMasked,
       updatedAt: payload.updatedAt,
