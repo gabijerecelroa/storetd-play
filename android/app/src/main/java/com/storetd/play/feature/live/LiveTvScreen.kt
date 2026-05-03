@@ -483,6 +483,7 @@ fun LiveTvScreen(
                         },
                         onRefresh = { refreshCurrentContent() },
                         refreshMessage = refreshMessage,
+                        isRefreshing = state.isLoading || state.isFiltering || isLazySeriesLoading || isLazyMoviesLoading,
                         onBack = onBack
                     )
                 }
@@ -554,6 +555,7 @@ fun LiveTvScreen(
                         },
                         onRefresh = { refreshCurrentContent() },
                         refreshMessage = refreshMessage,
+                        isRefreshing = state.isLoading || state.isFiltering || isLazySeriesLoading || isLazyMoviesLoading,
                         onBack = onBack
                     )
 
@@ -905,6 +907,7 @@ private fun ContentControls(
     onHideAdultChange: (Boolean) -> Unit,
     onRefresh: () -> Unit,
     refreshMessage: String? = null,
+    isRefreshing: Boolean = false,
     onBack: () -> Unit
 ) {
     Surface(
@@ -1143,7 +1146,9 @@ private fun TvCategoryChip(
                     Key.DirectionCenter,
                     Key.Enter,
                     Key.NumPadEnter -> {
-                        onClick()
+                        if (enabled) {
+                            onClick()
+                        }
                         true
                     }
 
@@ -1162,7 +1167,7 @@ private fun TvCategoryChip(
                 shape = shape
             )
             .focusable()
-            .clickable { onClick() },
+            .clickable(enabled = enabled) { onClick() },
         color = if (focused) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)
         } else if (selected) {
