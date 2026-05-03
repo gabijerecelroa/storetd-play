@@ -3279,6 +3279,61 @@ app.post("/admin/api/m3u/normalize-series-type-legacy", requireAdmin, async (req
 });
 
 
+
+app.post("/admin/api/m3u/restore-before-import-packages", requireAdmin, async (req, res) => {
+  const config = requireGistConfig(res);
+  if (!config) return;
+
+  try {
+    const original = await downloadGistM3uRaw(config.rawUrl);
+    const marker = 'Farewell Song (2019)';
+    const markerIndex = original.indexOf(marker);
+
+    if (markerIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: "No se encontró el marcador Farewell Song (2019). No se modificó la lista."
+      });
+    }
+
+    const beforeMarker = original.lastIndexOf("#EXTINF", markerIndex);
+
+    if (beforeMarker === -1) {
+      return res.status(500).json({
+        success: false,
+        message: "No se pudo ubicar el inicio del bloque a restaurar."
+      });
+    }
+
+    const restored = original.slice(0, beforeMarker).replace(/\s+$/g, "") + "\n";
+    const removedBytes = original.length - restored.length;
+
+    await updateGistFile({
+      token: config.token,
+      gistId: config.gistId,
+      filename: config.filename,
+      content: restored
+    });
+
+    res.json({
+      success: true,
+      message: "Lista restaurada antes de paquetes importados.",
+      marker,
+      originalBytes: original.length,
+      restoredBytes: restored.length,
+      removedBytes
+    });
+  } catch (error) {
+    console.error("Restore before import packages error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudo restaurar la lista antes de paquetes.",
+      error: error.message
+    });
+  }
+});
+
+
 app.post("/api/content/refresh-app", async (req, res) => {
   if (!requireDb(res)) return;
 
