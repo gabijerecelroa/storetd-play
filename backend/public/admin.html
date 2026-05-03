@@ -3797,7 +3797,8 @@
       }
     }
 
-    async function refreshOptimizedContentForCode(activationCode, section = "all") {
+    async function refreshOptimizedContentForCode(activationCode, section = "") {
+      const safeSection = String(section || "").trim();
       const code = String(activationCode || "").trim();
 
       if (!code) {
