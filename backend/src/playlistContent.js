@@ -363,7 +363,7 @@ function looksLikeGenericSeriesGroup(value) {
     text.includes("anime") ||
     text.includes("netflix") ||
     text.includes("hbo") ||
-    text.includes("max") ||
+    /\bmax\b/.test(text) ||
     text.includes("disney") ||
     text.includes("prime") ||
     text.includes("paramount") ||
