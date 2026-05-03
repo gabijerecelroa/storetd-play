@@ -459,19 +459,85 @@ function forceCleanSeriesEpisodeTitle(value) {
 }
 
 
+
+function finalCleanSeriesFolderTitle(value, fallbackGroup = "") {
+  const raw = String(value || "")
+    .replace(/[\u00a0\u2007\u202f]/g, " ")
+    .replace(/^series\s*[|:/-]\s*/i, "")
+    .replace(/^serie\s*[|:/-]\s*/i, "")
+    .replace(/\[[^\]]*\]/g, "")
+    .replace(/\([^)]*\)/g, "")
+    .replace(/\b(latino|castellano|subtitulado|dual audio|hd|fhd|4k|1080p|720p)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const markerPatterns = [
+    /[sS]\s*\d{1,4}\s*[eE]\s*\d{1,4}/,
+    /[tT]\s*\d{1,4}\s*[eE]\s*\d{1,4}/,
+    /\d{1,4}\s*x\s*\d{1,4}/i,
+    /temporada\s*\d{1,4}/i,
+    /season\s*\d{1,4}/i,
+    /cap[ií]tulo\s*\d{1,4}/i,
+    /episodio\s*\d{1,4}/i,
+    /episode\s*\d{1,4}/i,
+    /\bep\s*\d{1,4}/i
+  ];
+
+  let cutIndex = -1;
+
+  for (const pattern of markerPatterns) {
+    const match = raw.match(pattern);
+
+    if (match && typeof match.index === "number" && match.index > 0) {
+      if (cutIndex === -1 || match.index < cutIndex) {
+        cutIndex = match.index;
+      }
+    }
+  }
+
+  let title = cutIndex > 0 ? raw.slice(0, cutIndex) : raw;
+
+  title = title
+    .replace(/[\s._\-|:]+$/g, "")
+    .replace(/^[\s._\-|:]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (title && !looksLikeGenericSeriesGroup(title)) {
+    return title;
+  }
+
+  const fallback = String(fallbackGroup || "").trim();
+
+  if (fallback && !looksLikeGenericSeriesGroup(fallback)) {
+    return fallback;
+  }
+
+  return raw || fallback || "Sin título";
+}
+
+function finalSeriesFolderTitleFromItem(item) {
+  const byName = finalCleanSeriesFolderTitle(item?.name || "", "");
+
+  if (byName && !looksLikeGenericSeriesGroup(byName)) {
+    return byName;
+  }
+
+  const byGroup = finalCleanSeriesFolderTitle(item?.group || "", "");
+
+  if (byGroup && !looksLikeGenericSeriesGroup(byGroup)) {
+    return byGroup;
+  }
+
+  return cleanSeriesTitle(item?.name || item?.group || "Sin título", item?.group || "");
+}
+
+
 function buildSeriesFoldersPayload({ activationCode, playlistUrl, items }) {
   const foldersMap = new Map();
 
   for (const item of items) {
-    const forcedTitle =
-      forceCleanSeriesEpisodeTitle(item.name) ||
-      forceCleanSeriesEpisodeTitle(item.group);
-
-    const title = cleanSeriesTitle(
-      forcedTitle || item.name || item.group,
-      forceCleanSeriesEpisodeTitle(item.group) || item.group
-    );
-
+    const title = finalSeriesFolderTitleFromItem(item);
     const key = slugKey(title) || slugKey(item.group) || slugKey(item.name);
 
     if (!key) continue;
@@ -508,9 +574,7 @@ function buildSeriesFoldersPayload({ activationCode, playlistUrl, items }) {
   const mergedFoldersMap = new Map();
 
   for (const folder of foldersMap.values()) {
-    const mergedTitle =
-      forceCleanSeriesEpisodeTitle(folder.title) ||
-      cleanSeriesTitle(folder.title, folder.group);
+    const mergedTitle = finalCleanSeriesFolderTitle(folder.title, folder.group);
 
     const mergedKey = slugKey(mergedTitle) || folder.key;
 
@@ -556,6 +620,7 @@ function buildSeriesFoldersPayload({ activationCode, playlistUrl, items }) {
 
   return {
     section: "series-folders",
+    groupingVersion: "series-grouping-v7",
     activationCode,
     playlistUrlMasked: maskUrl(playlistUrl),
     updatedAt: new Date().toISOString(),
@@ -987,6 +1052,7 @@ async function getSeriesFoldersLite({ activationCode, autoRefresh = true }) {
     fromCache: result.fromCache,
     payload: {
       section: "series-folders-lite",
+      groupingVersion: payload.groupingVersion || "",
       activationCode: payload.activationCode,
       playlistUrlMasked: payload.playlistUrlMasked,
       updatedAt: payload.updatedAt,
