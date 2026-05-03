@@ -713,7 +713,7 @@ function buildSeriesFoldersPayload({ activationCode, playlistUrl, items }) {
 
   return {
     section: "series-folders",
-    groupingVersion: "series-grouping-v9",
+    groupingVersion: "series-response-merge-v10",
     activationCode,
     playlistUrlMasked: maskUrl(playlistUrl),
     updatedAt: new Date().toISOString(),
@@ -1129,7 +1129,8 @@ async function getSeriesFoldersLite({ activationCode, autoRefresh = true }) {
   if (!result.success) return result;
 
   const payload = result.payload || {};
-  const folders = Array.isArray(payload.folders) ? payload.folders : [];
+  const sourceFolders = Array.isArray(payload.folders) ? payload.folders : [];
+  const folders = mergeGeneratedSeriesFolders(sourceFolders);
 
   const liteFolders = folders.map((folder) => ({
     key: folder.key,
@@ -1145,7 +1146,7 @@ async function getSeriesFoldersLite({ activationCode, autoRefresh = true }) {
     fromCache: result.fromCache,
     payload: {
       section: "series-folders-lite",
-      groupingVersion: payload.groupingVersion || "",
+      groupingVersion: "series-response-merge-v10",
       activationCode: payload.activationCode,
       playlistUrlMasked: payload.playlistUrlMasked,
       updatedAt: payload.updatedAt,
@@ -1176,7 +1177,8 @@ async function getSeriesFolderByKey({ activationCode, key, autoRefresh = true })
   if (!result.success) return result;
 
   const payload = result.payload || {};
-  const folders = Array.isArray(payload.folders) ? payload.folders : [];
+  const sourceFolders = Array.isArray(payload.folders) ? payload.folders : [];
+  const folders = mergeGeneratedSeriesFolders(sourceFolders);
   const folder = folders.find((item) => String(item.key || "") === safeKey);
 
   if (!folder) {
