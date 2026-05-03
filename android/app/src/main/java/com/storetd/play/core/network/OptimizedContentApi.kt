@@ -27,7 +27,8 @@ object OptimizedContentApi {
 
     fun refreshContent(
         activationCode: String,
-        async: Boolean = true
+        async: Boolean = true,
+        section: String = "all"
     ): Boolean {
         val code = activationCode.trim()
         val base = BuildConfig.API_BASE_URL
