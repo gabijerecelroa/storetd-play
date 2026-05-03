@@ -414,11 +414,44 @@ function episodeNumber(name) {
   return 9999;
 }
 
+
+function forceCleanSeriesEpisodeTitle(value) {
+  const raw = cleanSeriesBaseText(value);
+
+  const patterns = [
+    /^(.+?)\s+[sS]\d{1,4}\s*[eE]\d{1,4}\b.*$/,
+    /^(.+?)\s+[tT]\d{1,4}\s*[eE]\d{1,4}\b.*$/,
+    /^(.+?)\s+\d{1,4}\s*x\s*\d{1,4}\b.*$/i,
+    /^(.+?)\s+temporada\s*\d{1,4}\b.*$/i,
+    /^(.+?)\s+season\s*\d{1,4}\b.*$/i,
+    /^(.+?)\s+cap[ií]tulo\s*\d{1,4}\b.*$/i,
+    /^(.+?)\s+episodio\s*\d{1,4}\b.*$/i,
+    /^(.+?)\s+episode\s*\d{1,4}\b.*$/i,
+    /^(.+?)\s+ep\s*\d{1,4}\b.*$/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = raw.match(pattern);
+
+    if (match && match[1]) {
+      const title = cleanSeriesBaseText(match[1]);
+
+      if (title && !looksLikeGenericSeriesGroup(title)) {
+        return title;
+      }
+    }
+  }
+
+  return "";
+}
+
+
 function buildSeriesFoldersPayload({ activationCode, playlistUrl, items }) {
   const foldersMap = new Map();
 
   for (const item of items) {
-    const title = cleanSeriesTitle(item.name, item.group);
+    const forcedTitle = forceCleanSeriesEpisodeTitle(item.name);
+    const title = cleanSeriesTitle(forcedTitle || item.name, item.group);
     const key = slugKey(title) || slugKey(item.group) || slugKey(item.name);
 
     if (!key) continue;
