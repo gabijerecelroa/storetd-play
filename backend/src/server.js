@@ -3334,6 +3334,49 @@ app.post("/admin/api/m3u/restore-before-import-packages", requireAdmin, async (r
 });
 
 
+
+app.post(
+  "/admin/api/m3u/restore-from-text",
+  requireAdmin,
+  express.text({ type: "*/*", limit: "50mb" }),
+  async (req, res) => {
+    const config = requireGistConfig(res);
+    if (!config) return;
+
+    try {
+      const content = String(req.body || "").trim();
+
+      if (!content.startsWith("#EXTM3U")) {
+        return res.status(400).json({
+          success: false,
+          message: "El contenido enviado no parece una lista M3U válida."
+        });
+      }
+
+      await updateGistFile({
+        token: config.token,
+        gistId: config.gistId,
+        filename: config.filename,
+        content: content + "\n"
+      });
+
+      res.json({
+        success: true,
+        message: "Lista restaurada desde archivo local.",
+        bytes: content.length
+      });
+    } catch (error) {
+      console.error("Restore from text error:", error);
+      res.status(500).json({
+        success: false,
+        message: "No se pudo restaurar la lista desde texto.",
+        error: error.message
+      });
+    }
+  }
+);
+
+
 app.post("/api/content/refresh-app", async (req, res) => {
   if (!requireDb(res)) return;
 
