@@ -1350,11 +1350,11 @@ private fun MovieCategoryLiteRow(
             .focusable()
             .clickable { onOpen() },
         color = if (isFocused) {
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.26f)
         } else {
-            MaterialTheme.colorScheme.surface.copy(alpha = 0.50f)
+            MaterialTheme.colorScheme.surface.copy(alpha = 0.58f)
         },
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(26.dp),
         border = BorderStroke(
             width = if (isFocused) 3.dp else 1.dp,
             color = if (isFocused) {
@@ -1363,12 +1363,29 @@ private fun MovieCategoryLiteRow(
                 MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)
             }
         ),
-        shadowElevation = if (isFocused) 8.dp else 3.dp
+        shadowElevation = if (isFocused) 10.dp else 3.dp
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            Surface(
+                color = MaterialTheme.colorScheme.primary.copy(alpha = if (isFocused) 0.95f else 0.16f),
+                shape = RoundedCornerShape(999.dp)
+            ) {
+                Text(
+                    text = "CARPETA DE PELÍCULAS",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (isFocused) {
+                        MaterialTheme.colorScheme.onPrimary
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    },
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                )
+            }
+
             Text(
                 text = category.title,
                 style = MaterialTheme.typography.titleMedium,
@@ -1379,9 +1396,10 @@ private fun MovieCategoryLiteRow(
             )
 
             Text(
-                text = "${category.itemCount} películas",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.70f)
+                text = "${category.itemCount} películas disponibles",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.76f),
+                fontWeight = FontWeight.SemiBold
             )
         }
     }
@@ -1471,11 +1489,11 @@ private fun SeriesFolderLiteRow(
             .focusable()
             .clickable { onOpen() },
         color = if (isFocused) {
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.26f)
         } else {
-            MaterialTheme.colorScheme.surface.copy(alpha = 0.50f)
+            MaterialTheme.colorScheme.surface.copy(alpha = 0.58f)
         },
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(26.dp),
         border = BorderStroke(
             width = if (isFocused) 3.dp else 1.dp,
             color = if (isFocused) {
@@ -1484,12 +1502,29 @@ private fun SeriesFolderLiteRow(
                 MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)
             }
         ),
-        shadowElevation = if (isFocused) 8.dp else 3.dp
+        shadowElevation = if (isFocused) 10.dp else 3.dp
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            Surface(
+                color = MaterialTheme.colorScheme.secondary.copy(alpha = if (isFocused) 0.95f else 0.18f),
+                shape = RoundedCornerShape(999.dp)
+            ) {
+                Text(
+                    text = "CARPETA DE SERIE",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (isFocused) {
+                        MaterialTheme.colorScheme.onSecondary
+                    } else {
+                        MaterialTheme.colorScheme.secondary
+                    },
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                )
+            }
+
             Text(
                 text = folder.title,
                 style = MaterialTheme.typography.titleMedium,
@@ -1500,9 +1535,10 @@ private fun SeriesFolderLiteRow(
             )
 
             Text(
-                text = "${folder.episodeCount} capítulos",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.70f)
+                text = "${folder.episodeCount} capítulos disponibles",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.76f),
+                fontWeight = FontWeight.SemiBold
             )
         }
     }
