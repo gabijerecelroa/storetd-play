@@ -207,6 +207,26 @@ fun LiveTvScreen(
         }
     }
 
+    fun refreshCurrentContentScreen() {
+        selectedSeriesKey = null
+        selectedMovieCategoryKey = null
+        lastSeriesFocusKey = null
+        lastMovieCategoryFocusKey = null
+        showLazySearch = false
+        lazySearchQuery = ""
+
+        lazySeriesFolders = emptyList()
+        lazySeriesEpisodes = emptyList()
+        lazyMovieCategories = emptyList()
+        lazyMovieItems = emptyList()
+
+        isLazySeriesLoading = contentMode == ContentMode.Series
+        isLazyMoviesLoading = contentMode == ContentMode.Movies
+
+        lazyRefreshToken += 1
+        viewModel.refreshPlaylist(context)
+    }
+
     BackHandler(enabled = true) {
         when {
             selectedSeriesKey != null -> {
