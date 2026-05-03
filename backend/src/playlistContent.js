@@ -572,11 +572,47 @@ function finalMergeSeriesTitleV9(value, fallbackGroup = "") {
 }
 
 
+function hardCleanGeneratedSeriesTitle(value, fallbackGroup = "") {
+  const raw = String(value || "")
+    .replace(/[\u00a0\u2007\u202f]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!raw) {
+    return String(fallbackGroup || "").trim() || "Sin título";
+  }
+
+  const patterns = [
+    /\s+[sS]\d{1,4}\s*[eE]\d{1,4}\b.*$/,
+    /\s+[tT]\d{1,4}\s*[eE]\d{1,4}\b.*$/,
+    /\s+\d{1,4}\s*x\s*\d{1,4}\b.*$/i,
+    /\s+temporada\s*\d{1,4}\b.*$/i,
+    /\s+season\s*\d{1,4}\b.*$/i,
+    /\s+cap[ií]tulo\s*\d{1,4}\b.*$/i,
+    /\s+episodio\s*\d{1,4}\b.*$/i,
+    /\s+episode\s*\d{1,4}\b.*$/i,
+    /\s+ep\s*\d{1,4}\b.*$/i
+  ];
+
+  for (const pattern of patterns) {
+    const cleaned = raw
+      .replace(pattern, "")
+      .replace(/[\s._\-|:]+$/g, "")
+      .trim();
+
+    if (cleaned && cleaned !== raw && !looksLikeGenericSeriesGroup(cleaned)) {
+      return cleaned;
+    }
+  }
+
+  return finalCleanSeriesFolderTitle(raw, fallbackGroup) || raw;
+}
+
 function mergeGeneratedSeriesFolders(folders) {
   const merged = new Map();
 
   for (const folder of folders || []) {
-    const title = finalMergeSeriesTitleV9(folder.title, folder.group);
+    const title = hardCleanGeneratedSeriesTitle(folder.title, folder.group);
     const key = slugKey(title) || folder.key || slugKey(folder.title);
 
     if (!merged.has(key)) {
@@ -584,6 +620,8 @@ function mergeGeneratedSeriesFolders(folders) {
         ...folder,
         key,
         title,
+        group: folder.group || "Series",
+        posterUrl: folder.posterUrl || null,
         episodes: []
       });
     }
@@ -595,6 +633,7 @@ function mergeGeneratedSeriesFolders(folders) {
     }
 
     const episodes = Array.isArray(folder.episodes) ? folder.episodes : [];
+
     target.episodes.push(...episodes.map((episode) => ({
       ...episode,
       group: title
@@ -607,7 +646,10 @@ function mergeGeneratedSeriesFolders(folders) {
 
       for (const episode of folder.episodes || []) {
         const key = episode.streamUrl || `${episode.name}|${episode.season}|${episode.episode}`;
-        if (!unique.has(key)) unique.set(key, episode);
+
+        if (!unique.has(key)) {
+          unique.set(key, episode);
+        }
       }
 
       folder.episodes = Array.from(unique.values()).sort((a, b) => {
@@ -622,6 +664,7 @@ function mergeGeneratedSeriesFolders(folders) {
     .filter((folder) => folder.episodeCount > 0)
     .sort((a, b) => String(a.title).localeCompare(String(b.title)));
 }
+
 
 
 function buildSeriesFoldersPayload({ activationCode, playlistUrl, items }) {
@@ -713,7 +756,7 @@ function buildSeriesFoldersPayload({ activationCode, playlistUrl, items }) {
 
   return {
     section: "series-folders",
-    groupingVersion: "series-response-merge-v10",
+    groupingVersion: "series-response-merge-v11",
     activationCode,
     playlistUrlMasked: maskUrl(playlistUrl),
     updatedAt: new Date().toISOString(),
@@ -1146,7 +1189,7 @@ async function getSeriesFoldersLite({ activationCode, autoRefresh = true }) {
     fromCache: result.fromCache,
     payload: {
       section: "series-folders-lite",
-      groupingVersion: "series-response-merge-v10",
+      groupingVersion: "series-response-merge-v11",
       activationCode: payload.activationCode,
       playlistUrlMasked: payload.playlistUrlMasked,
       updatedAt: payload.updatedAt,
