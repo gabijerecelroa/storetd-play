@@ -264,55 +264,74 @@ function slugKey(value) {
     .replace(/^-+|-+$/g, "");
 }
 
-function cleanSeriesTitle(value, fallbackGroup = "") {
-  const original = String(value || "").trim();
-  let title = original;
-
-  title = title
+function cleanSeriesBaseText(value) {
+  return String(value || "")
     .replace(/^series\s*[|:/-]\s*/i, "")
     .replace(/^serie\s*[|:/-]\s*/i, "")
     .replace(/^temporadas\s*[|:/-]\s*/i, "")
-    .replace(/^cap[ií]tulos\s*[|:/-]\s*/i, "");
-
-  const beforeEpisode = title;
-
-  title = title
-    // Ej: Baymax S01E01, Baymax S01 E01, Baymax T01E01, Baymax 1x01
-    .replace(/(?:^|[\s._\-|:])(?:S|T)\s*\d{1,4}\s*E\s*\d{1,4}\b.*$/i, "")
-    .replace(/(?:^|[\s._\-|:])\d{1,4}\s*x\s*\d{1,4}\b.*$/i, "")
-
-    // Ej: Los abandonados S2025E01
-    .replace(/(?:^|[\s._\-|:])S\d{4}E\d{1,4}\b.*$/i, "")
-
-    // Ej: nombre temporada 1 episodio 2
-    .replace(/\btemporada\s*\d{1,4}\b.*$/i, "")
-    .replace(/\bseason\s*\d{1,4}\b.*$/i, "")
-    .replace(/\bcap[ií]tulo\s*\d{1,4}\b.*$/i, "")
-    .replace(/\bepisodio\s*\d{1,4}\b.*$/i, "")
-    .replace(/\bepisode\s*\d{1,4}\b.*$/i, "")
-    .replace(/\bep\s*\d{1,4}\b.*$/i, "")
-
-    // Ruido común
+    .replace(/^cap[ií]tulos\s*[|:/-]\s*/i, "")
     .replace(/\[[^\]]*\]/g, "")
     .replace(/\([^)]*\)/g, "")
     .replace(/\b(latino|castellano|subtitulado|dual audio|hd|fhd|4k|1080p|720p)\b/gi, "")
     .replace(/\s+/g, " ")
     .trim()
     .replace(/^[\s\-|.:_]+|[\s\-|.:_]+$/g, "");
+}
 
-  const removedEpisodeMarker = title !== beforeEpisode.trim();
+function extractSeriesTitleBeforeEpisode(value) {
+  const raw = cleanSeriesBaseText(value);
 
-  // Aceptar títulos cortos si salieron de limpiar un patrón de episodio.
-  // Esto arregla series como "24 S01E01" => carpeta "24".
-  if (
-    title.length >= 1 &&
-    removedEpisodeMarker &&
-    !looksLikeGenericSeriesGroup(title)
-  ) {
-    return title;
+  const patterns = [
+    /^(.+?)[\s._\-|:!¡]+[sS]\s*\d{1,4}\s*[eE]\s*\d{1,4}\b.*$/,
+    /^(.+?)[\s._\-|:!¡]+[tT]\s*\d{1,4}\s*[eE]\s*\d{1,4}\b.*$/,
+    /^(.+?)[\s._\-|:!¡]+\d{1,4}\s*x\s*\d{1,4}\b.*$/,
+    /^(.+?)[\s._\-|:!¡]+temporada\s*\d{1,4}\b.*$/i,
+    /^(.+?)[\s._\-|:!¡]+season\s*\d{1,4}\b.*$/i,
+    /^(.+?)[\s._\-|:!¡]+cap[ií]tulo\s*\d{1,4}\b.*$/i,
+    /^(.+?)[\s._\-|:!¡]+episodio\s*\d{1,4}\b.*$/i,
+    /^(.+?)[\s._\-|:!¡]+episode\s*\d{1,4}\b.*$/i,
+    /^(.+?)[\s._\-|:!¡]+ep\s*\d{1,4}\b.*$/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = raw.match(pattern);
+
+    if (match && match[1]) {
+      const title = cleanSeriesBaseText(match[1]);
+
+      if (title && !looksLikeGenericSeriesGroup(title)) {
+        return title;
+      }
+    }
   }
 
-  if (title.length >= 3 && !looksLikeGenericSeriesGroup(title)) {
+  return "";
+}
+
+function cleanSeriesTitle(value, fallbackGroup = "") {
+  const original = String(value || "").trim();
+
+  const extracted = extractSeriesTitleBeforeEpisode(original);
+  if (extracted) {
+    return extracted;
+  }
+
+  let title = cleanSeriesBaseText(original);
+
+  title = title
+    .replace(/(?:^|[\s._\-|:!¡])(?:S|T)\s*\d{1,4}\s*E\s*\d{1,4}\b.*$/i, "")
+    .replace(/(?:^|[\s._\-|:!¡])\d{1,4}\s*x\s*\d{1,4}\b.*$/i, "")
+    .replace(/\btemporada\s*\d{1,4}\b.*$/i, "")
+    .replace(/\bseason\s*\d{1,4}\b.*$/i, "")
+    .replace(/\bcap[ií]tulo\s*\d{1,4}\b.*$/i, "")
+    .replace(/\bepisodio\s*\d{1,4}\b.*$/i, "")
+    .replace(/\bepisode\s*\d{1,4}\b.*$/i, "")
+    .replace(/\bep\s*\d{1,4}\b.*$/i, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^[\s\-|.:_]+|[\s\-|.:_]+$/g, "");
+
+  if (title.length >= 1 && !looksLikeGenericSeriesGroup(title)) {
     return title;
   }
 
