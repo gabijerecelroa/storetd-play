@@ -1238,13 +1238,43 @@ async function getSeriesFoldersLite({ activationCode, autoRefresh = true }) {
 
   const payload = result.payload || {};
   const sourceFolders = Array.isArray(payload.folders) ? payload.folders : [];
-  const folders = mergeGeneratedSeriesFolders(sourceFolders);
-
   const liteMap = new Map();
 
-  for (const folder of folders) {
-    const title = hardCleanSeriesTitleV13(folder.title, folder.group);
-    const key = slugKey(title) || folder.key;
+  const cleanLiteTitle = (value, fallbackGroup = "") => {
+    const raw = String(value || "")
+      .replace(/[\u00a0\u2007\u202f]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    const cleaned = raw
+      .replace(/\s+[sS][0-9]{1,4}\s*[eE][0-9]{1,4}\b.*$/, "")
+      .replace(/\s+[tT][0-9]{1,4}\s*[eE][0-9]{1,4}\b.*$/, "")
+      .replace(/\s+[0-9]{1,4}\s*x\s*[0-9]{1,4}\b.*$/i, "")
+      .replace(/\s+temporada\s*[0-9]{1,4}\b.*$/i, "")
+      .replace(/\s+season\s*[0-9]{1,4}\b.*$/i, "")
+      .replace(/\s+cap[ií]tulo\s*[0-9]{1,4}\b.*$/i, "")
+      .replace(/\s+episodio\s*[0-9]{1,4}\b.*$/i, "")
+      .replace(/\s+episode\s*[0-9]{1,4}\b.*$/i, "")
+      .replace(/\s+ep\s*[0-9]{1,4}\b.*$/i, "")
+      .replace(/[\s._\-|:]+$/g, "")
+      .trim();
+
+    if (cleaned && cleaned !== raw && !looksLikeGenericSeriesGroup(cleaned)) {
+      return cleaned;
+    }
+
+    const fallback = String(fallbackGroup || "").trim();
+
+    if (fallback && !looksLikeGenericSeriesGroup(fallback)) {
+      return fallback;
+    }
+
+    return raw || fallback || "Sin título";
+  };
+
+  for (const folder of sourceFolders) {
+    const title = cleanLiteTitle(folder.title, folder.group);
+    const key = slugKey(title) || folder.key || slugKey(folder.title);
     const episodeCount = Number(folder.episodeCount || folder.episodes?.length || 0);
 
     if (!liteMap.has(key)) {
@@ -1275,7 +1305,7 @@ async function getSeriesFoldersLite({ activationCode, autoRefresh = true }) {
     fromCache: result.fromCache,
     payload: {
       section: "series-folders-lite",
-      groupingVersion: "series-direct-clean-v13",
+      groupingVersion: "series-lite-endpoint-v14",
       activationCode: payload.activationCode,
       playlistUrlMasked: payload.playlistUrlMasked,
       updatedAt: payload.updatedAt,
