@@ -265,7 +265,8 @@ function slugKey(value) {
 }
 
 function cleanSeriesTitle(value, fallbackGroup = "") {
-  let title = String(value || "").trim();
+  const original = String(value || "").trim();
+  let title = original;
 
   title = title
     .replace(/^series\s*[|:/-]\s*/i, "")
@@ -273,24 +274,43 @@ function cleanSeriesTitle(value, fallbackGroup = "") {
     .replace(/^temporadas\s*[|:/-]\s*/i, "")
     .replace(/^cap[ií]tulos\s*[|:/-]\s*/i, "");
 
+  const beforeEpisode = title;
+
   title = title
-    .replace(/\bS\s*\d{1,4}\s*E\s*\d{1,4}\b.*$/i, "")
-    .replace(/\bT\s*\d{1,4}\s*E\s*\d{1,4}\b.*$/i, "")
-    .replace(/\b\d{1,4}\s*x\s*\d{1,4}\b.*$/i, "")
-    .replace(/\btemporada\s*\d{1,2}\b.*$/i, "")
-    .replace(/\bseason\s*\d{1,2}\b.*$/i, "")
-    .replace(/\bcap[ií]tulo\s*\d{1,3}\b.*$/i, "")
-    .replace(/\bepisodio\s*\d{1,3}\b.*$/i, "")
-    .replace(/\bepisode\s*\d{1,3}\b.*$/i, "")
-    .replace(/\bep\s*\d{1,3}\b.*$/i, "")
-    .replace(/\s+[sS]\d{1,4}[eE]\d{1,4}\b.*$/g, "")
-    .replace(/\s+[tT]\d{1,4}[eE]\d{1,4}\b.*$/g, "")
+    // Ej: Baymax S01E01, Baymax S01 E01, Baymax T01E01, Baymax 1x01
+    .replace(/(?:^|[\s._\-|:])(?:S|T)\s*\d{1,4}\s*E\s*\d{1,4}\b.*$/i, "")
+    .replace(/(?:^|[\s._\-|:])\d{1,4}\s*x\s*\d{1,4}\b.*$/i, "")
+
+    // Ej: Los abandonados S2025E01
+    .replace(/(?:^|[\s._\-|:])S\d{4}E\d{1,4}\b.*$/i, "")
+
+    // Ej: nombre temporada 1 episodio 2
+    .replace(/\btemporada\s*\d{1,4}\b.*$/i, "")
+    .replace(/\bseason\s*\d{1,4}\b.*$/i, "")
+    .replace(/\bcap[ií]tulo\s*\d{1,4}\b.*$/i, "")
+    .replace(/\bepisodio\s*\d{1,4}\b.*$/i, "")
+    .replace(/\bepisode\s*\d{1,4}\b.*$/i, "")
+    .replace(/\bep\s*\d{1,4}\b.*$/i, "")
+
+    // Ruido común
     .replace(/\[[^\]]*\]/g, "")
     .replace(/\([^)]*\)/g, "")
     .replace(/\b(latino|castellano|subtitulado|dual audio|hd|fhd|4k|1080p|720p)\b/gi, "")
     .replace(/\s+/g, " ")
     .trim()
     .replace(/^[\s\-|.:_]+|[\s\-|.:_]+$/g, "");
+
+  const removedEpisodeMarker = title !== beforeEpisode.trim();
+
+  // Aceptar títulos cortos si salieron de limpiar un patrón de episodio.
+  // Esto arregla series como "24 S01E01" => carpeta "24".
+  if (
+    title.length >= 1 &&
+    removedEpisodeMarker &&
+    !looksLikeGenericSeriesGroup(title)
+  ) {
+    return title;
+  }
 
   if (title.length >= 3 && !looksLikeGenericSeriesGroup(title)) {
     return title;
@@ -300,7 +320,7 @@ function cleanSeriesTitle(value, fallbackGroup = "") {
     return fallbackGroup;
   }
 
-  return String(value || fallbackGroup || "Sin título").trim();
+  return original || String(fallbackGroup || "Sin título").trim();
 }
 
 function looksLikeGenericSeriesGroup(value) {
