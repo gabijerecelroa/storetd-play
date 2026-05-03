@@ -1256,62 +1256,91 @@ private fun LazySearchHeader(
     onQueryChange: (String) -> Unit,
     onToggleSearch: () -> Unit
 ) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.fillMaxWidth()
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.48f),
+        shape = RoundedCornerShape(26.dp),
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+        ),
+        shadowElevation = 3.dp
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp)
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onBackground,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f)
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
 
-            Surface(
-                modifier = Modifier.clickable { onToggleSearch() },
-                color = if (showSearch) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.surface.copy(alpha = 0.65f)
-                },
-                shape = RoundedCornerShape(999.dp),
-                border = BorderStroke(
-                    1.dp,
-                    if (showSearch) {
+                    Text(
+                        text = if (showSearch) {
+                            "Escribí para filtrar resultados."
+                        } else {
+                            "Usá buscar para encontrar contenido más rápido."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.70f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Surface(
+                    modifier = Modifier.clickable { onToggleSearch() },
+                    color = if (showSearch) {
                         MaterialTheme.colorScheme.primary
                     } else {
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f)
-                    }
-                )
-            ) {
-                Text(
-                    text = if (showSearch) "Cerrar" else "🔍 Buscar",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = if (showSearch) {
-                        MaterialTheme.colorScheme.onPrimary
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.78f)
                     },
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                    shape = RoundedCornerShape(999.dp),
+                    border = BorderStroke(
+                        1.dp,
+                        if (showSearch) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f)
+                        }
+                    )
+                ) {
+                    Text(
+                        text = if (showSearch) "Cerrar búsqueda" else "Buscar",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = if (showSearch) {
+                            MaterialTheme.colorScheme.onPrimary
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        },
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
+                    )
+                }
+            }
+
+            if (showSearch) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    placeholder = { Text(placeholder) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
-        }
-
-        if (showSearch) {
-            OutlinedTextField(
-                value = query,
-                onValueChange = onQueryChange,
-                placeholder = { Text(placeholder) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
         }
     }
 }
