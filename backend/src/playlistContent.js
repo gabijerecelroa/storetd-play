@@ -534,12 +534,49 @@ function finalSeriesFolderTitleFromItem(item) {
 
 
 
+
+function finalMergeSeriesTitleV9(value, fallbackGroup = "") {
+  const raw = String(value || "")
+    .replace(/[\u00a0\u2007\u202f]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!raw) return String(fallbackGroup || "").trim() || "Sin título";
+
+  const tokens = raw.split(/\s+/);
+  const markerIndex = tokens.findIndex((token) => {
+    const clean = String(token || "")
+      .replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, "")
+      .toLowerCase();
+
+    return /^s\d{1,4}e\d{1,4}$/.test(clean) ||
+      /^t\d{1,4}e\d{1,4}$/.test(clean) ||
+      /^\d{1,4}x\d{1,4}$/.test(clean);
+  });
+
+  if (markerIndex > 0) {
+    const title = tokens
+      .slice(0, markerIndex)
+      .join(" ")
+      .replace(/[\s._\-|:]+$/g, "")
+      .trim();
+
+    if (title && !looksLikeGenericSeriesGroup(title)) {
+      return title;
+    }
+  }
+
+  const fallback = finalCleanSeriesFolderTitle(raw, fallbackGroup);
+
+  return fallback || raw;
+}
+
+
 function mergeGeneratedSeriesFolders(folders) {
   const merged = new Map();
 
   for (const folder of folders || []) {
-    const cleanTitle = finalCleanSeriesFolderTitle(folder.title, folder.group);
-    const title = cleanTitle || folder.title || "Sin título";
+    const title = finalMergeSeriesTitleV9(folder.title, folder.group);
     const key = slugKey(title) || folder.key || slugKey(folder.title);
 
     if (!merged.has(key)) {
@@ -676,7 +713,7 @@ function buildSeriesFoldersPayload({ activationCode, playlistUrl, items }) {
 
   return {
     section: "series-folders",
-    groupingVersion: "series-grouping-v8",
+    groupingVersion: "series-grouping-v9",
     activationCode,
     playlistUrlMasked: maskUrl(playlistUrl),
     updatedAt: new Date().toISOString(),
