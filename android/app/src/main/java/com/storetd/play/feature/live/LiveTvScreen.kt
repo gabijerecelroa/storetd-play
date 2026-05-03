@@ -1128,6 +1128,7 @@ private fun CategoryRow(
 private fun TvCategoryChip(
     label: String,
     selected: Boolean,
+    enabled: Boolean = true,
     onClick: () -> Unit
 ) {
     var focused by remember { mutableStateOf(false) }
