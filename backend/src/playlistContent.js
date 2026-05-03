@@ -282,15 +282,22 @@ function extractSeriesTitleBeforeEpisode(value) {
   const raw = cleanSeriesBaseText(value);
 
   const patterns = [
-    /^(.+?)[\s._\-|:!¡]+[sS]\s*\d{1,4}\s*[eE]\s*\d{1,4}\b.*$/,
-    /^(.+?)[\s._\-|:!¡]+[tT]\s*\d{1,4}\s*[eE]\s*\d{1,4}\b.*$/,
-    /^(.+?)[\s._\-|:!¡]+\d{1,4}\s*x\s*\d{1,4}\b.*$/,
-    /^(.+?)[\s._\-|:!¡]+temporada\s*\d{1,4}\b.*$/i,
-    /^(.+?)[\s._\-|:!¡]+season\s*\d{1,4}\b.*$/i,
-    /^(.+?)[\s._\-|:!¡]+cap[ií]tulo\s*\d{1,4}\b.*$/i,
-    /^(.+?)[\s._\-|:!¡]+episodio\s*\d{1,4}\b.*$/i,
-    /^(.+?)[\s._\-|:!¡]+episode\s*\d{1,4}\b.*$/i,
-    /^(.+?)[\s._\-|:!¡]+ep\s*\d{1,4}\b.*$/i
+    // Ej: ¡Baymax! S01E01, 24 S01E01, Los abandonados S2025E01
+    /^(.+?)(?:\s+|[._\-|:]+)(?:[sS]\s*\d{1,4}\s*[eE]\s*\d{1,4})\b.*$/,
+
+    // Ej: Serie T01E01
+    /^(.+?)(?:\s+|[._\-|:]+)(?:[tT]\s*\d{1,4}\s*[eE]\s*\d{1,4})\b.*$/,
+
+    // Ej: Serie 1x01
+    /^(.+?)(?:\s+|[._\-|:]+)(?:\d{1,4}\s*x\s*\d{1,4})\b.*$/i,
+
+    // Ej: Serie Temporada 1 / Season 1 / Episodio 1
+    /^(.+?)(?:\s+|[._\-|:]+)temporada\s*\d{1,4}\b.*$/i,
+    /^(.+?)(?:\s+|[._\-|:]+)season\s*\d{1,4}\b.*$/i,
+    /^(.+?)(?:\s+|[._\-|:]+)cap[ií]tulo\s*\d{1,4}\b.*$/i,
+    /^(.+?)(?:\s+|[._\-|:]+)episodio\s*\d{1,4}\b.*$/i,
+    /^(.+?)(?:\s+|[._\-|:]+)episode\s*\d{1,4}\b.*$/i,
+    /^(.+?)(?:\s+|[._\-|:]+)ep\s*\d{1,4}\b.*$/i
   ];
 
   for (const pattern of patterns) {
