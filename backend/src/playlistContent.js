@@ -274,15 +274,17 @@ function cleanSeriesTitle(value, fallbackGroup = "") {
     .replace(/^cap[ií]tulos\s*[|:/-]\s*/i, "");
 
   title = title
-    .replace(/\bS\s*\d{1,2}\s*E\s*\d{1,3}\b.*$/i, "")
-    .replace(/\bT\s*\d{1,2}\s*E\s*\d{1,3}\b.*$/i, "")
-    .replace(/\b\d{1,2}\s*x\s*\d{1,3}\b.*$/i, "")
+    .replace(/\bS\s*\d{1,4}\s*E\s*\d{1,4}\b.*$/i, "")
+    .replace(/\bT\s*\d{1,4}\s*E\s*\d{1,4}\b.*$/i, "")
+    .replace(/\b\d{1,4}\s*x\s*\d{1,4}\b.*$/i, "")
     .replace(/\btemporada\s*\d{1,2}\b.*$/i, "")
     .replace(/\bseason\s*\d{1,2}\b.*$/i, "")
     .replace(/\bcap[ií]tulo\s*\d{1,3}\b.*$/i, "")
     .replace(/\bepisodio\s*\d{1,3}\b.*$/i, "")
     .replace(/\bepisode\s*\d{1,3}\b.*$/i, "")
     .replace(/\bep\s*\d{1,3}\b.*$/i, "")
+    .replace(/\s+[sS]\d{1,4}[eE]\d{1,4}\b.*$/g, "")
+    .replace(/\s+[tT]\d{1,4}[eE]\d{1,4}\b.*$/g, "")
     .replace(/\[[^\]]*\]/g, "")
     .replace(/\([^)]*\)/g, "")
     .replace(/\b(latino|castellano|subtitulado|dual audio|hd|fhd|4k|1080p|720p)\b/gi, "")
@@ -330,9 +332,9 @@ function episodeSeason(name) {
   const text = String(name || "");
 
   const patterns = [
-    /\bS\s*(\d{1,2})\s*E\s*\d{1,3}\b/i,
-    /\bT\s*(\d{1,2})\s*E\s*\d{1,3}\b/i,
-    /\b(\d{1,2})\s*x\s*\d{1,3}\b/i,
+    /\bS\s*(\d{1,4})\s*E\s*\d{1,4}\b/i,
+    /\bT\s*(\d{1,4})\s*E\s*\d{1,4}\b/i,
+    /\b(\d{1,4})\s*x\s*\d{1,4}\b/i,
     /\btemporada\s*(\d{1,2})\b/i,
     /\bseason\s*(\d{1,2})\b/i
   ];
@@ -349,9 +351,9 @@ function episodeNumber(name) {
   const text = String(name || "");
 
   const patterns = [
-    /\bS\s*\d{1,2}\s*E\s*(\d{1,3})\b/i,
-    /\bT\s*\d{1,2}\s*E\s*(\d{1,3})\b/i,
-    /\b\d{1,2}\s*x\s*(\d{1,3})\b/i,
+    /\bS\s*\d{1,4}\s*E\s*(\d{1,4})\b/i,
+    /\bT\s*\d{1,4}\s*E\s*(\d{1,4})\b/i,
+    /\b\d{1,4}\s*x\s*(\d{1,4})\b/i,
     /\bcap[ií]tulo\s*(\d{1,3})\b/i,
     /\bepisodio\s*(\d{1,3})\b/i,
     /\bepisode\s*(\d{1,3})\b/i,
