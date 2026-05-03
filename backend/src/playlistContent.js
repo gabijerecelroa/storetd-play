@@ -756,7 +756,7 @@ function buildSeriesFoldersPayload({ activationCode, playlistUrl, items }) {
 
   return {
     section: "series-folders",
-    groupingVersion: "series-response-merge-v11",
+    groupingVersion: "series-lite-clean-v12",
     activationCode,
     playlistUrlMasked: maskUrl(playlistUrl),
     updatedAt: new Date().toISOString(),
@@ -1175,13 +1175,34 @@ async function getSeriesFoldersLite({ activationCode, autoRefresh = true }) {
   const sourceFolders = Array.isArray(payload.folders) ? payload.folders : [];
   const folders = mergeGeneratedSeriesFolders(sourceFolders);
 
-  const liteFolders = folders.map((folder) => ({
-    key: folder.key,
-    title: folder.title,
-    group: folder.group,
-    posterUrl: folder.posterUrl || null,
-    episodeCount: Number(folder.episodeCount || folder.episodes?.length || 0)
-  }));
+  const liteMap = new Map();
+
+  for (const folder of folders) {
+    const title = hardCleanGeneratedSeriesTitle(folder.title, folder.group);
+    const key = slugKey(title) || folder.key;
+    const episodeCount = Number(folder.episodeCount || folder.episodes?.length || 0);
+
+    if (!liteMap.has(key)) {
+      liteMap.set(key, {
+        key,
+        title,
+        group: folder.group,
+        posterUrl: folder.posterUrl || null,
+        episodeCount: 0
+      });
+    }
+
+    const current = liteMap.get(key);
+    current.episodeCount += episodeCount;
+
+    if (!current.posterUrl && folder.posterUrl) {
+      current.posterUrl = folder.posterUrl;
+    }
+  }
+
+  const liteFolders = Array.from(liteMap.values())
+    .filter((folder) => Number(folder.episodeCount || 0) > 0)
+    .sort((a, b) => String(a.title).localeCompare(String(b.title)));
 
   return {
     success: true,
@@ -1189,7 +1210,7 @@ async function getSeriesFoldersLite({ activationCode, autoRefresh = true }) {
     fromCache: result.fromCache,
     payload: {
       section: "series-folders-lite",
-      groupingVersion: "series-response-merge-v11",
+      groupingVersion: "series-lite-clean-v12",
       activationCode: payload.activationCode,
       playlistUrlMasked: payload.playlistUrlMasked,
       updatedAt: payload.updatedAt,
