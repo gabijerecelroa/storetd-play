@@ -416,29 +416,42 @@ function episodeNumber(name) {
 
 
 function forceCleanSeriesEpisodeTitle(value) {
-  const raw = cleanSeriesBaseText(value);
+  const raw = cleanSeriesBaseText(value)
+    .replace(/[\u00a0\u2007\u202f]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
-  const patterns = [
-    /^(.+?)\s+[sS]\d{1,4}\s*[eE]\d{1,4}\b.*$/,
-    /^(.+?)\s+[tT]\d{1,4}\s*[eE]\d{1,4}\b.*$/,
-    /^(.+?)\s+\d{1,4}\s*x\s*\d{1,4}\b.*$/i,
-    /^(.+?)\s+temporada\s*\d{1,4}\b.*$/i,
-    /^(.+?)\s+season\s*\d{1,4}\b.*$/i,
-    /^(.+?)\s+cap[ií]tulo\s*\d{1,4}\b.*$/i,
-    /^(.+?)\s+episodio\s*\d{1,4}\b.*$/i,
-    /^(.+?)\s+episode\s*\d{1,4}\b.*$/i,
-    /^(.+?)\s+ep\s*\d{1,4}\b.*$/i
+  if (!raw) return "";
+
+  const markerPatterns = [
+    /[sS]\s*\d{1,4}\s*[eE]\s*\d{1,4}\b/,
+    /[tT]\s*\d{1,4}\s*[eE]\s*\d{1,4}\b/,
+    /\d{1,4}\s*x\s*\d{1,4}\b/i,
+    /temporada\s*\d{1,4}\b/i,
+    /season\s*\d{1,4}\b/i,
+    /cap[ií]tulo\s*\d{1,4}\b/i,
+    /episodio\s*\d{1,4}\b/i,
+    /episode\s*\d{1,4}\b/i,
+    /\bep\s*\d{1,4}\b/i
   ];
 
-  for (const pattern of patterns) {
+  let bestIndex = -1;
+
+  for (const pattern of markerPatterns) {
     const match = raw.match(pattern);
 
-    if (match && match[1]) {
-      const title = cleanSeriesBaseText(match[1]);
-
-      if (title && !looksLikeGenericSeriesGroup(title)) {
-        return title;
+    if (match && typeof match.index === "number" && match.index > 0) {
+      if (bestIndex === -1 || match.index < bestIndex) {
+        bestIndex = match.index;
       }
+    }
+  }
+
+  if (bestIndex > 0) {
+    const title = cleanSeriesBaseText(raw.slice(0, bestIndex));
+
+    if (title && !looksLikeGenericSeriesGroup(title)) {
+      return title;
     }
   }
 
@@ -492,7 +505,35 @@ function buildSeriesFoldersPayload({ activationCode, playlistUrl, items }) {
     });
   }
 
-  const folders = Array.from(foldersMap.values())
+  const mergedFoldersMap = new Map();
+
+  for (const folder of foldersMap.values()) {
+    const mergedTitle =
+      forceCleanSeriesEpisodeTitle(folder.title) ||
+      cleanSeriesTitle(folder.title, folder.group);
+
+    const mergedKey = slugKey(mergedTitle) || folder.key;
+
+    if (!mergedFoldersMap.has(mergedKey)) {
+      mergedFoldersMap.set(mergedKey, {
+        ...folder,
+        key: mergedKey,
+        title: mergedTitle || folder.title,
+        group: folder.group || "Series",
+        episodes: []
+      });
+    }
+
+    const mergedFolder = mergedFoldersMap.get(mergedKey);
+
+    if (!mergedFolder.posterUrl && folder.posterUrl) {
+      mergedFolder.posterUrl = folder.posterUrl;
+    }
+
+    mergedFolder.episodes.push(...folder.episodes);
+  }
+
+  const folders = Array.from(mergedFoldersMap.values())
     .map((folder) => {
       const unique = new Map();
 
