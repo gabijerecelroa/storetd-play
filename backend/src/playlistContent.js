@@ -450,8 +450,15 @@ function buildSeriesFoldersPayload({ activationCode, playlistUrl, items }) {
   const foldersMap = new Map();
 
   for (const item of items) {
-    const forcedTitle = forceCleanSeriesEpisodeTitle(item.name);
-    const title = cleanSeriesTitle(forcedTitle || item.name, item.group);
+    const forcedTitle =
+      forceCleanSeriesEpisodeTitle(item.name) ||
+      forceCleanSeriesEpisodeTitle(item.group);
+
+    const title = cleanSeriesTitle(
+      forcedTitle || item.name || item.group,
+      forceCleanSeriesEpisodeTitle(item.group) || item.group
+    );
+
     const key = slugKey(title) || slugKey(item.group) || slugKey(item.name);
 
     if (!key) continue;
