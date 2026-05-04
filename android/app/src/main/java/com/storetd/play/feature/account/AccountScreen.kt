@@ -110,22 +110,6 @@ fun AccountScreen(
                 } else {
                     Text("EPG: asignada")
                 }
-
-                OutlinedButton(
-                    onClick = { copyText("Playlist URL", account.playlistUrl) },
-                    enabled = account.playlistUrl.isNotBlank(),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Copiar URL de lista")
-                }
-
-                OutlinedButton(
-                    onClick = { copyText("EPG URL", account.epgUrl) },
-                    enabled = account.epgUrl.isNotBlank(),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Copiar URL EPG")
-                }
             }
         }
 
