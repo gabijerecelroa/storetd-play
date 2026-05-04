@@ -201,16 +201,10 @@ fun checkAccountStatus() {
                     navigateAndClear(Routes.Home)
                 },
                 onDemo = {
-                    LocalAccount.activate(
+                    LocalAccount.activateDemo(
                         context = context,
-                        customerName = "Cliente Demo",
-                        activationCode = "DEMO1234",
-                        status = "Prueba",
-                        expiresAt = "",
-                        playlistUrl = "",
-                        epgUrl = "",
-                        maxDevices = 5,
-                        deviceCount = 1
+                        playlistUrl = "https://gist.githubusercontent.com/gabijerecelroa/1beb318f81af17604a81a8c257297615/raw/lista.m3u",
+                        epgUrl = ""
                     )
                     navigateAndClear(Routes.Home)
                 }

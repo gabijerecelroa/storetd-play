@@ -5,6 +5,7 @@ import android.provider.Settings
 import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 
 data class LocalCustomerAccount(
@@ -31,12 +32,28 @@ object LocalAccount {
     private const val KEY_EPG_URL = "epg_url"
     private const val KEY_MAX_DEVICES = "max_devices"
     private const val KEY_DEVICE_COUNT = "device_count"
+    private const val KEY_IS_DEMO = "is_demo"
+    private const val KEY_DEMO_EXPIRES_AT_MS = "demo_expires_at_ms"
 
     private fun prefs(context: Context) =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     fun isActivated(context: Context): Boolean {
-        return prefs(context).getBoolean(KEY_ACTIVATED, false)
+        val preferences = prefs(context)
+
+        if (!preferences.getBoolean(KEY_ACTIVATED, false)) {
+            return false
+        }
+
+        val isDemo = preferences.getBoolean(KEY_IS_DEMO, false)
+        val demoExpiresAtMs = preferences.getLong(KEY_DEMO_EXPIRES_AT_MS, 0L)
+
+        if (isDemo && demoExpiresAtMs > 0L && System.currentTimeMillis() > demoExpiresAtMs) {
+            logout(context)
+            return false
+        }
+
+        return true
     }
 
     fun getAccount(context: Context): LocalCustomerAccount {
@@ -75,6 +92,29 @@ object LocalAccount {
             .putString(KEY_EPG_URL, epgUrl)
             .putInt(KEY_MAX_DEVICES, maxDevices)
             .putInt(KEY_DEVICE_COUNT, deviceCount)
+            .apply()
+    }
+
+    fun activateDemo(
+        context: Context,
+        playlistUrl: String,
+        epgUrl: String = ""
+    ) {
+        val expiresAtMs = System.currentTimeMillis() + (2L * 60L * 60L * 1000L)
+        val expiresLabel = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date(expiresAtMs))
+
+        prefs(context).edit()
+            .putBoolean(KEY_ACTIVATED, true)
+            .putBoolean(KEY_IS_DEMO, true)
+            .putLong(KEY_DEMO_EXPIRES_AT_MS, expiresAtMs)
+            .putString(KEY_CUSTOMER_NAME, "Cliente Demo")
+            .putString(KEY_ACTIVATION_CODE, "253698")
+            .putString(KEY_STATUS, "Demo 2 horas")
+            .putString(KEY_EXPIRES_AT, expiresLabel)
+            .putString(KEY_PLAYLIST_URL, playlistUrl)
+            .putString(KEY_EPG_URL, epgUrl)
+            .putInt(KEY_MAX_DEVICES, 1)
+            .putInt(KEY_DEVICE_COUNT, 1)
             .apply()
     }
 
