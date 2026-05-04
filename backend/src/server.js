@@ -3596,6 +3596,62 @@ app.post("/admin/api/m3u/normalize-smartone", requireAdmin, async (req, res) => 
 });
 
 
+
+app.post("/admin/api/m3u/publish-smartone", requireAdmin, async (req, res) => {
+  try {
+    const gistConfig = requireGistConfig(res);
+    if (!gistConfig) return;
+
+    const targetFilename = String(req.body?.filename || req.query.filename || "lista-smartone.m3u").trim();
+    const original = await downloadGistM3uRaw(gistConfig.rawUrl);
+    const normalized = normalizeM3uOrderForSmartone(original);
+
+    const response = await fetch(`https://api.github.com/gists/${gistConfig.gistId}`, {
+      method: "PATCH",
+      headers: {
+        "Accept": "application/vnd.github+json",
+        "Authorization": `Bearer ${gistConfig.token}`,
+        "Content-Type": "application/json",
+        "User-Agent": "StoreTD-Play-Admin"
+      },
+      body: JSON.stringify({
+        files: {
+          [targetFilename]: {
+            content: normalized.content
+          }
+        }
+      })
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(data.message || `No se pudo publicar lista Smartone. HTTP ${response.status}`);
+    }
+
+    const rawUrl = `https://gist.githubusercontent.com/gabijerecelroa/${gistConfig.gistId}/raw/${encodeURIComponent(targetFilename)}`;
+
+    res.json({
+      success: true,
+      message: "Lista Smartone publicada.",
+      filename: targetFilename,
+      rawUrl,
+      entries: normalized.entries,
+      counts: normalized.counts,
+      changedTypes: normalized.changedTypes,
+      changedOrder: normalized.changedOrder
+    });
+  } catch (error) {
+    console.error("Publish Smartone M3U error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudo publicar la lista Smartone.",
+      error: error.message
+    });
+  }
+});
+
+
 app.post("/api/content/refresh-app", async (req, res) => {
   if (!requireDb(res)) return;
 
