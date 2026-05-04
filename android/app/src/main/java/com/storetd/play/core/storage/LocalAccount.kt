@@ -23,6 +23,8 @@ data class LocalCustomerAccount(
 
 object LocalAccount {
     private const val PREFS = "storetd_play_account"
+    private const val DEMO_USAGE_PREFS = "storetd_play_demo_usage"
+    private const val KEY_DEMO_USED_ONCE = "demo_used_once"
     private const val KEY_ACTIVATED = "activated"
     private const val KEY_CUSTOMER_NAME = "customer_name"
     private const val KEY_ACTIVATION_CODE = "activation_code"
@@ -37,6 +39,18 @@ object LocalAccount {
 
     private fun prefs(context: Context) =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+    private fun demoUsagePrefs(context: Context) =
+        context.getSharedPreferences(DEMO_USAGE_PREFS, Context.MODE_PRIVATE)
+
+    fun hasUsedDemo(context: Context): Boolean {
+        return demoUsagePrefs(context).getBoolean(KEY_DEMO_USED_ONCE, false)
+    }
+
+    private fun markDemoUsed(context: Context) {
+        demoUsagePrefs(context).edit().putBoolean(KEY_DEMO_USED_ONCE, true).apply()
+    }
+
 
     fun isActivated(context: Context): Boolean {
         val preferences = prefs(context)
@@ -100,6 +114,7 @@ object LocalAccount {
         playlistUrl: String,
         epgUrl: String = ""
     ) {
+        markDemoUsed(context)
         val expiresAtMs = System.currentTimeMillis() + (2L * 60L * 60L * 1000L)
         val expiresLabel = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date(expiresAtMs))
 

@@ -201,6 +201,10 @@ fun checkAccountStatus() {
                     navigateAndClear(Routes.Home)
                 },
                 onDemo = {
+                    if (LocalAccount.hasUsedDemo(context)) {
+                        return@ActivationScreen
+                    }
+
                     LocalAccount.activateDemo(
                         context = context,
                         playlistUrl = "https://gist.githubusercontent.com/gabijerecelroa/1beb318f81af17604a81a8c257297615/raw/lista.m3u",
