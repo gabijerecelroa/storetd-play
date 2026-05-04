@@ -5,6 +5,6 @@ data class BrandConfig(
     val welcomeText: String = "Contenido autorizado, simple y rapido",
     val primaryColor: String = "#E50914",
     val secondaryColor: String = "#141414",
-    val supportWhatsapp: String = "5490000000000",
+    val supportWhatsapp: String = "5493718698291",
     val supportEmail: String = "soporte@example.com"
 )

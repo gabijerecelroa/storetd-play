@@ -47,7 +47,7 @@ fun AccountScreen(
     }
 
     fun openRenewWhatsApp() {
-        val phone = BuildConfig.SUPPORT_WHATSAPP.ifBlank { "5490000000000" }
+        val phone = BuildConfig.SUPPORT_WHATSAPP.ifBlank { "5493718698291" }
         val text = Uri.encode(
             "Hola, quiero renovar mi servicio StoreTD Play.\n\n" +
                 "Cliente: ${account.customerName}\n" +
