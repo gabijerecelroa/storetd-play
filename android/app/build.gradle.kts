@@ -50,12 +50,12 @@ android {
         buildConfigField(
             "String",
             "SUPPORT_WHATSAPP",
-            "\"${System.getenv("SUPPORT_WHATSAPP") ?: "5490000000000"}\""
+            "\"${System.getenv("SUPPORT_WHATSAPP") ?: "5493718698291"}\""
         )
         buildConfigField(
             "String",
             "SUPPORT_EMAIL",
-            "\"${System.getenv("SUPPORT_EMAIL") ?: "soporte@example.com"}\""
+            "\"${System.getenv("SUPPORT_EMAIL") ?: ""}\""
         )
         resValue("string", "app_name", System.getenv("APP_NAME") ?: "StoreTD Play")
     }
