@@ -135,7 +135,21 @@ function isSeries(item) {
   return seriesWords.some((word) => group.includes(normalizeText(word)) || name.includes(normalizeText(word)));
 }
 
+function isLiveTvGroup(item) {
+  const group = normalizeText(item?.group || "");
+
+  return group === "tv" ||
+    group.startsWith("tv |") ||
+    group.startsWith("tv|") ||
+    group.startsWith("tv ") ||
+    group.startsWith("canales") ||
+    group.startsWith("en vivo") ||
+    group.startsWith("live") ||
+    group.startsWith("livetv");
+}
+
 function sectionOf(item) {
+  if (isLiveTvGroup(item)) return "live";
   if (isSeries(item)) return "series";
   if (isMovie(item)) return "movies";
   return "live";
