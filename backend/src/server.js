@@ -1871,6 +1871,179 @@ function appendUniqueM3uEntries(originalM3u, entries) {
 }
 
 
+
+function smartoneM3uTypeFromGroupTitle(groupTitle) {
+  const text = String(groupTitle || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+
+  if (
+    text === "tv" ||
+    text.startsWith("tv |") ||
+    text.startsWith("tv|") ||
+    text.startsWith("tv ") ||
+    text.startsWith("canales") ||
+    text.startsWith("en vivo") ||
+    text.startsWith("live") ||
+    text.startsWith("livetv")
+  ) {
+    return "live";
+  }
+
+  if (
+    text === "peliculas" ||
+    text === "pelicula" ||
+    text.startsWith("peliculas |") ||
+    text.startsWith("peliculas|") ||
+    text.startsWith("peliculas ") ||
+    text.startsWith("pelicula |") ||
+    text.startsWith("pelicula|")
+  ) {
+    return "movie";
+  }
+
+  if (
+    text === "series" ||
+    text === "serie" ||
+    text.startsWith("series |") ||
+    text.startsWith("series|") ||
+    text.startsWith("series ") ||
+    text.startsWith("serie |") ||
+    text.startsWith("serie|")
+  ) {
+    return "serie";
+  }
+
+  return "";
+}
+
+function repairSmartoneExtinfType(line) {
+  const current = String(line || "");
+  const groupMatch = current.match(/group-title="([^"]*)"/i);
+  const groupTitle = groupMatch ? groupMatch[1] : "";
+  const wantedType = smartoneM3uTypeFromGroupTitle(groupTitle);
+  const currentTypeMatch = current.match(/tvg-type="([^"]*)"/i);
+  const currentType = currentTypeMatch ? String(currentTypeMatch[1] || "").toLowerCase() : "";
+
+  if (!wantedType) {
+    return {
+      line: current,
+      type: currentType || "other",
+      changed: false
+    };
+  }
+
+  if (/tvg-type="[^"]*"/i.test(current)) {
+    const repaired = current.replace(/tvg-type="[^"]*"/i, `tvg-type="${wantedType}"`);
+
+    return {
+      line: repaired,
+      type: wantedType,
+      changed: repaired !== current
+    };
+  }
+
+  return {
+    line: current.replace("#EXTINF:-1", `#EXTINF:-1 tvg-type="${wantedType}"`),
+    type: wantedType,
+    changed: true
+  };
+}
+
+function normalizeM3uOrderForSmartone(m3uText) {
+  const lines = String(m3uText || "").replace(/\r/g, "").split("\n");
+  const buckets = {
+    live: [],
+    movie: [],
+    serie: [],
+    other: []
+  };
+
+  let entries = 0;
+  let changedTypes = 0;
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = String(lines[i] || "");
+    const trimmed = line.trim();
+
+    if (!trimmed || trimmed.startsWith("#EXTM3U")) {
+      continue;
+    }
+
+    if (!trimmed.startsWith("#EXTINF")) {
+      continue;
+    }
+
+    const repaired = repairSmartoneExtinfType(trimmed);
+    const block = [repaired.line];
+
+    let j = i + 1;
+
+    while (j < lines.length) {
+      const nextLine = String(lines[j] || "").trim();
+
+      if (!nextLine) {
+        j += 1;
+        continue;
+      }
+
+      if (nextLine.startsWith("#EXTINF")) {
+        break;
+      }
+
+      if (!nextLine.startsWith("#EXTM3U")) {
+        block.push(nextLine);
+      }
+
+      if (!nextLine.startsWith("#")) {
+        j += 1;
+        break;
+      }
+
+      j += 1;
+    }
+
+    const bucketName = ["live", "movie", "serie"].includes(repaired.type)
+      ? repaired.type
+      : "other";
+
+    buckets[bucketName].push(block.join("\n"));
+    entries += 1;
+
+    if (repaired.changed) {
+      changedTypes += 1;
+    }
+
+    i = j - 1;
+  }
+
+  const orderedBlocks = [
+    "#EXTM3U",
+    ...buckets.live,
+    ...buckets.movie,
+    ...buckets.serie,
+    ...buckets.other
+  ];
+
+  const content = orderedBlocks.join("\n").replace(/\s+$/g, "") + "\n";
+
+  return {
+    content,
+    entries,
+    changedTypes,
+    changedOrder: content.trim() !== String(m3uText || "").replace(/\r/g, "").trim(),
+    counts: {
+      live: buckets.live.length,
+      movies: buckets.movie.length,
+      series: buckets.serie.length,
+      other: buckets.other.length
+    }
+  };
+}
+
+
 function requireGistConfig(res) {
   const token = process.env.GITHUB_GIST_TOKEN || "";
   const gistId = process.env.GITHUB_GIST_ID || "";
@@ -3375,6 +3548,52 @@ app.post(
     }
   }
 );
+
+
+
+app.post("/admin/api/m3u/normalize-smartone", requireAdmin, async (req, res) => {
+  try {
+    const gistConfig = requireGistConfig(res);
+    if (!gistConfig) return;
+
+    const activationCode = normalizeCode(req.body?.activationCode || req.query.code || "");
+    const original = await downloadGistM3uRaw(gistConfig.rawUrl);
+    const normalized = normalizeM3uOrderForSmartone(original);
+
+    if (normalized.changedOrder || normalized.changedTypes > 0) {
+      await updateGistFile({
+        token: gistConfig.token,
+        gistId: gistConfig.gistId,
+        filename: gistConfig.filename,
+        content: normalized.content
+      });
+    }
+
+    let refreshResult = null;
+
+    if (activationCode) {
+      refreshResult = await refreshContentCacheForClient(activationCode);
+    }
+
+    res.json({
+      success: true,
+      message: "Lista M3U normalizada para Smartone IPTV.",
+      changedOrder: normalized.changedOrder,
+      changedTypes: normalized.changedTypes,
+      entries: normalized.entries,
+      counts: normalized.counts,
+      activationCode: activationCode || null,
+      refresh: refreshResult
+    });
+  } catch (error) {
+    console.error("Normalize Smartone M3U error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudo normalizar la lista para Smartone IPTV.",
+      error: error.message
+    });
+  }
+});
 
 
 app.post("/api/content/refresh-app", async (req, res) => {
