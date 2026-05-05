@@ -57,6 +57,9 @@
 
 <script>
 let adminKey = localStorage.getItem("adminKey") || "";
+let requestsCache = [];
+let requestStatusFilter = "all";
+let requestTypeFilter = "all";
 document.getElementById("adminKey").value = adminKey;
 
 function $(id){return document.getElementById(id)}
@@ -90,7 +93,8 @@ async function loadAll(){
       api("/admin/api/reseller-requests")
     ]);
     renderResellers(resellers.resellers || []);
-    renderRequests(requests.requests || []);
+    requestsCache = requests.requests || [];
+    renderRequests();
     $("msg").textContent = "OK";
   }catch(e){
     $("msg").textContent = e.message;
@@ -171,13 +175,66 @@ async function toggleReseller(id, active){
   }
 }
 
-function renderRequests(items){
-  if(!items.length){
-    $("requests").innerHTML = "<p class='muted'>No hay pedidos.</p>";
+
+function normalizeText(value){
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function updateRequestFilters(){
+  requestStatusFilter = $("requestStatusFilter")?.value || "all";
+  requestTypeFilter = $("requestTypeFilter")?.value || "all";
+  renderRequests();
+}
+
+function filteredRequests(){
+  const q = normalizeText($("requestSearch")?.value || "");
+
+  return requestsCache.filter((item) => {
+    const statusOk =
+      requestStatusFilter === "all" ||
+      String(item.status || "") === requestStatusFilter;
+
+    const typeOk =
+      requestTypeFilter === "all" ||
+      String(item.requestType || "") === requestTypeFilter;
+
+    const haystack = normalizeText([
+      item.resellerName,
+      item.resellerUsername,
+      item.activationCode,
+      item.customerName,
+      item.requestType,
+      item.contentTitle,
+      item.message,
+      item.status,
+      item.adminNote
+    ].join(" "));
+
+    const searchOk = !q || haystack.includes(q);
+
+    return statusOk && typeOk && searchOk;
+  });
+}
+
+
+function renderRequests(items = null){
+  const visibleItems = items || filteredRequests();
+  const countBox = $("requestsCount");
+
+  if(countBox){
+    countBox.textContent = `${visibleItems.length} pedido(s) mostrado(s) de ${requestsCache.length}.`;
+  }
+
+  if(!visibleItems.length){
+    $("requests").innerHTML = "<p class='muted'>No hay pedidos con esos filtros.</p>";
     return;
   }
 
-  $("requests").innerHTML = items.map(item => `
+  $("requests").innerHTML = visibleItems.map(item => `
     <div class="item">
       <strong>${esc(item.requestType)}</strong>
       <span class="pill">${esc(item.status)}</span>
