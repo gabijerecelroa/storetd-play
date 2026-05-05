@@ -2079,6 +2079,30 @@ async function downloadGistM3uRaw(rawUrl) {
 }
 
 async function updateGistFile({ token, gistId, filename, content }) {
+  const mainFilename = process.env.GITHUB_GIST_FILENAME || "lista.m3u";
+  const smartoneFilename = process.env.GITHUB_GIST_SMARTONE_FILENAME || "lista-smartone.m3u";
+
+  const files = {
+    [filename]: {
+      content
+    }
+  };
+
+  const shouldMirrorSmartone =
+    filename === mainFilename &&
+    smartoneFilename &&
+    smartoneFilename !== filename &&
+    String(content || "").includes("#EXTINF") &&
+    typeof normalizeM3uOrderForSmartone === "function";
+
+  if (shouldMirrorSmartone) {
+    const normalizedSmartone = normalizeM3uOrderForSmartone(content);
+
+    files[smartoneFilename] = {
+      content: normalizedSmartone.content
+    };
+  }
+
   const response = await fetch(`https://api.github.com/gists/${gistId}`, {
     method: "PATCH",
     headers: {
@@ -2088,11 +2112,7 @@ async function updateGistFile({ token, gistId, filename, content }) {
       "User-Agent": "StoreTD-Play-Admin"
     },
     body: JSON.stringify({
-      files: {
-        [filename]: {
-          content
-        }
-      }
+      files
     })
   });
 
@@ -2104,6 +2124,7 @@ async function updateGistFile({ token, gistId, filename, content }) {
 
   return data;
 }
+
 
 function replaceM3uStreamUrlByHash(m3uText, targetHash, replacementUrl) {
   const lines = String(m3uText || "").replace(/\r/g, "").split("\n");
