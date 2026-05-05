@@ -1755,6 +1755,16 @@
           </div>
 
           <div class="quick-actions-grid">
+            <button class="quick-action-card" onclick="window.open('/admin/resellers', '_blank')">
+              <strong>Revendedores</strong>
+              <span>Créditos, clientes y pedidos</span>
+            </button>
+
+            <button class="quick-action-card" onclick="window.open('/reseller', '_blank')">
+              <strong>Panel revendedor</strong>
+              <span>Acceso para vendedores</span>
+            </button>
+
             <button class="quick-action-card" onclick="showTab('clients')">
               <div>
                 <strong>Clientes</strong>
@@ -1800,6 +1810,9 @@
 
       <div class="tabs">
         <button id="tabClients" class="tab active" onclick="showTab('clients')">Clientes</button>
+        <button id="tabResellersShortcut" class="tab" onclick="window.open('/admin/resellers', '_blank')">Revendedores</button>
+        <button id="tabResellerPanelShortcut" class="tab" onclick="window.open('/reseller', '_blank')">Panel revendedor</button>
+        
         <button id="tabReports" class="tab" onclick="showTab('reports')">Reportes</button>
         <button id="tabGrouped" class="tab" onclick="showTab('grouped')">Canales más reportados</button>
         <button id="tabBrokenLinks" class="tab" onclick="showTab('brokenLinks')">Enlaces caídos</button>
