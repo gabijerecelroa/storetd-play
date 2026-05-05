@@ -303,6 +303,15 @@
       <div style="height:12px"></div>
       <button onclick="sendRequest()">Enviar pedido</button>
       <span id="requestMsg" class="muted" style="margin-left:10px"></span>
+
+      <div style="height:18px"></div>
+      <div class="section-title">
+        <div>
+          <h3 style="margin:0">Mis pedidos enviados</h3>
+          <div class="muted">Acá podés ver el estado y la respuesta del admin.</div>
+        </div>
+      </div>
+      <div id="myRequests"></div>
     </section>
   </section>
 </main>
@@ -354,15 +363,17 @@ async function loadAll(){
   $("who").textContent = `${me.reseller.name} · créditos disponibles: ${me.reseller.credits}`;
   $("credits").textContent = me.reseller.credits;
 
-  const [data, movementsData] = await Promise.all([
+  const [data, movementsData, requestsData] = await Promise.all([
     api("/reseller/api/clients"),
-    api("/reseller/api/credit-movements")
+    api("/reseller/api/credit-movements"),
+    api("/reseller/api/requests")
   ]);
 
   clientsCache = data.clients || [];
   updateStats();
   renderClients();
   renderCreditHistory(movementsData.movements || []);
+  renderMyRequests(requestsData.requests || []);
 }
 
 
@@ -457,6 +468,62 @@ function creditAmountLabel(amount){
 function creditAmountClass(amount){
   return Number(amount || 0) >= 0 ? "ok" : "warn";
 }
+
+
+function requestStatusClass(status){
+  const text = String(status || "").toLowerCase();
+
+  if(text.includes("resuelto")) return "ok";
+  if(text.includes("rechazado")) return "warn";
+  if(text.includes("revision") || text.includes("revisión")) return "ok";
+
+  return "";
+}
+
+function renderMyRequests(requests){
+  const box = document.getElementById("myRequests");
+  if(!box) return;
+
+  if(!requests.length){
+    box.innerHTML = "<div class='empty'>Todavía no enviaste pedidos o reclamos.</div>";
+    return;
+  }
+
+  box.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Tipo</th>
+            <th>Cliente</th>
+            <th>Contenido</th>
+            <th>Mensaje</th>
+            <th>Estado</th>
+            <th>Respuesta admin</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${requests.map(item => `
+            <tr>
+              <td>${esc(String(item.createdAt || "").replace("T", " ").slice(0, 16))}</td>
+              <td>${esc(item.requestType || "-")}</td>
+              <td>
+                <div>${esc(item.customerName || "-")}</div>
+                <div class="code">${esc(item.activationCode || "")}</div>
+              </td>
+              <td>${esc(item.contentTitle || "-")}</td>
+              <td>${esc(item.message || "-")}</td>
+              <td><span class="pill ${requestStatusClass(item.status)}">${esc(item.status || "Pendiente")}</span></td>
+              <td>${esc(item.adminNote || "-")}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
 
 function renderCreditHistory(movements){
   const box = document.getElementById("creditHistory");
@@ -692,6 +759,7 @@ async function sendRequest(){
     $("requestActivationCode").value = "";
     $("requestCustomerName").value = "";
     $("requestContentTitle").value = "";
+    await loadAll();
   }catch(e){
     $("requestMsg").textContent = e.message;
   }

@@ -1054,6 +1054,45 @@ app.post("/reseller/api/clients/:code/renew", requireReseller, async (req, res) 
   }
 });
 
+
+app.get("/reseller/api/requests", requireReseller, async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const { data, error } = await supabase
+      .from("reseller_requests")
+      .select("*")
+      .eq("reseller_id", req.reseller.id)
+      .order("created_at", { ascending: false })
+      .limit(300);
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      requests: (data || []).map((item) => ({
+        id: item.id,
+        activationCode: item.activation_code || "",
+        customerName: item.customer_name || "",
+        requestType: item.request_type || "",
+        contentTitle: item.content_title || "",
+        message: item.message || "",
+        status: item.status || "Pendiente",
+        adminNote: item.admin_note || "",
+        createdAt: item.created_at || "",
+        updatedAt: item.updated_at || ""
+      }))
+    });
+  } catch (error) {
+    console.error("Reseller own requests error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudieron cargar tus pedidos.",
+      error: error.message
+    });
+  }
+});
+
 app.post("/reseller/api/requests", requireReseller, async (req, res) => {
   if (!requireDb(res)) return;
 
