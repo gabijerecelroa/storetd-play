@@ -2699,6 +2699,9 @@
             const devices = Number(client.deviceCount || 0);
             const maxDevices = Number(client.maxDevices || 1);
             const playlistUrl = client.playlistUrl || "";
+            const resellerLabel = client.resellerName
+              ? `${client.resellerName}${client.resellerUsername ? " / " + client.resellerUsername : ""}`
+              : "Admin principal";
             const epgUrl = client.epgUrl || "";
             const registeredDevices = (client.devices || []).map(escapeHtml).join(", ") || "ninguno";
             const isDemo = normalize(client.status).includes("prueba");
@@ -2715,6 +2718,7 @@
                     <div class="client-row-date">
                       <span class="calendar">▣</span>
                       <span>Vence: ${escapeHtml(formatClientDate(client.expiresAt))}</span>
+                      <span>Origen: ${escapeHtml(resellerLabel)}</span>
                     </div>
                   </div>
 

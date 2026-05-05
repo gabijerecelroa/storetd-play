@@ -1356,7 +1356,7 @@ app.get("/admin/api/clients", requireAdmin, async (req, res) => {
   try {
     const { data: rows, error } = await supabase
       .from("clients")
-      .select("*")
+      .select("*, resellers(name, username)")
       .order("customer_name", { ascending: true });
 
     if (error) throw error;
@@ -1372,7 +1372,10 @@ app.get("/admin/api/clients", requireAdmin, async (req, res) => {
         activationCode: code,
         deviceCount: devices.length,
         devices: devices.map((item) => item.device_code),
-        deviceDetails: devices.map(dbDeviceToApi)
+        deviceDetails: devices.map(dbDeviceToApi),
+        resellerId: row.reseller_id || "",
+        resellerName: row.resellers?.name || "",
+        resellerUsername: row.resellers?.username || ""
       });
     }
 
