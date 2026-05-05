@@ -116,6 +116,7 @@ fun PlayerScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val playerRootView = LocalView.current
     val view = LocalView.current
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -201,6 +202,16 @@ fun PlayerScreen(
             reportMessage = null
         }
     }
+
+    DisposableEffect(playerRootView) {
+        val previousKeepScreenOn = playerRootView.keepScreenOn
+        playerRootView.keepScreenOn = true
+
+        onDispose {
+            playerRootView.keepScreenOn = previousKeepScreenOn
+        }
+    }
+
 
 
     val player = remember(currentChannel.streamUrl) {
@@ -797,6 +808,7 @@ fun PlayerScreen(
                 modifier = Modifier.fillMaxSize(),
                 factory = {
                     PlayerView(it).apply {
+                        keepScreenOn = true
                         useController = false
                         resizeMode = videoResizeMode.media3Mode
                         layoutParams = ViewGroup.LayoutParams(
@@ -806,6 +818,7 @@ fun PlayerScreen(
                     }
                 },
                 update = {
+                    it.keepScreenOn = true
                     it.player = player
                     it.useController = false
                     it.resizeMode = videoResizeMode.media3Mode
