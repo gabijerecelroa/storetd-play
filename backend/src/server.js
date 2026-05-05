@@ -107,6 +107,128 @@ function apiClientToDb(input, fixedCode) {
 }
 
 
+
+
+function addMonthsToDateString(dateString, months) {
+  const count = Math.max(1, Math.min(Number(months || 1), 24));
+  const today = new Date();
+  const baseText = String(dateString || "").slice(0, 10);
+  const base = baseText && !isExpired(baseText)
+    ? new Date(`${baseText}T00:00:00.000Z`)
+    : new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+
+  base.setUTCMonth(base.getUTCMonth() + count);
+  return base.toISOString().slice(0, 10);
+}
+
+function cleanResellerMonths(value) {
+  const months = Number(value || 1);
+  if (!Number.isFinite(months)) return 1;
+  return Math.max(1, Math.min(Math.floor(months), 24));
+}
+
+function generateResellerAccessKey() {
+  return crypto.randomBytes(18).toString("hex");
+}
+
+async function generateUniqueActivationCode() {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const code = String(crypto.randomInt(100000, 999999));
+
+    const { data, error } = await supabase
+      .from("clients")
+      .select("activation_code")
+      .eq("activation_code", code)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return code;
+  }
+
+  throw new Error("No se pudo generar código único.");
+}
+
+function resellerClientToApi(row) {
+  return {
+    customerName: row.customer_name || "",
+    activationCode: row.activation_code || "",
+    status: row.status || "Activa",
+    expiresAt: row.expires_at || "",
+    maxDevices: Number(row.max_devices || 1),
+    deviceCount: Number(row.device_count || 0),
+    createdAt: row.created_at || "",
+    updatedAt: row.updated_at || ""
+  };
+}
+
+function dbResellerToApi(row) {
+  return {
+    id: row.id,
+    name: row.name || "",
+    username: row.username || "",
+    accessKey: row.access_key || "",
+    credits: Number(row.credits || 0),
+    active: Boolean(row.active),
+    createdAt: row.created_at || "",
+    updatedAt: row.updated_at || ""
+  };
+}
+
+async function requireReseller(req, res, next) {
+  if (!requireDb(res)) return;
+
+  try {
+    const key =
+      req.headers["x-reseller-key"] ||
+      req.query.key ||
+      req.body?.resellerKey;
+
+    if (!key) {
+      return res.status(401).json({
+        success: false,
+        message: "Falta clave de revendedor."
+      });
+    }
+
+    const { data, error } = await supabase
+      .from("resellers")
+      .select("*")
+      .eq("access_key", String(key).trim())
+      .eq("active", true)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (!data) {
+      return res.status(401).json({
+        success: false,
+        message: "Revendedor no autorizado."
+      });
+    }
+
+    req.reseller = data;
+    next();
+  } catch (error) {
+    console.error("Reseller auth error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudo validar revendedor.",
+      error: error.message
+    });
+  }
+}
+
+function resellerDefaultPlaylistUrl() {
+  return process.env.RESELLER_DEFAULT_PLAYLIST_URL ||
+    process.env.GITHUB_GIST_RAW_URL ||
+    "";
+}
+
+function resellerDefaultEpgUrl() {
+  return process.env.RESELLER_DEFAULT_EPG_URL || "";
+}
+
+
 function streamUrlHash(value) {
   return crypto
     .createHash("sha256")
@@ -313,6 +435,571 @@ app.get("/health", async (req, res) => {
     database: "supabase"
   });
 });
+
+
+
+app.get("/reseller", (req, res) => {
+  res.sendFile(path.join(__dirname, "..", "public", "reseller.html"));
+});
+
+app.get("/admin/resellers", (req, res) => {
+  res.sendFile(path.join(__dirname, "..", "public", "resellers.html"));
+});
+
+app.get("/admin/api/resellers", requireAdmin, async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const { data, error } = await supabase
+      .from("resellers")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      resellers: (data || []).map(dbResellerToApi)
+    });
+  } catch (error) {
+    console.error("Admin resellers list error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudieron cargar revendedores.",
+      error: error.message
+    });
+  }
+});
+
+app.post("/admin/api/resellers", requireAdmin, async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const name = String(req.body?.name || "").trim();
+    const username = String(req.body?.username || "").trim();
+    const credits = Math.max(0, Number(req.body?.credits || 0));
+    const accessKey = String(req.body?.accessKey || "").trim() || generateResellerAccessKey();
+
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        message: "Falta nombre del revendedor."
+      });
+    }
+
+    const { data, error } = await supabase
+      .from("resellers")
+      .insert({
+        name,
+        username: username || null,
+        access_key: accessKey,
+        credits,
+        active: true,
+        updated_at: nowIso()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    if (credits > 0) {
+      await supabase.from("reseller_credit_movements").insert({
+        reseller_id: data.id,
+        amount: credits,
+        reason: "admin_initial_credit",
+        note: "Créditos iniciales"
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Revendedor creado.",
+      reseller: dbResellerToApi(data)
+    });
+  } catch (error) {
+    console.error("Admin create reseller error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudo crear revendedor.",
+      error: error.message
+    });
+  }
+});
+
+app.put("/admin/api/resellers/:id", requireAdmin, async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const id = String(req.params.id || "").trim();
+
+    const updates = {
+      updated_at: nowIso()
+    };
+
+    if (typeof req.body?.name !== "undefined") {
+      updates.name = String(req.body.name || "").trim();
+    }
+
+    if (typeof req.body?.username !== "undefined") {
+      updates.username = String(req.body.username || "").trim() || null;
+    }
+
+    if (typeof req.body?.active !== "undefined") {
+      updates.active = Boolean(req.body.active);
+    }
+
+    const { data, error } = await supabase
+      .from("resellers")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (!data) {
+      return res.status(404).json({
+        success: false,
+        message: "Revendedor no encontrado."
+      });
+    }
+
+    res.json({
+      success: true,
+      reseller: dbResellerToApi(data)
+    });
+  } catch (error) {
+    console.error("Admin update reseller error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudo actualizar revendedor.",
+      error: error.message
+    });
+  }
+});
+
+app.post("/admin/api/resellers/:id/credits", requireAdmin, async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const id = String(req.params.id || "").trim();
+    const amount = Number(req.body?.amount || 0);
+    const note = String(req.body?.note || "").trim();
+
+    if (!Number.isFinite(amount) || amount === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Cantidad inválida."
+      });
+    }
+
+    const { data: reseller, error: resellerError } = await supabase
+      .from("resellers")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (resellerError) throw resellerError;
+
+    if (!reseller) {
+      return res.status(404).json({
+        success: false,
+        message: "Revendedor no encontrado."
+      });
+    }
+
+    const nextCredits = Math.max(0, Number(reseller.credits || 0) + amount);
+
+    const { data, error } = await supabase
+      .from("resellers")
+      .update({
+        credits: nextCredits,
+        updated_at: nowIso()
+      })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    await supabase.from("reseller_credit_movements").insert({
+      reseller_id: id,
+      amount,
+      reason: "admin_credit_adjustment",
+      note
+    });
+
+    res.json({
+      success: true,
+      message: "Créditos actualizados.",
+      reseller: dbResellerToApi(data)
+    });
+  } catch (error) {
+    console.error("Admin reseller credits error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudieron actualizar créditos.",
+      error: error.message
+    });
+  }
+});
+
+app.get("/admin/api/reseller-requests", requireAdmin, async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const { data, error } = await supabase
+      .from("reseller_requests")
+      .select("*, resellers(name, username)")
+      .order("created_at", { ascending: false })
+      .limit(500);
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      requests: (data || []).map((item) => ({
+        id: item.id,
+        resellerName: item.resellers?.name || "",
+        resellerUsername: item.resellers?.username || "",
+        activationCode: item.activation_code || "",
+        customerName: item.customer_name || "",
+        requestType: item.request_type || "",
+        contentTitle: item.content_title || "",
+        message: item.message || "",
+        status: item.status || "Pendiente",
+        adminNote: item.admin_note || "",
+        createdAt: item.created_at || ""
+      }))
+    });
+  } catch (error) {
+    console.error("Admin reseller requests error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudieron cargar pedidos.",
+      error: error.message
+    });
+  }
+});
+
+app.put("/admin/api/reseller-requests/:id", requireAdmin, async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const id = String(req.params.id || "").trim();
+
+    const { data, error } = await supabase
+      .from("reseller_requests")
+      .update({
+        status: String(req.body?.status || "Pendiente"),
+        admin_note: String(req.body?.adminNote || ""),
+        updated_at: nowIso()
+      })
+      .eq("id", id)
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      request: data
+    });
+  } catch (error) {
+    console.error("Admin update reseller request error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudo actualizar pedido.",
+      error: error.message
+    });
+  }
+});
+
+app.get("/reseller/api/me", requireReseller, async (req, res) => {
+  res.json({
+    success: true,
+    reseller: dbResellerToApi(req.reseller)
+  });
+});
+
+app.get("/reseller/api/clients", requireReseller, async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const { data, error } = await supabase
+      .from("clients")
+      .select("*")
+      .eq("reseller_id", req.reseller.id)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      clients: (data || []).map(resellerClientToApi)
+    });
+  } catch (error) {
+    console.error("Reseller clients error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudieron cargar clientes.",
+      error: error.message
+    });
+  }
+});
+
+app.post("/reseller/api/clients", requireReseller, async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const months = cleanResellerMonths(req.body?.months || 1);
+    const reseller = req.reseller;
+    const playlistUrl = resellerDefaultPlaylistUrl();
+    const epgUrl = resellerDefaultEpgUrl();
+
+    if (!playlistUrl) {
+      return res.status(500).json({
+        success: false,
+        message: "Lista por defecto de revendedor no configurada."
+      });
+    }
+
+    if (Number(reseller.credits || 0) < months) {
+      return res.status(400).json({
+        success: false,
+        message: "Créditos insuficientes."
+      });
+    }
+
+    const activationCode = normalizeCode(req.body?.activationCode || await generateUniqueActivationCode());
+    const expiresAt = addMonthsToDateString("", months);
+
+    const nextCredits = Number(reseller.credits || 0) - months;
+
+    const { data: creditData, error: creditError } = await supabase
+      .from("resellers")
+      .update({
+        credits: nextCredits,
+        updated_at: nowIso()
+      })
+      .eq("id", reseller.id)
+      .gte("credits", months)
+      .select()
+      .maybeSingle();
+
+    if (creditError) throw creditError;
+
+    if (!creditData) {
+      return res.status(400).json({
+        success: false,
+        message: "Créditos insuficientes."
+      });
+    }
+
+    const clientPayload = {
+      ...apiClientToDb({
+        customerName: req.body?.customerName || "Cliente",
+        activationCode,
+        status: "Activa",
+        expiresAt,
+        maxDevices: Number(req.body?.maxDevices || 1),
+        playlistUrl,
+        epgUrl
+      }),
+      reseller_id: reseller.id,
+      created_at: nowIso()
+    };
+
+    const { data: client, error: clientError } = await supabase
+      .from("clients")
+      .insert(clientPayload)
+      .select()
+      .single();
+
+    if (clientError) {
+      await supabase
+        .from("resellers")
+        .update({
+          credits: Number(creditData.credits || 0) + months,
+          updated_at: nowIso()
+        })
+        .eq("id", reseller.id);
+
+      throw clientError;
+    }
+
+    await supabase.from("reseller_credit_movements").insert({
+      reseller_id: reseller.id,
+      amount: -months,
+      reason: "client_created",
+      activation_code: activationCode,
+      note: `${months} mes(es)`
+    });
+
+    res.json({
+      success: true,
+      message: "Cliente creado.",
+      credits: nextCredits,
+      client: resellerClientToApi(client)
+    });
+  } catch (error) {
+    console.error("Reseller create client error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudo crear cliente.",
+      error: error.message
+    });
+  }
+});
+
+app.post("/reseller/api/clients/:code/renew", requireReseller, async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const code = normalizeCode(req.params.code);
+    const months = cleanResellerMonths(req.body?.months || 1);
+    const reseller = req.reseller;
+
+    if (Number(reseller.credits || 0) < months) {
+      return res.status(400).json({
+        success: false,
+        message: "Créditos insuficientes."
+      });
+    }
+
+    const { data: client, error: clientError } = await supabase
+      .from("clients")
+      .select("*")
+      .eq("activation_code", code)
+      .eq("reseller_id", reseller.id)
+      .maybeSingle();
+
+    if (clientError) throw clientError;
+
+    if (!client) {
+      return res.status(404).json({
+        success: false,
+        message: "Cliente no encontrado."
+      });
+    }
+
+    const expiresAt = addMonthsToDateString(client.expires_at, months);
+    const nextCredits = Number(reseller.credits || 0) - months;
+
+    const { data: creditData, error: creditError } = await supabase
+      .from("resellers")
+      .update({
+        credits: nextCredits,
+        updated_at: nowIso()
+      })
+      .eq("id", reseller.id)
+      .gte("credits", months)
+      .select()
+      .maybeSingle();
+
+    if (creditError) throw creditError;
+
+    if (!creditData) {
+      return res.status(400).json({
+        success: false,
+        message: "Créditos insuficientes."
+      });
+    }
+
+    const { data: updated, error: updateError } = await supabase
+      .from("clients")
+      .update({
+        expires_at: expiresAt,
+        status: "Activa",
+        updated_at: nowIso()
+      })
+      .eq("activation_code", code)
+      .eq("reseller_id", reseller.id)
+      .select()
+      .single();
+
+    if (updateError) {
+      await supabase
+        .from("resellers")
+        .update({
+          credits: Number(creditData.credits || 0) + months,
+          updated_at: nowIso()
+        })
+        .eq("id", reseller.id);
+
+      throw updateError;
+    }
+
+    await supabase.from("reseller_credit_movements").insert({
+      reseller_id: reseller.id,
+      amount: -months,
+      reason: "client_renewed",
+      activation_code: code,
+      note: `${months} mes(es)`
+    });
+
+    res.json({
+      success: true,
+      message: "Cliente renovado.",
+      credits: nextCredits,
+      client: resellerClientToApi(updated)
+    });
+  } catch (error) {
+    console.error("Reseller renew client error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudo renovar cliente.",
+      error: error.message
+    });
+  }
+});
+
+app.post("/reseller/api/requests", requireReseller, async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const requestType = String(req.body?.requestType || "").trim();
+    const message = String(req.body?.message || "").trim();
+
+    if (!requestType || !message) {
+      return res.status(400).json({
+        success: false,
+        message: "Falta tipo o mensaje."
+      });
+    }
+
+    const { data, error } = await supabase
+      .from("reseller_requests")
+      .insert({
+        reseller_id: req.reseller.id,
+        activation_code: normalizeCode(req.body?.activationCode || ""),
+        customer_name: String(req.body?.customerName || "").trim(),
+        request_type: requestType,
+        content_title: String(req.body?.contentTitle || "").trim(),
+        message,
+        status: "Pendiente",
+        updated_at: nowIso()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      message: "Pedido enviado.",
+      request: data
+    });
+  } catch (error) {
+    console.error("Reseller request error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudo enviar pedido.",
+      error: error.message
+    });
+  }
+});
+
 
 app.get("/admin", (req, res) => {
   res.sendFile(path.join(__dirname, "..", "public", "admin.html"));

@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>StoreTD Play - Revendedores</title>
+  <style>
+    body{margin:0;font-family:Arial,sans-serif;background:#0b0f18;color:#fff}
+    header{padding:22px;background:#111827;border-bottom:1px solid #263246}
+    main{max-width:1200px;margin:auto;padding:20px}
+    .card{background:#121a29;border:1px solid #263246;border-radius:18px;padding:18px;margin-bottom:18px}
+    input,select,textarea{width:100%;box-sizing:border-box;padding:12px;border-radius:12px;border:1px solid #344256;background:#0b1220;color:#fff;margin:6px 0}
+    button{padding:11px 14px;border-radius:12px;border:0;background:#e11d48;color:white;font-weight:bold;cursor:pointer}
+    button.secondary{background:#334155}
+    button.success{background:#16a34a}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+    .item{border:1px solid #334155;border-radius:14px;padding:14px;margin:10px 0;background:#0f172a}
+    .muted{color:#94a3b8}
+    .pill{display:inline-block;background:#1f2937;border-radius:999px;padding:6px 10px;margin:3px}
+  </style>
+</head>
+<body>
+<header>
+  <h1>StoreTD Play - Revendedores</h1>
+  <p class="muted">Crear revendedores, cargar créditos y revisar pedidos.</p>
+</header>
+<main>
+  <section class="card">
+    <h2>Clave admin</h2>
+    <input id="adminKey" placeholder="Admin key" />
+    <button onclick="saveKey()">Guardar y cargar</button>
+    <span id="msg" class="muted"></span>
+  </section>
+
+  <section class="card">
+    <h2>Crear revendedor</h2>
+    <div class="grid">
+      <input id="name" placeholder="Nombre" />
+      <input id="username" placeholder="Usuario opcional" />
+      <input id="credits" type="number" value="0" min="0" />
+      <input id="accessKey" placeholder="Clave opcional; vacío genera automática" />
+    </div>
+    <button class="success" onclick="createReseller()">Crear revendedor</button>
+  </section>
+
+  <section class="card">
+    <h2>Revendedores</h2>
+    <button class="secondary" onclick="loadAll()">Actualizar</button>
+    <div id="resellers"></div>
+  </section>
+
+  <section class="card">
+    <h2>Pedidos y reclamos</h2>
+    <div id="requests"></div>
+  </section>
+</main>
+
+<script>
+let adminKey = localStorage.getItem("adminKey") || "";
+document.getElementById("adminKey").value = adminKey;
+
+function $(id){return document.getElementById(id)}
+function esc(v){return String(v||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]))}
+
+async function api(path, options={}){
+  const res = await fetch(path, {
+    ...options,
+    headers: {
+      "Content-Type":"application/json",
+      "x-admin-key": adminKey,
+      ...(options.headers || {})
+    }
+  });
+  const data = await res.json().catch(()=>({success:false,message:"Respuesta inválida"}));
+  if(!res.ok || data.success === false) throw new Error(data.message || "Error");
+  return data;
+}
+
+function saveKey(){
+  adminKey = $("adminKey").value.trim();
+  localStorage.setItem("adminKey", adminKey);
+  loadAll();
+}
+
+async function loadAll(){
+  $("msg").textContent = "Cargando...";
+  try{
+    const [resellers, requests] = await Promise.all([
+      api("/admin/api/resellers"),
+      api("/admin/api/reseller-requests")
+    ]);
+    renderResellers(resellers.resellers || []);
+    renderRequests(requests.requests || []);
+    $("msg").textContent = "OK";
+  }catch(e){
+    $("msg").textContent = e.message;
+  }
+}
+
+async function createReseller(){
+  try{
+    const data = await api("/admin/api/resellers", {
+      method:"POST",
+      body: JSON.stringify({
+        name: $("name").value,
+        username: $("username").value,
+        credits: $("credits").value,
+        accessKey: $("accessKey").value
+      })
+    });
+    alert("Revendedor creado. Clave: " + data.reseller.accessKey);
+    $("name").value = "";
+    $("username").value = "";
+    $("credits").value = "0";
+    $("accessKey").value = "";
+    loadAll();
+  }catch(e){
+    alert(e.message);
+  }
+}
+
+function renderResellers(items){
+  if(!items.length){
+    $("resellers").innerHTML = "<p class='muted'>No hay revendedores.</p>";
+    return;
+  }
+
+  $("resellers").innerHTML = items.map(r => `
+    <div class="item">
+      <strong>${esc(r.name)}</strong>
+      <span class="pill">${esc(r.username || "sin usuario")}</span>
+      <span class="pill">Créditos: ${esc(r.credits)}</span>
+      <span class="pill">${r.active ? "Activo" : "Inactivo"}</span>
+      <p class="muted">Clave: <code>${esc(r.accessKey)}</code></p>
+      <div class="grid">
+        <input id="credit-${esc(r.id)}" type="number" value="1" />
+        <input id="note-${esc(r.id)}" placeholder="Nota" />
+      </div>
+      <button onclick='addCredits(${JSON.stringify(r.id)})'>Agregar/quitar créditos</button>
+      <button class="secondary" onclick='toggleReseller(${JSON.stringify(r.id)}, ${JSON.stringify(!r.active)})'>
+        ${r.active ? "Desactivar" : "Activar"}
+      </button>
+    </div>
+  `).join("");
+}
+
+async function addCredits(id){
+  const amount = Number(document.getElementById(`credit-${id}`).value || 0);
+  const note = document.getElementById(`note-${id}`).value || "";
+  if(!amount) return alert("Cantidad inválida");
+  try{
+    await api(`/admin/api/resellers/${encodeURIComponent(id)}/credits`, {
+      method:"POST",
+      body: JSON.stringify({amount, note})
+    });
+    loadAll();
+  }catch(e){
+    alert(e.message);
+  }
+}
+
+async function toggleReseller(id, active){
+  try{
+    await api(`/admin/api/resellers/${encodeURIComponent(id)}`, {
+      method:"PUT",
+      body: JSON.stringify({active})
+    });
+    loadAll();
+  }catch(e){
+    alert(e.message);
+  }
+}
+
+function renderRequests(items){
+  if(!items.length){
+    $("requests").innerHTML = "<p class='muted'>No hay pedidos.</p>";
+    return;
+  }
+
+  $("requests").innerHTML = items.map(item => `
+    <div class="item">
+      <strong>${esc(item.requestType)}</strong>
+      <span class="pill">${esc(item.status)}</span>
+      <p class="muted">Revendedor: ${esc(item.resellerName)} ${esc(item.resellerUsername)}</p>
+      <p>Cliente: ${esc(item.customerName)} ${esc(item.activationCode)}</p>
+      <p>Contenido: ${esc(item.contentTitle)}</p>
+      <p>${esc(item.message)}</p>
+      <select id="status-${esc(item.id)}">
+        <option ${item.status==="Pendiente"?"selected":""}>Pendiente</option>
+        <option ${item.status==="En revisión"?"selected":""}>En revisión</option>
+        <option ${item.status==="Resuelto"?"selected":""}>Resuelto</option>
+        <option ${item.status==="Rechazado"?"selected":""}>Rechazado</option>
+      </select>
+      <input id="adminNote-${esc(item.id)}" placeholder="Nota admin" value="${esc(item.adminNote)}" />
+      <button onclick='updateRequest(${JSON.stringify(item.id)})'>Guardar estado</button>
+    </div>
+  `).join("");
+}
+
+async function updateRequest(id){
+  try{
+    await api(`/admin/api/reseller-requests/${encodeURIComponent(id)}`, {
+      method:"PUT",
+      body: JSON.stringify({
+        status: document.getElementById(`status-${id}`).value,
+        adminNote: document.getElementById(`adminNote-${id}`).value
+      })
+    });
+    loadAll();
+  }catch(e){
+    alert(e.message);
+  }
+}
+
+if(adminKey) loadAll();
+</script>
+</body>
+</html>
