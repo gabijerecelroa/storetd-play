@@ -2161,6 +2161,7 @@
 
   <script>
     let clientsCache = [];
+    let selectedClientResellerFilter = "all";
     let reportsCache = [];
     let groupedCache = [];
     let brokenLinksCache = [];
@@ -2661,13 +2662,104 @@
       `).join("");
     }
 
+    
+    function clientResellerLabel(client) {
+      if (client.resellerName) {
+        return `${client.resellerName}${client.resellerUsername ? " / " + client.resellerUsername : ""}`;
+      }
+
+      return "Admin principal";
+    }
+
+    function ensureClientResellerFilter() {
+      if (!clientsBox) return;
+
+      let host = document.getElementById("clientResellerFilterHost");
+
+      if (!host) {
+        host = document.createElement("div");
+        host.id = "clientResellerFilterHost";
+        host.className = "card";
+        host.style.marginBottom = "14px";
+
+        host.innerHTML = `
+          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+            <div style="flex:1;min-width:220px">
+              <strong>Filtrar por origen</strong>
+              <div class="muted">Mostrá clientes del admin principal o de un revendedor.</div>
+            </div>
+            <select id="clientResellerFilter" style="min-width:260px"></select>
+          </div>
+        `;
+
+        clientsBox.parentNode.insertBefore(host, clientsBox);
+      }
+
+      const select = document.getElementById("clientResellerFilter");
+      if (!select) return;
+
+      const previous = selectedClientResellerFilter || select.value || "all";
+      const resellerMap = new Map();
+
+      clientsCache.forEach((client) => {
+        if (client.resellerId) {
+          resellerMap.set(client.resellerId, clientResellerLabel(client));
+        }
+      });
+
+      const options = [
+        ["all", `Todos (${clientsCache.length})`],
+        [
+          "admin",
+          `Admin principal (${clientsCache.filter((client) => !client.resellerId).length})`
+        ],
+        ...Array.from(resellerMap.entries())
+          .sort((a, b) => String(a[1]).localeCompare(String(b[1])))
+          .map(([id, label]) => [
+            id,
+            `${label} (${clientsCache.filter((client) => client.resellerId === id).length})`
+          ])
+      ];
+
+      select.innerHTML = options
+        .map(([value, label]) => `
+          <option value="${escapeAttr(value)}">${escapeHtml(label)}</option>
+        `)
+        .join("");
+
+      select.value = options.some(([value]) => value === previous) ? previous : "all";
+      selectedClientResellerFilter = select.value;
+
+      select.onchange = () => {
+        selectedClientResellerFilter = select.value;
+        renderClients();
+      };
+    }
+
+
     function renderClients() {
+      ensureClientResellerFilter();
       renderClientQuickTabs();
 
       const search = normalize(document.getElementById("clientSearch")?.value || "");
       const status = document.getElementById("clientStatusFilter")?.value || "";
 
-      const filtered = clientsCache.filter((client) => {
+      const sourceClients = clientsCache.filter((client) => {
+        if (selectedClientResellerFilter === "admin") {
+          return !client.resellerId;
+        }
+
+        if (
+          selectedClientResellerFilter &&
+          selectedClientResellerFilter !== "all"
+        ) {
+          return client.resellerId === selectedClientResellerFilter;
+        }
+
+        return true;
+      });
+
+      const filtered = sourceClients.filter((client) => {
         const text = normalize([
           client.customerName,
           client.activationCode,
