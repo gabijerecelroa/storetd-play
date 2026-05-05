@@ -143,6 +143,7 @@ fun PlayerScreen(
     var currentPositionMs by remember(currentChannel.streamUrl) { mutableStateOf(0L) }
     var durationMs by remember(currentChannel.streamUrl) { mutableStateOf(0L) }
     var retryAttempt by remember(currentChannel.streamUrl) { mutableStateOf(0) }
+    var autoRecoverAttempt by remember(currentChannel.streamUrl) { mutableStateOf(0) }
     var reconnectMessage by remember(currentChannel.streamUrl) { mutableStateOf<String?>(null) }
     var showControls by remember(currentChannel.streamUrl) { mutableStateOf(true) }
     var selectedControlIndex by remember(currentChannel.streamUrl) { mutableStateOf(0) }
@@ -208,10 +209,10 @@ fun PlayerScreen(
 
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
-                5_000,
-                30_000,
-                1_000,
-                2_000
+                8_000,
+                45_000,
+                1_200,
+                3_500
             )
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()
@@ -346,6 +347,7 @@ fun PlayerScreen(
 
     fun retryPlayback() {
         retryAttempt = 0
+        autoRecoverAttempt = 0
         reconnectMessage = "Reintentando reproducción..."
         restartPlayback()
     }
@@ -365,14 +367,93 @@ fun PlayerScreen(
     }
 
     LaunchedEffect(isBuffering, currentChannel.streamUrl) {
-        if (isBuffering && errorMessage == null && retryAttempt < 3) {
-            delay(16000L)
+        if (isBuffering && errorMessage == null && autoRecoverAttempt < 3) {
+            delay(12000L)
 
             if (isBuffering && errorMessage == null) {
-                val nextAttempt = retryAttempt + 1
-                retryAttempt = nextAttempt
-                reconnectMessage = "El canal tarda en responder. Reintentando $nextAttempt/3..."
+                val nextAttempt = autoRecoverAttempt + 1
+                autoRecoverAttempt = nextAttempt
+                reconnectMessage = "El canal tarda en responder. Reconectando $nextAttempt/3..."
+                showControls = true
                 restartPlayback()
+            }
+        } else if (isBuffering && errorMessage == null && autoRecoverAttempt >= 3) {
+            delay(5000L)
+
+            if (isBuffering && errorMessage == null) {
+                shouldAutoRetryPlayback = false
+                errorMessage = "La transmisión quedó cargando demasiado tiempo."
+                reconnectMessage = "No se pudo recuperar automáticamente. Prueba Reintentar o Reportar."
+                showControls = true
+            }
+        }
+    }
+
+    LaunchedEffect(player, currentChannel.streamUrl, isVodContent) {
+        if (isVodContent) {
+            return@LaunchedEffect
+        }
+
+        var lastPositionMs = -1L
+        var stuckSeconds = 0
+        var healthyTicks = 0
+
+        delay(6000L)
+
+        while (true) {
+            delay(3000L)
+
+            if (
+                errorMessage != null ||
+                isBuffering ||
+                !player.playWhenReady ||
+                player.playbackState != Player.STATE_READY
+            ) {
+                lastPositionMs = -1L
+                stuckSeconds = 0
+                healthyTicks = 0
+                continue
+            }
+
+            val positionMs = player.currentPosition.coerceAtLeast(0L)
+            val moved = lastPositionMs < 0L || positionMs > lastPositionMs + 600L
+
+            if (moved) {
+                stuckSeconds = 0
+                healthyTicks += 1
+
+                if (healthyTicks >= 4) {
+                    autoRecoverAttempt = 0
+                }
+            } else {
+                stuckSeconds += 3
+                healthyTicks = 0
+            }
+
+            lastPositionMs = positionMs
+
+            if (stuckSeconds >= 12) {
+                if (autoRecoverAttempt < 3) {
+                    val nextAttempt = autoRecoverAttempt + 1
+                    autoRecoverAttempt = nextAttempt
+                    reconnectMessage = "La transmisión quedó congelada. Reconectando $nextAttempt/3..."
+                    showControls = true
+                    restartPlayback()
+
+                    lastPositionMs = -1L
+                    stuckSeconds = 0
+                    healthyTicks = 0
+                    delay(5000L)
+                } else {
+                    shouldAutoRetryPlayback = false
+                    errorMessage = "La transmisión quedó congelada."
+                    reconnectMessage = "No se pudo recuperar automáticamente. Prueba Reintentar o Reportar."
+                    showControls = true
+
+                    lastPositionMs = -1L
+                    stuckSeconds = 0
+                    healthyTicks = 0
+                }
             }
         }
     }
