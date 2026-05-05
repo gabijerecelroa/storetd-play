@@ -725,6 +725,41 @@ app.get("/reseller/api/me", requireReseller, async (req, res) => {
   });
 });
 
+
+app.get("/reseller/api/credit-movements", requireReseller, async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const { data, error } = await supabase
+      .from("reseller_credit_movements")
+      .select("*")
+      .eq("reseller_id", req.reseller.id)
+      .order("created_at", { ascending: false })
+      .limit(300);
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      movements: (data || []).map((item) => ({
+        id: item.id,
+        amount: Number(item.amount || 0),
+        reason: item.reason || "",
+        activationCode: item.activation_code || "",
+        note: item.note || "",
+        createdAt: item.created_at || ""
+      }))
+    });
+  } catch (error) {
+    console.error("Reseller credit movements error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudo cargar historial de créditos.",
+      error: error.message
+    });
+  }
+});
+
 app.get("/reseller/api/clients", requireReseller, async (req, res) => {
   if (!requireDb(res)) return;
 

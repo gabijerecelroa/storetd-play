@@ -256,6 +256,17 @@
     <section class="card">
       <div class="section-title">
         <div>
+          <h2>Historial de créditos</h2>
+          <div class="muted">Movimientos de créditos cargados, usados en altas y renovaciones.</div>
+        </div>
+      </div>
+
+      <div id="creditHistory"></div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">
+        <div>
           <h2>Reclamos y pedidos</h2>
           <div class="muted">Enviá pedidos de canales, películas, series o reclamos de clientes.</div>
         </div>
@@ -343,10 +354,15 @@ async function loadAll(){
   $("who").textContent = `${me.reseller.name} · créditos disponibles: ${me.reseller.credits}`;
   $("credits").textContent = me.reseller.credits;
 
-  const data = await api("/reseller/api/clients");
+  const [data, movementsData] = await Promise.all([
+    api("/reseller/api/clients"),
+    api("/reseller/api/credit-movements")
+  ]);
+
   clientsCache = data.clients || [];
   updateStats();
   renderClients();
+  renderCreditHistory(movementsData.movements || []);
 }
 
 
@@ -418,6 +434,65 @@ function expirationLabel(client){
   if(days <= 7) return `Vence en ${days} días`;
 
   return client.expiresAt || "-";
+}
+
+
+
+function creditReasonLabel(reason){
+  const map = {
+    admin_initial_credit: "Carga inicial",
+    admin_credit_adjustment: "Ajuste admin",
+    client_created: "Cliente creado",
+    client_renewed: "Cliente renovado"
+  };
+
+  return map[reason] || reason || "-";
+}
+
+function creditAmountLabel(amount){
+  const value = Number(amount || 0);
+  return value > 0 ? `+${value}` : String(value);
+}
+
+function creditAmountClass(amount){
+  return Number(amount || 0) >= 0 ? "ok" : "warn";
+}
+
+function renderCreditHistory(movements){
+  const box = document.getElementById("creditHistory");
+  if(!box) return;
+
+  if(!movements.length){
+    box.innerHTML = "<div class='empty'>Todavía no hay movimientos de créditos.</div>";
+    return;
+  }
+
+  box.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Movimiento</th>
+            <th>Créditos</th>
+            <th>Cliente</th>
+            <th>Nota</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${movements.map(item => `
+            <tr>
+              <td>${esc(String(item.createdAt || "").replace("T", " ").slice(0, 16))}</td>
+              <td>${esc(creditReasonLabel(item.reason))}</td>
+              <td><span class="pill ${creditAmountClass(item.amount)}">${esc(creditAmountLabel(item.amount))}</span></td>
+              <td><span class="code">${esc(item.activationCode || "-")}</span></td>
+              <td>${esc(item.note || "-")}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
 }
 
 
