@@ -201,6 +201,10 @@
           <input id="newActivationCode" placeholder="Vacío genera automático" />
         </div>
         <div>
+          <label>WhatsApp del cliente</label>
+          <input id="newCustomerPhone" placeholder="Ej: 5493718698291" />
+        </div>
+        <div>
           <label>Meses</label>
           <select id="newMonths">
             <option value="1">1 mes</option>
@@ -366,6 +370,7 @@ function renderClients(){
             <th>Estado</th>
             <th>Vencimiento</th>
             <th>Dispositivos</th>
+            <th>WhatsApp</th>
             <th>Renovar</th>
           </tr>
         </thead>
@@ -388,6 +393,13 @@ function renderClients(){
                   <div class="device-mini">${connected ? "Tiene dispositivos vinculados" : "Sin dispositivos vinculados"}</div>
                 </td>
                 <td>
+                  <input id="phone-${esc(code)}" value="${esc(c.customerPhone || "")}" placeholder="549..." style="min-width:150px" />
+                  <div class="actions" style="margin-top:8px">
+                    <button class="secondary" onclick='saveClientPhone(${JSON.stringify(code)})'>Guardar</button>
+                    <button class="success" onclick='openClientWhatsApp(${JSON.stringify(code)})'>WhatsApp</button>
+                  </div>
+                </td>
+                <td>
                   <div class="actions">
                     <select id="renew-${esc(code)}" style="width:130px">
                       <option value="1">1 mes</option>
@@ -408,6 +420,56 @@ function renderClients(){
   `;
 }
 
+
+function normalizePhone(value){
+  return String(value || "").replace(/[^0-9]/g, "").trim();
+}
+
+function renewalMessage(client){
+  const name = client.customerName || "cliente";
+  const expires = client.expiresAt || "pronto";
+  const code = client.activationCode || "";
+
+  return `Hola ${name}, te recordamos que tu servicio StoreTD Play vence el ${expires}. Si querés renovar, respondeme por este medio. Código: ${code}`;
+}
+
+function openClientWhatsApp(code){
+  const client = clientsCache.find(c => c.activationCode === code);
+  if(!client) return alert("Cliente no encontrado.");
+
+  const phoneInput = document.getElementById(`phone-${code}`);
+  const phone = normalizePhone(phoneInput?.value || client.customerPhone || "");
+
+  if(!phone){
+    alert("Primero cargá el WhatsApp del cliente con código país. Ej: 5493718698291");
+    return;
+  }
+
+  const text = encodeURIComponent(renewalMessage(client));
+  window.open(`https://wa.me/${phone}?text=${text}`, "_blank");
+}
+
+async function saveClientPhone(code){
+  const input = document.getElementById(`phone-${code}`);
+  const phone = normalizePhone(input?.value || "");
+
+  try{
+    await api(`/reseller/api/clients/${encodeURIComponent(code)}/phone`, {
+      method:"PUT",
+      body: JSON.stringify({customerPhone: phone})
+    });
+
+    const client = clientsCache.find(c => c.activationCode === code);
+    if(client) client.customerPhone = phone;
+
+    alert("Teléfono guardado.");
+    renderClients();
+  }catch(e){
+    alert(e.message);
+  }
+}
+
+
 async function createClient(){
   $("createMsg").textContent = "Creando...";
   try{
@@ -416,12 +478,14 @@ async function createClient(){
       body: JSON.stringify({
         customerName: $("newCustomerName").value,
         activationCode: $("newActivationCode").value,
+        customerPhone: $("newCustomerPhone").value,
         months: $("newMonths").value
       })
     });
     $("createMsg").textContent = "Cliente creado.";
     $("newCustomerName").value = "";
     $("newActivationCode").value = "";
+    $("newCustomerPhone").value = "";
     await loadAll();
   }catch(e){
     $("createMsg").textContent = e.message;

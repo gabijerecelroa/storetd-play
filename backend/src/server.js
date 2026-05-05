@@ -82,6 +82,7 @@ function maskUrl(value) {
 function dbClientToApi(row) {
   return {
     customerName: row.customer_name || "",
+    customerPhone: row.customer_phone || "",
     activationCode: row.activation_code || "",
     status: row.status || "Activa",
     expiresAt: row.expires_at || "",
@@ -96,6 +97,7 @@ function dbClientToApi(row) {
 function apiClientToDb(input, fixedCode) {
   return {
     customer_name: String(input.customerName || "").trim(),
+    customer_phone: String(input.customerPhone || "").replace(/[^0-9]/g, "").trim(),
     activation_code: normalizeCode(fixedCode || input.activationCode),
     status: String(input.status || "Activa").trim(),
     expires_at: String(input.expiresAt || "").trim() || null,
@@ -151,6 +153,7 @@ async function generateUniqueActivationCode() {
 function resellerClientToApi(row) {
   return {
     customerName: row.customer_name || "",
+    customerPhone: row.customer_phone || "",
     activationCode: row.activation_code || "",
     status: row.status || "Activa",
     expiresAt: row.expires_at || "",
@@ -814,6 +817,7 @@ app.post("/reseller/api/clients", requireReseller, async (req, res) => {
     const clientPayload = {
       ...apiClientToDb({
         customerName: req.body?.customerName || "Cliente",
+        customerPhone: req.body?.customerPhone || "",
         activationCode,
         status: "Activa",
         expiresAt,
@@ -866,6 +870,52 @@ app.post("/reseller/api/clients", requireReseller, async (req, res) => {
     });
   }
 });
+
+
+app.put("/reseller/api/clients/:code/phone", requireReseller, async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const code = normalizeCode(req.params.code);
+    const customerPhone = String(req.body?.customerPhone || "")
+      .replace(/[^0-9]/g, "")
+      .trim();
+
+    const { data, error } = await supabase
+      .from("clients")
+      .update({
+        customer_phone: customerPhone,
+        updated_at: nowIso()
+      })
+      .eq("activation_code", code)
+      .eq("reseller_id", req.reseller.id)
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (!data) {
+      return res.status(404).json({
+        success: false,
+        message: "Cliente no encontrado."
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Teléfono actualizado.",
+      client: resellerClientToApi(data)
+    });
+  } catch (error) {
+    console.error("Reseller update client phone error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudo actualizar teléfono.",
+      error: error.message
+    });
+  }
+});
+
 
 app.post("/reseller/api/clients/:code/renew", requireReseller, async (req, res) => {
   if (!requireDb(res)) return;
