@@ -1140,6 +1140,44 @@ app.post("/reseller/api/requests", requireReseller, async (req, res) => {
 });
 
 
+
+app.get("/smartone.m3u", async (req, res) => {
+  try {
+    const gistConfig = requireGistConfig(res);
+    if (!gistConfig) return;
+
+    const smartoneFilename = process.env.GITHUB_GIST_SMARTONE_FILENAME || "lista-smartone.m3u";
+    const rawUrl = `https://gist.githubusercontent.com/gabijerecelroa/${gistConfig.gistId}/raw/${encodeURIComponent(smartoneFilename)}?t=${Date.now()}`;
+
+    const response = await fetch(rawUrl, {
+      headers: {
+        "User-Agent": "StoreTD-Play-Smartone-Proxy",
+        "Cache-Control": "no-cache"
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`No se pudo descargar lista Smartone. HTTP ${response.status}`);
+    }
+
+    const content = await response.text();
+
+    res.setHeader("Content-Type", "audio/x-mpegurl; charset=utf-8");
+    res.setHeader("Content-Disposition", 'inline; filename="smartone.m3u"');
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    res.setHeader("Surrogate-Control", "no-store");
+
+    res.send(content);
+  } catch (error) {
+    console.error("Smartone proxy error:", error);
+    res.status(500).send(`#EXTM3U\n# Error: ${error.message}\n`);
+  }
+});
+
+
+
 app.get("/admin", (req, res) => {
   res.sendFile(path.join(__dirname, "..", "public", "admin.html"));
 });
