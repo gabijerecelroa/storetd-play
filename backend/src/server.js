@@ -1183,6 +1183,37 @@ app.get(["/smartone.m3u", "/smartone-final.m3u", "/smartone-v2.m3u"], async (req
 });
 
 
+
+app.get("/api/app-update", (req, res) => {
+  const currentVersionCode = Number(req.query.versionCode || 0);
+
+  const latestVersionCode = Number(process.env.APP_LATEST_VERSION_CODE || 4);
+  const latestVersionName = process.env.APP_LATEST_VERSION_NAME || "1.0.3";
+  const apkUrl = process.env.APP_LATEST_APK_URL || "";
+  const forceUpdate = String(process.env.APP_FORCE_UPDATE || "0") === "1";
+  const changelog = process.env.APP_UPDATE_CHANGELOG ||
+    "Mejoras de estabilidad, reproducción y correcciones generales.";
+
+  const updateAvailable =
+    latestVersionCode > 0 &&
+    currentVersionCode > 0 &&
+    latestVersionCode > currentVersionCode &&
+    apkUrl.trim() !== "";
+
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+  res.json({
+    success: true,
+    updateAvailable,
+    latestVersionCode,
+    latestVersionName,
+    apkUrl,
+    forceUpdate,
+    changelog
+  });
+});
+
+
+
 app.get("/admin", (req, res) => {
   res.sendFile(path.join(__dirname, "..", "public", "admin.html"));
 });
