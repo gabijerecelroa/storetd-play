@@ -180,6 +180,10 @@
         <span>Dispositivos conectados</span>
         <strong id="totalDevices">0</strong>
       </div>
+      <div class="stat">
+        <span>Vencen en 7 días</span>
+        <strong id="dueSoonClients">0</strong>
+      </div>
     </div>
 
     <section class="card">
@@ -237,6 +241,15 @@
         </div>
       </div>
 
+      <div class="actions" style="margin-bottom:14px">
+        <button class="secondary" onclick="setDueFilter('all')">Todos</button>
+        <button class="secondary" onclick="setDueFilter('expired')">Vencidos</button>
+        <button class="secondary" onclick="setDueFilter('today')">Vencen hoy</button>
+        <button class="secondary" onclick="setDueFilter('3')">Próx. 3 días</button>
+        <button class="secondary" onclick="setDueFilter('7')">Próx. 7 días</button>
+        <span id="dueFilterLabel" class="pill">Filtro: Todos</span>
+      </div>
+
       <div id="clients"></div>
     </section>
 
@@ -286,6 +299,7 @@
 <script>
 let key = localStorage.getItem("resellerKey") || "";
 let clientsCache = [];
+let dueFilter = "all";
 
 function $(id){return document.getElementById(id)}
 function esc(v){return String(v||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]))}
@@ -335,10 +349,86 @@ async function loadAll(){
   renderClients();
 }
 
+
+function parseExpirationDate(value){
+  const raw = String(value || "").slice(0, 10);
+  if(!raw) return null;
+
+  const date = new Date(`${raw}T00:00:00`);
+  if(Number.isNaN(date.getTime())) return null;
+
+  return date;
+}
+
+function daysUntilExpiration(value){
+  const expiration = parseExpirationDate(value);
+  if(!expiration) return 99999;
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(expiration.getFullYear(), expiration.getMonth(), expiration.getDate());
+
+  return Math.ceil((target.getTime() - today.getTime()) / 86400000);
+}
+
+function isClientDueByFilter(client){
+  const days = daysUntilExpiration(client.expiresAt);
+
+  if(dueFilter === "expired") return days < 0;
+  if(dueFilter === "today") return days === 0;
+  if(dueFilter === "3") return days >= 0 && days <= 3;
+  if(dueFilter === "7") return days >= 0 && days <= 7;
+
+  return true;
+}
+
+function setDueFilter(value){
+  dueFilter = value || "all";
+
+  const labels = {
+    all: "Todos",
+    expired: "Vencidos",
+    today: "Vencen hoy",
+    "3": "Próx. 3 días",
+    "7": "Próx. 7 días"
+  };
+
+  const label = document.getElementById("dueFilterLabel");
+  if(label) label.textContent = `Filtro: ${labels[dueFilter] || "Todos"}`;
+
+  renderClients();
+}
+
+function expirationPillClass(client){
+  const days = daysUntilExpiration(client.expiresAt);
+
+  if(days < 0) return "warn";
+  if(days <= 3) return "warn";
+  if(days <= 7) return "ok";
+
+  return "";
+}
+
+function expirationLabel(client){
+  const days = daysUntilExpiration(client.expiresAt);
+
+  if(days < 0) return `Vencido hace ${Math.abs(days)} día(s)`;
+  if(days === 0) return "Vence hoy";
+  if(days === 1) return "Vence mañana";
+  if(days <= 7) return `Vence en ${days} días`;
+
+  return client.expiresAt || "-";
+}
+
+
 function updateStats(){
   $("totalClients").textContent = clientsCache.length;
   $("activeClients").textContent = clientsCache.filter(c => String(c.status||"").toLowerCase()==="activa").length;
   $("totalDevices").textContent = clientsCache.reduce((sum,c)=>sum+Number(c.deviceCount||0),0);
+  $("dueSoonClients").textContent = clientsCache.filter(c => {
+    const days = daysUntilExpiration(c.expiresAt);
+    return days >= 0 && days <= 7;
+  }).length;
 }
 
 function statusPill(status){
@@ -351,8 +441,8 @@ function statusPill(status){
 function renderClients(){
   const q = normalize($("clientSearch")?.value || "");
   const clients = clientsCache.filter(c => {
-    const hay = normalize([c.customerName,c.activationCode,c.status,c.expiresAt].join(" "));
-    return !q || hay.includes(q);
+    const hay = normalize([c.customerName,c.activationCode,c.status,c.expiresAt,c.customerPhone].join(" "));
+    return (!q || hay.includes(q)) && isClientDueByFilter(c);
   });
 
   if(!clients.length){
@@ -387,7 +477,10 @@ function renderClients(){
                 </td>
                 <td><span class="code">${esc(code)}</span></td>
                 <td><span class="pill ${statusPill(c.status)}">${esc(c.status || "Activa")}</span></td>
-                <td>${esc(c.expiresAt || "-")}</td>
+                <td>
+                  <span class="pill ${expirationPillClass(c)}">${esc(expirationLabel(c))}</span>
+                  <div class="device-mini">${esc(c.expiresAt || "-")}</div>
+                </td>
                 <td>
                   <span class="pill">${connected}/${limit} conectados</span>
                   <div class="device-mini">${connected ? "Tiene dispositivos vinculados" : "Sin dispositivos vinculados"}</div>
