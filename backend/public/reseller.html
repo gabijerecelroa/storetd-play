@@ -3,94 +3,289 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>StoreTD Play - Revendedor</title>
+  <title>StoreTD Play - Panel Revendedor</title>
   <style>
-    body{margin:0;font-family:Arial,sans-serif;background:#0b0f18;color:#fff}
-    header{padding:22px;background:#111827;border-bottom:1px solid #263246}
-    main{max-width:1100px;margin:auto;padding:20px}
-    .card{background:#121a29;border:1px solid #263246;border-radius:18px;padding:18px;margin-bottom:18px}
-    input,select,textarea{width:100%;box-sizing:border-box;padding:12px;border-radius:12px;border:1px solid #344256;background:#0b1220;color:#fff;margin:6px 0}
-    button{padding:11px 14px;border-radius:12px;border:0;background:#e11d48;color:white;font-weight:bold;cursor:pointer}
+    :root{
+      --bg:#070b13;
+      --panel:#101827;
+      --panel2:#121d31;
+      --line:#26354f;
+      --text:#f8fafc;
+      --muted:#94a3b8;
+      --brand:#e11d48;
+      --brand2:#fb7185;
+      --ok:#16a34a;
+      --warn:#f59e0b;
+      --blue:#2563eb;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Inter,Arial,sans-serif;
+      background:
+        radial-gradient(circle at top left,rgba(225,29,72,.22),transparent 34%),
+        linear-gradient(180deg,#070b13,#0b1020 45%,#070b13);
+      color:var(--text);
+      min-height:100vh;
+    }
+    header{
+      padding:24px 20px;
+      border-bottom:1px solid rgba(148,163,184,.16);
+      background:rgba(15,23,42,.82);
+      backdrop-filter:blur(12px);
+      position:sticky;
+      top:0;
+      z-index:10;
+    }
+    .topbar{
+      max-width:1280px;
+      margin:auto;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+    }
+    .brand h1{margin:0;font-size:24px}
+    .brand p{margin:5px 0 0;color:var(--muted)}
+    main{max-width:1280px;margin:auto;padding:22px}
+    .hidden{display:none!important}
+    .card{
+      background:linear-gradient(180deg,rgba(18,29,49,.96),rgba(15,23,42,.96));
+      border:1px solid rgba(148,163,184,.16);
+      border-radius:22px;
+      padding:18px;
+      box-shadow:0 18px 45px rgba(0,0,0,.25);
+      margin-bottom:18px;
+    }
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:18px}
+    .stat{
+      background:rgba(15,23,42,.7);
+      border:1px solid rgba(148,163,184,.14);
+      border-radius:20px;
+      padding:16px;
+    }
+    .stat span{color:var(--muted);font-size:13px}
+    .stat strong{display:block;font-size:30px;margin-top:6px}
+    label{display:block;color:var(--muted);font-size:13px;margin:2px 0 6px}
+    input,select,textarea{
+      width:100%;
+      padding:12px 13px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.22);
+      background:#07111f;
+      color:#fff;
+      outline:none;
+    }
+    input:focus,select:focus,textarea:focus{border-color:var(--brand2);box-shadow:0 0 0 3px rgba(225,29,72,.15)}
+    button{
+      padding:11px 15px;
+      border-radius:14px;
+      border:0;
+      background:var(--brand);
+      color:white;
+      font-weight:800;
+      cursor:pointer;
+    }
     button.secondary{background:#334155}
-    button.success{background:#16a34a}
-    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
-    .client{border:1px solid #334155;border-radius:14px;padding:14px;margin:10px 0;background:#0f172a}
-    .muted{color:#94a3b8}
-    .pill{display:inline-block;background:#1f2937;border-radius:999px;padding:6px 10px;margin:3px}
-    .hidden{display:none}
+    button.success{background:var(--ok)}
+    button.blue{background:var(--blue)}
+    button:disabled{opacity:.55;cursor:not-allowed}
+    .actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .muted{color:var(--muted)}
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      background:rgba(148,163,184,.14);
+      border:1px solid rgba(148,163,184,.16);
+      border-radius:999px;
+      padding:6px 10px;
+      font-size:12px;
+      color:#e2e8f0;
+      white-space:nowrap;
+    }
+    .pill.ok{background:rgba(22,163,74,.16);color:#bbf7d0;border-color:rgba(22,163,74,.24)}
+    .pill.warn{background:rgba(245,158,11,.16);color:#fde68a;border-color:rgba(245,158,11,.24)}
+    .toolbar{display:flex;gap:12px;align-items:end;justify-content:space-between;flex-wrap:wrap;margin-bottom:14px}
+    .search{min-width:260px;max-width:430px;flex:1}
+    .table-wrap{overflow:auto;border-radius:18px;border:1px solid rgba(148,163,184,.14)}
+    table{width:100%;border-collapse:collapse;min-width:920px;background:rgba(15,23,42,.55)}
+    th,td{padding:13px 12px;border-bottom:1px solid rgba(148,163,184,.12);text-align:left;vertical-align:middle}
+    th{color:#cbd5e1;font-size:12px;text-transform:uppercase;letter-spacing:.05em;background:rgba(15,23,42,.85)}
+    tr:hover td{background:rgba(255,255,255,.035)}
+    .client-name{font-weight:800}
+    .code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+    .device-mini{font-size:12px;color:var(--muted);margin-top:3px}
+    .empty{
+      padding:28px;
+      text-align:center;
+      color:var(--muted);
+      border:1px dashed rgba(148,163,184,.22);
+      border-radius:18px;
+      background:rgba(15,23,42,.35);
+    }
+    .login-card{max-width:480px;margin:70px auto}
+    .section-title{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+    .section-title h2{margin:0;font-size:20px}
+    @media(max-width:760px){
+      header{position:relative}
+      .topbar{align-items:flex-start;flex-direction:column}
+      main{padding:14px}
+      .card{border-radius:18px}
+      table{min-width:780px}
+    }
   </style>
 </head>
 <body>
 <header>
-  <h1>StoreTD Play - Panel Revendedor</h1>
-  <div id="who" class="muted"></div>
+  <div class="topbar">
+    <div class="brand">
+      <h1>StoreTD Play · Revendedor</h1>
+      <p id="who">Ingresá con tu clave para administrar tus clientes.</p>
+    </div>
+    <div class="actions">
+      <button id="refreshBtn" class="secondary hidden" onclick="loadAll()">Actualizar</button>
+      <button id="logoutBtn" class="secondary hidden" onclick="logout()">Salir</button>
+    </div>
+  </div>
 </header>
+
 <main>
-  <section id="login" class="card">
-    <h2>Ingresar</h2>
-    <input id="resellerKey" placeholder="Clave de revendedor" />
+  <section id="login" class="card login-card">
+    <h2>Ingresar al panel</h2>
+    <p class="muted">Usá la clave asignada por StoreTD para ver tus clientes y créditos.</p>
+    <label>Clave de revendedor</label>
+    <input id="resellerKey" placeholder="Ej: clave privada del revendedor" />
+    <div style="height:12px"></div>
     <button onclick="login()">Entrar</button>
     <p id="loginMsg" class="muted"></p>
   </section>
 
   <section id="dashboard" class="hidden">
-    <div class="card">
-      <h2>Créditos</h2>
-      <div id="credits" style="font-size:34px;font-weight:bold">0</div>
-      <p class="muted">1 crédito = 1 mes de servicio.</p>
-      <button class="secondary" onclick="logout()">Salir</button>
+    <div class="stats">
+      <div class="stat">
+        <span>Créditos disponibles</span>
+        <strong id="credits">0</strong>
+      </div>
+      <div class="stat">
+        <span>Clientes creados</span>
+        <strong id="totalClients">0</strong>
+      </div>
+      <div class="stat">
+        <span>Clientes activos</span>
+        <strong id="activeClients">0</strong>
+      </div>
+      <div class="stat">
+        <span>Dispositivos conectados</span>
+        <strong id="totalDevices">0</strong>
+      </div>
     </div>
 
-    <div class="card">
-      <h2>Crear cliente</h2>
-      <div class="grid">
-        <input id="newCustomerName" placeholder="Nombre cliente" />
-        <input id="newActivationCode" placeholder="Código opcional; vacío genera automático" />
-        <select id="newMonths">
-          <option value="1">1 mes</option>
-          <option value="2">2 meses</option>
-          <option value="3">3 meses</option>
-          <option value="6">6 meses</option>
-          <option value="12">12 meses</option>
-        </select>
-        <input id="newMaxDevices" type="number" value="1" min="1" max="10" />
+    <section class="card">
+      <div class="section-title">
+        <div>
+          <h2>Crear cliente</h2>
+          <div class="muted">Cada cliente se crea automáticamente con 6 dispositivos permitidos.</div>
+        </div>
+        <span class="pill ok">1 crédito = 1 mes</span>
       </div>
+
+      <div class="grid">
+        <div>
+          <label>Nombre del cliente</label>
+          <input id="newCustomerName" placeholder="Ej: Juan Pérez" />
+        </div>
+        <div>
+          <label>Código opcional</label>
+          <input id="newActivationCode" placeholder="Vacío genera automático" />
+        </div>
+        <div>
+          <label>Meses</label>
+          <select id="newMonths">
+            <option value="1">1 mes</option>
+            <option value="2">2 meses</option>
+            <option value="3">3 meses</option>
+            <option value="6">6 meses</option>
+            <option value="12">12 meses</option>
+          </select>
+        </div>
+        <div>
+          <label>Dispositivos</label>
+          <input value="6 dispositivos automáticos" disabled />
+        </div>
+      </div>
+
+      <div style="height:12px"></div>
       <button class="success" onclick="createClient()">Crear usando créditos</button>
-      <p id="createMsg" class="muted"></p>
-    </div>
+      <span id="createMsg" class="muted" style="margin-left:10px"></span>
+    </section>
 
-    <div class="card">
-      <h2>Mis clientes</h2>
-      <button class="secondary" onclick="loadAll()">Actualizar</button>
-      <div id="clients"></div>
-    </div>
-
-    <div class="card">
-      <h2>Enviar reclamo o pedido</h2>
-      <div class="grid">
-        <select id="requestType">
-          <option value="Reclamo cliente">Reclamo cliente</option>
-          <option value="Pedido canal">Pedido canal</option>
-          <option value="Pedido película">Pedido película</option>
-          <option value="Pedido serie">Pedido serie</option>
-          <option value="Otro">Otro</option>
-        </select>
-        <input id="requestActivationCode" placeholder="Código cliente opcional" />
-        <input id="requestCustomerName" placeholder="Cliente opcional" />
-        <input id="requestContentTitle" placeholder="Canal / película / serie opcional" />
+    <section class="card">
+      <div class="toolbar">
+        <div>
+          <h2 style="margin:0">Mis clientes</h2>
+          <div class="muted">Lista de clientes, vencimientos, créditos y dispositivos conectados.</div>
+        </div>
+        <div class="search">
+          <label>Buscar</label>
+          <input id="clientSearch" placeholder="Nombre, código o estado" oninput="renderClients()" />
+        </div>
       </div>
-      <textarea id="requestMessage" rows="4" placeholder="Detalle del pedido o reclamo"></textarea>
-      <button onclick="sendRequest()">Enviar</button>
-      <p id="requestMsg" class="muted"></p>
-    </div>
+
+      <div id="clients"></div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">
+        <div>
+          <h2>Reclamos y pedidos</h2>
+          <div class="muted">Enviá pedidos de canales, películas, series o reclamos de clientes.</div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div>
+          <label>Tipo</label>
+          <select id="requestType">
+            <option value="Reclamo cliente">Reclamo cliente</option>
+            <option value="Pedido canal">Pedido canal</option>
+            <option value="Pedido película">Pedido película</option>
+            <option value="Pedido serie">Pedido serie</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </div>
+        <div>
+          <label>Código cliente opcional</label>
+          <input id="requestActivationCode" placeholder="Ej: 253698" />
+        </div>
+        <div>
+          <label>Cliente opcional</label>
+          <input id="requestCustomerName" placeholder="Nombre del cliente" />
+        </div>
+        <div>
+          <label>Contenido opcional</label>
+          <input id="requestContentTitle" placeholder="Canal / película / serie" />
+        </div>
+      </div>
+
+      <div style="height:10px"></div>
+      <label>Detalle</label>
+      <textarea id="requestMessage" rows="4" placeholder="Explicá el pedido o reclamo"></textarea>
+      <div style="height:12px"></div>
+      <button onclick="sendRequest()">Enviar pedido</button>
+      <span id="requestMsg" class="muted" style="margin-left:10px"></span>
+    </section>
   </section>
 </main>
 
 <script>
 let key = localStorage.getItem("resellerKey") || "";
+let clientsCache = [];
 
 function $(id){return document.getElementById(id)}
 function esc(v){return String(v||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]))}
+function normalize(v){return String(v||"").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase()}
 
 async function api(path, options={}){
   const res = await fetch(path, {
@@ -113,6 +308,8 @@ async function login(){
     await loadAll();
     $("login").classList.add("hidden");
     $("dashboard").classList.remove("hidden");
+    $("refreshBtn").classList.remove("hidden");
+    $("logoutBtn").classList.remove("hidden");
   }catch(e){
     $("loginMsg").textContent = e.message;
   }
@@ -125,36 +322,90 @@ function logout(){
 
 async function loadAll(){
   const me = await api("/reseller/api/me");
-  $("who").textContent = `${me.reseller.name} - créditos: ${me.reseller.credits}`;
+  $("who").textContent = `${me.reseller.name} · créditos disponibles: ${me.reseller.credits}`;
   $("credits").textContent = me.reseller.credits;
 
   const data = await api("/reseller/api/clients");
-  renderClients(data.clients || []);
+  clientsCache = data.clients || [];
+  updateStats();
+  renderClients();
 }
 
-function renderClients(clients){
+function updateStats(){
+  $("totalClients").textContent = clientsCache.length;
+  $("activeClients").textContent = clientsCache.filter(c => String(c.status||"").toLowerCase()==="activa").length;
+  $("totalDevices").textContent = clientsCache.reduce((sum,c)=>sum+Number(c.deviceCount||0),0);
+}
+
+function statusPill(status){
+  const s = String(status||"").toLowerCase();
+  if(s.includes("activa")) return "ok";
+  if(s.includes("vencida") || s.includes("suspendida")) return "warn";
+  return "";
+}
+
+function renderClients(){
+  const q = normalize($("clientSearch")?.value || "");
+  const clients = clientsCache.filter(c => {
+    const hay = normalize([c.customerName,c.activationCode,c.status,c.expiresAt].join(" "));
+    return !q || hay.includes(q);
+  });
+
   if(!clients.length){
-    $("clients").innerHTML = "<p class='muted'>No hay clientes.</p>";
+    $("clients").innerHTML = "<div class='empty'>No hay clientes para mostrar.</div>";
     return;
   }
 
-  $("clients").innerHTML = clients.map(c => `
-    <div class="client">
-      <strong>${esc(c.customerName)}</strong>
-      <span class="pill">${esc(c.activationCode)}</span>
-      <span class="pill">${esc(c.status)}</span>
-      <span class="pill">Vence: ${esc(c.expiresAt)}</span>
-      <p class="muted">Dispositivos: ${esc(c.maxDevices)}</p>
-      <select id="renew-${esc(c.activationCode)}">
-        <option value="1">Renovar 1 mes</option>
-        <option value="2">Renovar 2 meses</option>
-        <option value="3">Renovar 3 meses</option>
-        <option value="6">Renovar 6 meses</option>
-        <option value="12">Renovar 12 meses</option>
-      </select>
-      <button onclick='renewClient(${JSON.stringify(c.activationCode)})'>Renovar</button>
+  $("clients").innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th>Código</th>
+            <th>Estado</th>
+            <th>Vencimiento</th>
+            <th>Dispositivos</th>
+            <th>Renovar</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${clients.map(c => {
+            const code = c.activationCode || "";
+            const connected = Number(c.deviceCount || 0);
+            const limit = Number(c.deviceLimit || c.maxDevices || 6);
+            return `
+              <tr>
+                <td>
+                  <div class="client-name">${esc(c.customerName || "Cliente")}</div>
+                  <div class="device-mini">Creado: ${esc(String(c.createdAt || "").slice(0,10) || "-")}</div>
+                </td>
+                <td><span class="code">${esc(code)}</span></td>
+                <td><span class="pill ${statusPill(c.status)}">${esc(c.status || "Activa")}</span></td>
+                <td>${esc(c.expiresAt || "-")}</td>
+                <td>
+                  <span class="pill">${connected}/${limit} conectados</span>
+                  <div class="device-mini">${connected ? "Tiene dispositivos vinculados" : "Sin dispositivos vinculados"}</div>
+                </td>
+                <td>
+                  <div class="actions">
+                    <select id="renew-${esc(code)}" style="width:130px">
+                      <option value="1">1 mes</option>
+                      <option value="2">2 meses</option>
+                      <option value="3">3 meses</option>
+                      <option value="6">6 meses</option>
+                      <option value="12">12 meses</option>
+                    </select>
+                    <button class="blue" onclick='renewClient(${JSON.stringify(code)})'>Renovar</button>
+                  </div>
+                </td>
+              </tr>
+            `;
+          }).join("")}
+        </tbody>
+      </table>
     </div>
-  `).join("");
+  `;
 }
 
 async function createClient(){
@@ -165,8 +416,7 @@ async function createClient(){
       body: JSON.stringify({
         customerName: $("newCustomerName").value,
         activationCode: $("newActivationCode").value,
-        months: $("newMonths").value,
-        maxDevices: $("newMaxDevices").value
+        months: $("newMonths").value
       })
     });
     $("createMsg").textContent = "Cliente creado.";
@@ -207,6 +457,9 @@ async function sendRequest(){
     });
     $("requestMsg").textContent = "Pedido enviado.";
     $("requestMessage").value = "";
+    $("requestActivationCode").value = "";
+    $("requestCustomerName").value = "";
+    $("requestContentTitle").value = "";
   }catch(e){
     $("requestMsg").textContent = e.message;
   }

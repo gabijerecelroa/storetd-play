@@ -734,9 +734,24 @@ app.get("/reseller/api/clients", requireReseller, async (req, res) => {
 
     if (error) throw error;
 
+    const clients = [];
+
+    for (const row of data || []) {
+      const code = normalizeCode(row.activation_code);
+      const devices = await getDeviceRows(code);
+
+      clients.push({
+        ...resellerClientToApi(row),
+        activationCode: code,
+        deviceCount: devices.length,
+        deviceLimit: Number(row.max_devices || 6),
+        devices: devices.map(dbDeviceToApi)
+      });
+    }
+
     res.json({
       success: true,
-      clients: (data || []).map(resellerClientToApi)
+      clients
     });
   } catch (error) {
     console.error("Reseller clients error:", error);
@@ -802,7 +817,7 @@ app.post("/reseller/api/clients", requireReseller, async (req, res) => {
         activationCode,
         status: "Activa",
         expiresAt,
-        maxDevices: Number(req.body?.maxDevices || 1),
+        maxDevices: 6,
         playlistUrl,
         epgUrl
       }),
