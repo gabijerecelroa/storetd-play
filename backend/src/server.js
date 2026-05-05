@@ -1141,41 +1141,46 @@ app.post("/reseller/api/requests", requireReseller, async (req, res) => {
 
 
 
-app.get("/smartone.m3u", async (req, res) => {
+
+app.get(["/smartone.m3u", "/smartone-final.m3u", "/smartone-v2.m3u"], async (req, res) => {
   try {
     const gistConfig = requireGistConfig(res);
     if (!gistConfig) return;
 
-    const smartoneFilename = process.env.GITHUB_GIST_SMARTONE_FILENAME || "lista-smartone.m3u";
-    const rawUrl = `https://gist.githubusercontent.com/gabijerecelroa/${gistConfig.gistId}/raw/${encodeURIComponent(smartoneFilename)}?t=${Date.now()}`;
+    const rawUrl = `${gistConfig.rawUrl}?t=${Date.now()}`;
 
     const response = await fetch(rawUrl, {
       headers: {
-        "User-Agent": "StoreTD-Play-Smartone-Proxy",
+        "User-Agent": "StoreTD-Play-Smartone-Live-Normalizer",
         "Cache-Control": "no-cache"
       }
     });
 
     if (!response.ok) {
-      throw new Error(`No se pudo descargar lista Smartone. HTTP ${response.status}`);
+      throw new Error(`No se pudo descargar lista principal. HTTP ${response.status}`);
     }
 
-    const content = await response.text();
+    const original = await response.text();
+    const normalized = normalizeM3uOrderForSmartone(original);
 
     res.setHeader("Content-Type", "audio/x-mpegurl; charset=utf-8");
     res.setHeader("Content-Disposition", 'inline; filename="smartone.m3u"');
-    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0");
     res.setHeader("Pragma", "no-cache");
     res.setHeader("Expires", "0");
     res.setHeader("Surrogate-Control", "no-store");
+    res.setHeader("X-StoreTD-Smartone-Mode", "live-normalized");
+    res.setHeader("X-StoreTD-Smartone-Generated-At", new Date().toISOString());
+    res.setHeader("X-StoreTD-Smartone-Live", String(normalized.counts?.live || 0));
+    res.setHeader("X-StoreTD-Smartone-Movies", String(normalized.counts?.movies || 0));
+    res.setHeader("X-StoreTD-Smartone-Series", String(normalized.counts?.series || 0));
 
-    res.send(content);
+    res.send(normalized.content);
   } catch (error) {
-    console.error("Smartone proxy error:", error);
+    console.error("Smartone live normalized proxy error:", error);
     res.status(500).send(`#EXTM3U\n# Error: ${error.message}\n`);
   }
 });
-
 
 
 app.get("/admin", (req, res) => {
