@@ -187,6 +187,34 @@ fun HomeScreen(
     var appUpdateInfo by remember { mutableStateOf<AppUpdateInfo?>(null) }
     var showAppUpdateDialog by remember { mutableStateOf(false) }
     var appUpdateChecked by remember { mutableStateOf(false) }
+
+    fun openAppUpdate(apkUrl: String) {
+        if (apkUrl.isBlank()) return
+
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(apkUrl)).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        runCatching {
+            context.startActivity(intent)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (appUpdateChecked) return@LaunchedEffect
+
+        appUpdateChecked = true
+
+        val update = withContext(Dispatchers.IO) {
+            AppUpdateApi.check()
+        }
+
+        if (update.success && update.updateAvailable && update.apkUrl.isNotBlank()) {
+            appUpdateInfo = update
+            showAppUpdateDialog = true
+        }
+    }
+
     val lifecycleOwner = LocalLifecycleOwner.current
     val account = LocalAccount.getAccount(context)
     val customerName = account.customerName.ifBlank { "cliente" }
@@ -538,9 +566,6 @@ fun HomeScreen(
             )
         }
     }
-}
-
-
 
     if (showAppUpdateDialog && appUpdateInfo != null) {
         val update = appUpdateInfo!!
@@ -563,9 +588,11 @@ fun HomeScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Nueva versión: ${update.latestVersionName}")
+
                     if (update.changelog.isNotBlank()) {
                         Text(update.changelog)
                     }
+
                     Text("Tocá Actualizar para descargar e instalar la nueva APK.")
                 }
             },
@@ -573,6 +600,7 @@ fun HomeScreen(
                 Button(
                     onClick = {
                         openAppUpdate(update.apkUrl)
+
                         if (!update.forceUpdate) {
                             showAppUpdateDialog = false
                         }
@@ -594,6 +622,10 @@ fun HomeScreen(
             }
         )
     }
+
+
+}
+
 
 
 @Composable
