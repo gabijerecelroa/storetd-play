@@ -2948,93 +2948,257 @@ function normalizeM3uOrderForSmartone(m3uText) {
 
 
 
-function normalizeTvGroupTitleNumbering(groupTitle) {
+
+function stripDiacriticsForTvGroups(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function normalizeTvGroupKey(value) {
+  return stripDiacriticsForTvGroups(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getM3uGroupTitleFromLine(line) {
+  const match = String(line || "").match(/group-title="([^"]*)"/i);
+  return match ? match[1] : "";
+}
+
+function replaceM3uGroupTitleInLine(line, nextGroupTitle) {
+  return String(line || "").replace(/(group-title=")([^"]*)(")/i, `$1${nextGroupTitle}$3`);
+}
+
+function isAdultTvGroupTitle(groupTitle) {
+  const clean = normalizeTvGroupKey(groupTitle);
+  return (
+    clean.includes("adult") ||
+    clean.includes("xxx") ||
+    clean.includes("18") ||
+    clean.includes("erot")
+  );
+}
+
+const SAFE_TV_GROUP_ORDER = [
+  [1, "Noticias"],
+  [2, "Deportes"],
+  [3, "General"],
+  [4, "Nacional Aire"],
+  [5, "Gran Hermano AR"],
+  [6, "Cine y Peliculas"],
+  [7, "Series TV"],
+  [8, "Documentales"],
+  [9, "Infantiles"],
+  [10, "Entretenimiento"],
+  [11, "Internacionales"],
+  [12, "Religion"],
+  [13, "Musica"],
+  [14, "Paraguay"],
+  [15, "Paraguay Deportes"]
+];
+
+function getSafeTvGroupInfo(groupTitle) {
   const original = String(groupTitle || "").trim();
 
-  if (!original) return original;
-
-  const normalized = original
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-
-  const match = original.match(/^TV\s*\|\s*(?:(\d{1,2})\s+)?(.+)$/i);
-  if (!match) return original;
-
-  const name = String(match[2] || "").trim();
-  const cleanName = name
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-
-  if (cleanName === "musica" || cleanName === "music") {
-    return "TV | 13 Musica";
+  if (!normalizeTvGroupKey(original).startsWith("tv")) {
+    return null;
   }
 
-  if (cleanName === "general") {
-    return "TV | 03 General";
+  if (isAdultTvGroupTitle(original)) {
+    return {
+      kind: "adult",
+      rank: 999,
+      groupTitle: original
+    };
   }
 
-  if (cleanName === "paraguay") {
-    return "TV | 14 Paraguay";
+  const match = original.match(/^TV\s*\|\s*(.*)$/i);
+  if (!match) {
+    return {
+      kind: "unknown",
+      rank: 998,
+      groupTitle: original
+    };
   }
 
-  if (
-    cleanName === "paraguay deportes" ||
-    cleanName === "deportes paraguay"
-  ) {
-    return "TV | 15 Paraguay Deportes";
+  let tail = String(match[1] || "").trim();
+
+  // Borra SOLO numeros iniciales despues de "TV |".
+  // Ejemplos:
+  // TV | 16 01 Noticias -> TV | 01 Noticias
+  // TV | 28 03 General  -> TV | 03 General
+  // TV | 18 13 Musica   -> TV | 13 Musica
+  const cleanTail = tail.replace(/^(?:\d{1,3}\s+)+/, "").trim() || tail;
+  const cleanTailKey = normalizeTvGroupKey(cleanTail);
+
+  const orderedBySpecificity = [...SAFE_TV_GROUP_ORDER].sort(
+    (a, b) => String(b[1]).length - String(a[1]).length
+  );
+
+  for (const [number, label] of orderedBySpecificity) {
+    const labelKey = normalizeTvGroupKey(label);
+
+    if (cleanTailKey === labelKey || cleanTailKey.includes(labelKey)) {
+      return {
+        kind: "known",
+        rank: number,
+        groupTitle: `TV | ${String(number).padStart(2, "0")} ${cleanTail}`
+      };
+    }
   }
 
-  // Si ya tiene número, se respeta.
-  if (match[1]) {
-    return `TV | ${String(match[1]).padStart(2, "0")} ${name}`;
+  return {
+    kind: "unknown",
+    rank: 998,
+    groupTitle: original
+  };
+}
+
+function splitM3uIntoHeaderAndEntries(m3uText) {
+  const lines = String(m3uText || "").replace(/\r/g, "").split("\n");
+  const header = [];
+  const entries = [];
+  let current = null;
+
+  for (const rawLine of lines) {
+    const line = rawLine + "\n";
+
+    if (rawLine.startsWith("#EXTINF")) {
+      if (current) entries.push(current);
+      current = [line];
+    } else if (current) {
+      current.push(line);
+    } else {
+      header.push(line);
+    }
   }
 
-  return original;
+  if (current) entries.push(current);
+
+  return { header, entries };
+}
+
+function m3uEntryFingerprintIgnoringGroupTitle(entry) {
+  const copy = [...entry];
+
+  if (copy.length > 0) {
+    copy[0] = String(copy[0]).replace(
+      /group-title="[^"]*"/i,
+      'group-title="__GROUP__"'
+    );
+  }
+
+  return copy.join("");
+}
+
+function counterFromValues(values) {
+  const counter = new Map();
+
+  for (const value of values) {
+    counter.set(value, (counter.get(value) || 0) + 1);
+  }
+
+  return counter;
+}
+
+function countersAreEqual(a, b) {
+  if (a.size !== b.size) return false;
+
+  for (const [key, count] of a.entries()) {
+    if (b.get(key) !== count) return false;
+  }
+
+  return true;
 }
 
 function normalizeTvGroupNumbersInM3u(m3uText) {
-  let changed = 0;
-  const assigned = new Map();
-  let nextNumber = 16;
+  const original = String(m3uText || "").replace(/\r/g, "");
+  const { header, entries } = splitM3uIntoHeaderAndEntries(original);
 
-  const content = String(m3uText || "").replace(/\r/g, "").replace(
-    /group-title="([^"]*)"/gi,
-    (full, groupTitle) => {
-      const originalGroup = String(groupTitle || "").trim();
-      let nextGroup = normalizeTvGroupTitleNumbering(originalGroup);
-
-      const tvNoNumberMatch = nextGroup.match(/^TV\s*\|\s*([^0-9].*)$/i);
-
-      if (tvNoNumberMatch) {
-        const name = String(tvNoNumberMatch[1] || "").trim();
-        const key = name
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "")
-          .toLowerCase();
-
-        if (!assigned.has(key)) {
-          assigned.set(key, nextNumber);
-          nextNumber += 1;
-        }
-
-        nextGroup = `TV | ${String(assigned.get(key)).padStart(2, "0")} ${name}`;
-      }
-
-      if (nextGroup !== originalGroup) {
-        changed += 1;
-      }
-
-      return `group-title="${nextGroup}"`;
-    }
+  const beforeFingerprints = counterFromValues(
+    entries.map(m3uEntryFingerprintIgnoringGroupTitle)
   );
+
+  const known = [];
+  const unknown = [];
+  const adult = [];
+  const other = [];
+  const changedGroups = [];
+
+  entries.forEach((entry, index) => {
+    const groupTitle = getM3uGroupTitleFromLine(entry[0]);
+    const info = getSafeTvGroupInfo(groupTitle);
+
+    const item = {
+      index,
+      rank: 10000,
+      entry
+    };
+
+    if (!info) {
+      other.push(item);
+      return;
+    }
+
+    item.rank = info.rank;
+
+    if (info.kind === "known") {
+      if (info.groupTitle !== groupTitle) {
+        const nextEntry = [...entry];
+        nextEntry[0] = replaceM3uGroupTitleInLine(nextEntry[0], info.groupTitle);
+        item.entry = nextEntry;
+        changedGroups.push([groupTitle, info.groupTitle]);
+      }
+
+      known.push(item);
+      return;
+    }
+
+    if (info.kind === "adult") {
+      // Adultos solo se mueve al final del bloque TV.
+      // No se cambia el texto del grupo adulto.
+      adult.push(item);
+      return;
+    }
+
+    // TV no reconocida: no se cambia texto.
+    unknown.push(item);
+  });
+
+  known.sort((a, b) => {
+    if (a.rank !== b.rank) return a.rank - b.rank;
+    return a.index - b.index;
+  });
+
+  const ordered = [...known, ...unknown, ...adult, ...other];
+  const nextEntries = ordered.map((item) => item.entry);
+
+  const afterFingerprints = counterFromValues(
+    nextEntries.map(m3uEntryFingerprintIgnoringGroupTitle)
+  );
+
+  if (!countersAreEqual(beforeFingerprints, afterFingerprints)) {
+    throw new Error("Validacion fallida: se detectaron cambios fuera de group-title.");
+  }
+
+  const content = [
+    ...header,
+    ...nextEntries.flat()
+  ].join("");
 
   return {
     content,
-    changed
+    changed: content === original ? 0 : 1,
+    changedGroups,
+    counts: {
+      knownTv: known.length,
+      unknownTv: unknown.length,
+      adultTv: adult.length,
+      other: other.length
+    }
   };
 }
 
@@ -4669,6 +4833,7 @@ app.post("/admin/api/m3u/publish-smartone", requireAdmin, async (req, res) => {
 
 
 
+
 app.post("/admin/api/m3u/normalize-tv-groups", requireAdmin, async (req, res) => {
   try {
     const gistConfig = requireGistConfig(res);
@@ -4696,9 +4861,11 @@ app.post("/admin/api/m3u/normalize-tv-groups", requireAdmin, async (req, res) =>
     res.json({
       success: true,
       message: result.changed > 0
-        ? "Carpetas TV numeradas correctamente."
-        : "Las carpetas TV ya estaban numeradas correctamente.",
+        ? "TV en vivo corregido: numeros 01-15, adultos al final, sin tocar URLs ni datos."
+        : "TV en vivo ya estaba correcto.",
       changed: result.changed,
+      counts: result.counts,
+      changedGroups: result.changedGroups,
       activationCode: activationCode || null,
       refresh: refreshResult
     });
@@ -4706,7 +4873,7 @@ app.post("/admin/api/m3u/normalize-tv-groups", requireAdmin, async (req, res) =>
     console.error("Normalize TV groups error:", error);
     res.status(500).json({
       success: false,
-      message: "No se pudieron numerar las carpetas TV.",
+      message: "No se pudo corregir TV en vivo.",
       error: error.message
     });
   }
