@@ -2974,12 +2974,22 @@ function replaceM3uGroupTitleInLine(line, nextGroupTitle) {
 }
 
 function isAdultTvGroupTitle(groupTitle) {
+  const raw = stripDiacriticsForTvGroups(groupTitle)
+    .toLowerCase()
+    .trim();
+
   const clean = normalizeTvGroupKey(groupTitle);
+
+  // No marcar como adulto solo por tener numero 18,
+  // porque puede ser doble numeracion rota:
+  // TV | 18 13 Musica
   return (
     clean.includes("adult") ||
     clean.includes("xxx") ||
-    clean.includes("18") ||
-    clean.includes("erot")
+    clean.includes("erot") ||
+    clean.includes("para adultos") ||
+    /(^|[^0-9])\+18([^0-9]|$)/.test(raw) ||
+    /(^|[^0-9])18\+([^0-9]|$)/.test(raw)
   );
 }
 
