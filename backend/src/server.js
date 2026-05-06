@@ -2947,6 +2947,98 @@ function normalizeM3uOrderForSmartone(m3uText) {
 }
 
 
+
+function normalizeTvGroupTitleNumbering(groupTitle) {
+  const original = String(groupTitle || "").trim();
+
+  if (!original) return original;
+
+  const normalized = original
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+  const match = original.match(/^TV\s*\|\s*(?:(\d{1,2})\s+)?(.+)$/i);
+  if (!match) return original;
+
+  const name = String(match[2] || "").trim();
+  const cleanName = name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+  if (cleanName === "musica" || cleanName === "music") {
+    return "TV | 13 Musica";
+  }
+
+  if (cleanName === "general") {
+    return "TV | 03 General";
+  }
+
+  if (cleanName === "paraguay") {
+    return "TV | 14 Paraguay";
+  }
+
+  if (
+    cleanName === "paraguay deportes" ||
+    cleanName === "deportes paraguay"
+  ) {
+    return "TV | 15 Paraguay Deportes";
+  }
+
+  // Si ya tiene número, se respeta.
+  if (match[1]) {
+    return `TV | ${String(match[1]).padStart(2, "0")} ${name}`;
+  }
+
+  return original;
+}
+
+function normalizeTvGroupNumbersInM3u(m3uText) {
+  let changed = 0;
+  const assigned = new Map();
+  let nextNumber = 16;
+
+  const content = String(m3uText || "").replace(/\r/g, "").replace(
+    /group-title="([^"]*)"/gi,
+    (full, groupTitle) => {
+      const originalGroup = String(groupTitle || "").trim();
+      let nextGroup = normalizeTvGroupTitleNumbering(originalGroup);
+
+      const tvNoNumberMatch = nextGroup.match(/^TV\s*\|\s*([^0-9].*)$/i);
+
+      if (tvNoNumberMatch) {
+        const name = String(tvNoNumberMatch[1] || "").trim();
+        const key = name
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase();
+
+        if (!assigned.has(key)) {
+          assigned.set(key, nextNumber);
+          nextNumber += 1;
+        }
+
+        nextGroup = `TV | ${String(assigned.get(key)).padStart(2, "0")} ${name}`;
+      }
+
+      if (nextGroup !== originalGroup) {
+        changed += 1;
+      }
+
+      return `group-title="${nextGroup}"`;
+    }
+  );
+
+  return {
+    content,
+    changed
+  };
+}
+
+
 function requireGistConfig(res) {
   const token = process.env.GITHUB_GIST_TOKEN || "";
   const gistId = process.env.GITHUB_GIST_ID || "";
@@ -4570,6 +4662,51 @@ app.post("/admin/api/m3u/publish-smartone", requireAdmin, async (req, res) => {
     res.status(500).json({
       success: false,
       message: "No se pudo publicar la lista Smartone.",
+      error: error.message
+    });
+  }
+});
+
+
+
+app.post("/admin/api/m3u/normalize-tv-groups", requireAdmin, async (req, res) => {
+  try {
+    const gistConfig = requireGistConfig(res);
+    if (!gistConfig) return;
+
+    const activationCode = normalizeCode(req.body?.activationCode || req.query.code || "");
+    const original = await downloadGistM3uRaw(gistConfig.rawUrl);
+    const result = normalizeTvGroupNumbersInM3u(original);
+
+    if (result.changed > 0) {
+      await updateGistFile({
+        token: gistConfig.token,
+        gistId: gistConfig.gistId,
+        filename: gistConfig.filename,
+        content: result.content
+      });
+    }
+
+    let refreshResult = null;
+
+    if (activationCode) {
+      refreshResult = await refreshContentCacheForClient(activationCode);
+    }
+
+    res.json({
+      success: true,
+      message: result.changed > 0
+        ? "Carpetas TV numeradas correctamente."
+        : "Las carpetas TV ya estaban numeradas correctamente.",
+      changed: result.changed,
+      activationCode: activationCode || null,
+      refresh: refreshResult
+    });
+  } catch (error) {
+    console.error("Normalize TV groups error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudieron numerar las carpetas TV.",
       error: error.message
     });
   }
