@@ -2949,6 +2949,7 @@ function normalizeM3uOrderForSmartone(m3uText) {
 
 
 
+
 function stripDiacriticsForTvGroups(value) {
   return String(value || "")
     .normalize("NFD")
@@ -3016,6 +3017,7 @@ function getSafeTvGroupInfo(groupTitle) {
   }
 
   const match = original.match(/^TV\s*\|\s*(.*)$/i);
+
   if (!match) {
     return {
       kind: "unknown",
@@ -3024,13 +3026,13 @@ function getSafeTvGroupInfo(groupTitle) {
     };
   }
 
-  let tail = String(match[1] || "").trim();
+  const tail = String(match[1] || "").trim();
 
   // Borra SOLO numeros iniciales despues de "TV |".
   // Ejemplos:
-  // TV | 16 01 Noticias -> TV | 01 Noticias
-  // TV | 28 03 General  -> TV | 03 General
-  // TV | 18 13 Musica   -> TV | 13 Musica
+  // TV | 16 01 Noticias -> Noticias
+  // TV | 28 03 General  -> General
+  // TV | 18 13 Musica   -> Musica
   const cleanTail = tail.replace(/^(?:\d{1,3}\s+)+/, "").trim() || tail;
   const cleanTailKey = normalizeTvGroupKey(cleanTail);
 
@@ -3057,79 +3059,25 @@ function getSafeTvGroupInfo(groupTitle) {
   };
 }
 
-function splitM3uIntoHeaderAndEntries(m3uText) {
-  const lines = String(m3uText || "").replace(/\r/g, "").split("\n");
-  const header = [];
-  const entries = [];
-  let current = null;
-
-  for (const rawLine of lines) {
-    const line = rawLine + "\n";
-
-    if (rawLine.startsWith("#EXTINF")) {
-      if (current) entries.push(current);
-      current = [line];
-    } else if (current) {
-      current.push(line);
-    } else {
-      header.push(line);
-    }
-  }
-
-  if (current) entries.push(current);
-
-  return { header, entries };
-}
-
-function m3uEntryFingerprintIgnoringGroupTitle(entry) {
-  const copy = [...entry];
-
-  if (copy.length > 0) {
-    copy[0] = String(copy[0]).replace(
-      /group-title="[^"]*"/i,
-      'group-title="__GROUP__"'
-    );
-  }
-
-  return copy.join("");
-}
-
-function counterFromValues(values) {
-  const counter = new Map();
-
-  for (const value of values) {
-    counter.set(value, (counter.get(value) || 0) + 1);
-  }
-
-  return counter;
-}
-
-function countersAreEqual(a, b) {
-  if (a.size !== b.size) return false;
-
-  for (const [key, count] of a.entries()) {
-    if (b.get(key) !== count) return false;
-  }
-
-  return true;
-}
-
 function normalizeTvGroupNumbersInM3u(m3uText) {
   const original = String(m3uText || "").replace(/\r/g, "");
-  const { header, entries } = splitM3uIntoHeaderAndEntries(original);
 
-  const beforeFingerprints = counterFromValues(
-    entries.map(m3uEntryFingerprintIgnoringGroupTitle)
-  );
+  // Separacion liviana: no crea fingerprints enormes.
+  const parts = original.split(/(?=^#EXTINF)/m);
+  const header = parts.shift() || "";
+  const entries = parts.filter(Boolean);
 
   const known = [];
   const unknown = [];
   const adult = [];
   const other = [];
-  const changedGroups = [];
+  const changedGroupMap = new Map();
+  let changedEntries = 0;
 
   entries.forEach((entry, index) => {
-    const groupTitle = getM3uGroupTitleFromLine(entry[0]);
+    const firstLineMatch = entry.match(/^#EXTINF[^\n]*/m);
+    const firstLine = firstLineMatch ? firstLineMatch[0] : "";
+    const groupTitle = getM3uGroupTitleFromLine(firstLine);
     const info = getSafeTvGroupInfo(groupTitle);
 
     const item = {
@@ -3147,10 +3095,12 @@ function normalizeTvGroupNumbersInM3u(m3uText) {
 
     if (info.kind === "known") {
       if (info.groupTitle !== groupTitle) {
-        const nextEntry = [...entry];
-        nextEntry[0] = replaceM3uGroupTitleInLine(nextEntry[0], info.groupTitle);
-        item.entry = nextEntry;
-        changedGroups.push([groupTitle, info.groupTitle]);
+        item.entry = entry.replace(/^#EXTINF[^\n]*/m, (line) => {
+          return replaceM3uGroupTitleInLine(line, info.groupTitle);
+        });
+
+        changedEntries += 1;
+        changedGroupMap.set(groupTitle, info.groupTitle);
       }
 
       known.push(item);
@@ -3159,12 +3109,12 @@ function normalizeTvGroupNumbersInM3u(m3uText) {
 
     if (info.kind === "adult") {
       // Adultos solo se mueve al final del bloque TV.
-      // No se cambia el texto del grupo adulto.
+      // No se cambia el texto.
       adult.push(item);
       return;
     }
 
-    // TV no reconocida: no se cambia texto.
+    // TV no reconocida: queda antes de adultos, sin cambiar texto.
     unknown.push(item);
   });
 
@@ -3174,25 +3124,16 @@ function normalizeTvGroupNumbersInM3u(m3uText) {
   });
 
   const ordered = [...known, ...unknown, ...adult, ...other];
-  const nextEntries = ordered.map((item) => item.entry);
 
-  const afterFingerprints = counterFromValues(
-    nextEntries.map(m3uEntryFingerprintIgnoringGroupTitle)
-  );
-
-  if (!countersAreEqual(beforeFingerprints, afterFingerprints)) {
-    throw new Error("Validacion fallida: se detectaron cambios fuera de group-title.");
+  let content = header;
+  for (const item of ordered) {
+    content += item.entry;
   }
-
-  const content = [
-    ...header,
-    ...nextEntries.flat()
-  ].join("");
 
   return {
     content,
-    changed: content === original ? 0 : 1,
-    changedGroups,
+    changed: content === original ? 0 : Math.max(changedEntries, 1),
+    changedGroups: Array.from(changedGroupMap.entries()),
     counts: {
       knownTv: known.length,
       unknownTv: unknown.length,
