@@ -1286,7 +1286,16 @@ async function getSeriesFoldersLite({ activationCode, autoRefresh = true }) {
     return raw || fallback || "Sin título";
   };
 
+  const isSeriesLiteSourceGroup = (value) => {
+    const normalized = normalizeText(value || "");
+    return normalized === "series" || normalized.startsWith("series ");
+  };
+
   for (const folder of sourceFolders) {
+    if (!isSeriesLiteSourceGroup(folder.group)) {
+      continue;
+    }
+
     const title = cleanLiteTitle(folder.title, folder.group);
     const key = slugKey(title) || folder.key || slugKey(folder.title);
     const episodeCount = Number(folder.episodeCount || folder.episodes?.length || 0);
@@ -1319,7 +1328,7 @@ async function getSeriesFoldersLite({ activationCode, autoRefresh = true }) {
     fromCache: result.fromCache,
     payload: {
       section: "series-folders-lite",
-      groupingVersion: "series-lite-endpoint-v14",
+      groupingVersion: "series-lite-endpoint-v15-series-only",
       activationCode: payload.activationCode,
       playlistUrlMasked: payload.playlistUrlMasked,
       updatedAt: payload.updatedAt,
