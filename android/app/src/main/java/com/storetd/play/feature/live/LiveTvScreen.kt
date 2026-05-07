@@ -605,11 +605,20 @@ fun LiveTvScreen(
                         state = state,
                         contentMode = contentMode,
                         selectedSeriesKey = selectedSeriesKey,
+                        selectedSeriesGroup = selectedSeriesGroup,
                         onSelectSeries = {
                         lastSeriesFocusKey = it
                         selectedSeriesKey = it
                     },
                         onClearSeries = { selectedSeriesKey = null },
+                        onSelectSeriesGroup = { group ->
+                            selectedSeriesKey = null
+                            selectedSeriesGroup = group
+                        },
+                        onClearSeriesGroup = {
+                            selectedSeriesKey = null
+                            selectedSeriesGroup = null
+                        },
                         lazySeriesFolders = lazySeriesFolders,
                     lazySeriesEpisodes = lazySeriesEpisodes,
                     isLazySeriesLoading = isLazySeriesLoading,
