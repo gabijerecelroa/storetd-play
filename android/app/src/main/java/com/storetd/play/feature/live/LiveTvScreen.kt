@@ -735,7 +735,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
         return
     }
 
-    if (isLazyMoviesLoading || isLazyMovieSearchLoading || isLazySeriesLoading) {
+    if (isLazyMoviesLoading || isLazySeriesLoading) {
         item {
             LoadingSectionCard(
                 text = if (contentMode == ContentMode.Series) {
@@ -800,7 +800,13 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                     )
                 }
 
-                if (visibleMovieResults.isEmpty() && !isLazyMovieSearchLoading) {
+                if (isLazyMovieSearchLoading) {
+                    item {
+                        LoadingSectionCard(
+                            text = "Buscando películas..."
+                        )
+                    }
+                } else if (visibleMovieResults.isEmpty()) {
                     item {
                         Text(
                             text = "Sin resultados para \"$lazySearchQuery\"",
@@ -1412,9 +1418,9 @@ private fun LazySearchHeader(
     val searchFocusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    LaunchedEffect(showSearch, query) {
+    LaunchedEffect(showSearch) {
         if (showSearch) {
-            kotlinx.coroutines.delay(80)
+            kotlinx.coroutines.delay(120)
             runCatching { searchFocusRequester.requestFocus() }
             keyboardController?.show()
         }
