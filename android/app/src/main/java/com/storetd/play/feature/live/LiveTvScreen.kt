@@ -764,18 +764,31 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
         val selectedCategory = lazyMovieCategories.firstOrNull { it.key == selectedMovieCategoryKey }
 
         if (selectedCategory == null) {
-            if (movieSearchText.isBlank()) {
-                item {
-                    LazySearchHeader(
-                        title = "${lazyMovieCategories.size} categorías encontradas",
-                        placeholder = "Buscar película...",
-                        showSearch = showLazySearch,
-                        query = lazySearchQuery,
-                        onQueryChange = onLazySearchQueryChange,
-                        onToggleSearch = onToggleLazySearch
-                    )
+            val visibleMovieResults = if (movieSearchText.isBlank()) {
+                emptyList()
+            } else {
+                lazyMovieSearchItems.filter {
+                    it.name.lowercase(Locale.getDefault()).contains(movieSearchText) ||
+                        it.group.lowercase(Locale.getDefault()).contains(movieSearchText)
                 }
+            }
 
+            item {
+                LazySearchHeader(
+                    title = if (movieSearchText.isBlank()) {
+                        "${lazyMovieCategories.size} categorías encontradas"
+                    } else {
+                        "${visibleMovieResults.size} películas encontradas"
+                    },
+                    placeholder = "Buscar película...",
+                    showSearch = showLazySearch,
+                    query = lazySearchQuery,
+                    onQueryChange = onLazySearchQueryChange,
+                    onToggleSearch = onToggleLazySearch
+                )
+            }
+
+            if (movieSearchText.isBlank()) {
                 itemsIndexed(lazyMovieCategories) { index, category ->
                     MovieCategoryLiteRow(
                         category = category,
@@ -795,22 +808,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                     )
                 }
             } else {
-                val visibleMovieResults = lazyMovieSearchItems.filter {
-                    it.name.lowercase(Locale.getDefault()).contains(movieSearchText) ||
-                        it.group.lowercase(Locale.getDefault()).contains(movieSearchText)
-                }
-
-                item {
-                    LazySearchHeader(
-                        title = "${visibleMovieResults.size} películas encontradas",
-                        placeholder = "Buscar película...",
-                        showSearch = showLazySearch,
-                        query = lazySearchQuery,
-                        onQueryChange = onLazySearchQueryChange,
-                        onToggleSearch = onToggleLazySearch
-                    )
-                }
-
                 if (isLazyMovieSearchLoading) {
                     item {
                         LoadingSectionCard(
