@@ -1,10 +1,10 @@
 package com.storetd.play.core.preload
 
 import android.content.Context
-import com.storetd.play.BuildConfig
 import com.storetd.play.core.cache.PlaylistDiskCache
 import com.storetd.play.core.cache.PlaylistMemoryCache
 import com.storetd.play.core.model.Channel
+import com.storetd.play.core.network.OptimizedContentApi
 import com.storetd.play.core.repository.IptvRepository
 import com.storetd.play.core.storage.LocalAccount
 import kotlinx.coroutines.CompletableDeferred
@@ -15,7 +15,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
-import java.net.URLEncoder
 import java.util.concurrent.ConcurrentHashMap
 
 object PlaylistPreloader {
@@ -67,7 +66,10 @@ object PlaylistPreloader {
         val job = scope.async {
             try {
                 val channels = withTimeout(60000L) {
-                    repository.loadPlaylistFromUrl(cleanUrl)
+                    loadOptimizedOrFallback(
+                        context = appContext,
+                        url = cleanUrl
+                    )
                 }
 
                 if (channels.isNotEmpty()) {
@@ -111,6 +113,29 @@ object PlaylistPreloader {
         return null
     }
 
+    private fun loadOptimizedOrFallback(
+        context: Context,
+        url: String
+    ): List<Channel> {
+        val account = LocalAccount.getAccount(context.applicationContext)
+        val activationCode = account.activationCode.trim()
+
+        if (activationCode.isNotBlank() && activationCode != "-") {
+            val optimized = runCatching {
+                OptimizedContentApi.loadAllSections(activationCode)
+                    .values
+                    .flatten()
+            }.getOrDefault(emptyList())
+
+            if (optimized.isNotEmpty()) {
+                return optimized
+            }
+        }
+
+        // Respaldo extremo: solo si JSON no responde.
+        return repository.loadPlaylistFromUrl(url)
+    }
+
     fun clear(url: String) {
         val cleanUrl = url.trim()
         if (cleanUrl.isBlank()) return
@@ -125,20 +150,10 @@ object PlaylistPreloader {
     ): List<String> {
         val code = activationCode.trim()
 
-        if (code.isBlank()) {
-            return listOfNotNull(fallbackUrl.trim().takeIf { it.isNotBlank() })
+        if (code.isNotBlank() && code != "-") {
+            return listOf("storetdplay://optimized/$code")
         }
 
-        val baseUrl = BuildConfig.API_BASE_URL
-            .trim()
-            .trimEnd('/')
-
-        val encodedCode = URLEncoder.encode(code, "UTF-8")
-
-        return listOf(
-            "$baseUrl/playlist/proxy?code=$encodedCode&type=live",
-            "$baseUrl/playlist/proxy?code=$encodedCode&type=movies",
-            "$baseUrl/playlist/proxy?code=$encodedCode&type=series"
-        )
+        return listOfNotNull(fallbackUrl.trim().takeIf { it.isNotBlank() })
     }
 }

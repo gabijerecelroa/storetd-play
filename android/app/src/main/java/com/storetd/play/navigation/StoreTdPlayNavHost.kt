@@ -207,7 +207,7 @@ fun checkAccountStatus() {
 
                     LocalAccount.activateDemo(
                         context = context,
-                        playlistUrl = "https://gist.githubusercontent.com/gabijerecelroa/1beb318f81af17604a81a8c257297615/raw/lista.m3u",
+                        playlistUrl = "storetdplay://optimized/demo",
                         epgUrl = ""
                     )
                     navigateAndClear(Routes.Home)
