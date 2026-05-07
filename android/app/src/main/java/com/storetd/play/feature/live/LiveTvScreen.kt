@@ -56,6 +56,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -130,6 +131,12 @@ fun LiveTvScreen(
     }
     var lazyMovieItems by remember(contentMode, selectedMovieCategoryKey) {
         mutableStateOf<List<Channel>>(emptyList())
+    }
+    var lazyMovieSearchItems by remember(contentMode) {
+        mutableStateOf<List<Channel>>(emptyList())
+    }
+    var isLazyMovieSearchLoading by remember(contentMode) {
+        mutableStateOf(false)
     }
     var isLazyMoviesLoading by remember(contentMode, selectedMovieCategoryKey) {
         mutableStateOf(false)
@@ -226,9 +233,11 @@ fun LiveTvScreen(
         lazySeriesEpisodes = emptyList()
         lazyMovieCategories = emptyList()
         lazyMovieItems = emptyList()
+        lazyMovieSearchItems = emptyList()
 
         isLazySeriesLoading = contentMode == ContentMode.Series
         isLazyMoviesLoading = contentMode == ContentMode.Movies
+        isLazyMovieSearchLoading = false
 
         lazyRefreshToken += 1
         viewModel.refreshPlaylist(context)
@@ -373,6 +382,33 @@ fun LiveTvScreen(
                 }.getOrDefault(emptyList())
             }
             isLazySeriesLoading = false
+        }
+    }
+
+    LaunchedEffect(contentMode, selectedMovieCategoryKey, showLazySearch, lazySearchQuery, lazyMovieSearchItems.size) {
+        val account = LocalAccount.getAccount(context)
+        val activationCode = account.activationCode.trim()
+        val query = lazySearchQuery.trim()
+
+        if (
+            contentMode == ContentMode.Movies &&
+            selectedMovieCategoryKey == null &&
+            showLazySearch &&
+            query.isNotBlank() &&
+            lazyMovieSearchItems.isEmpty() &&
+            activationCode.isNotBlank()
+        ) {
+            isLazyMovieSearchLoading = true
+            lazyMovieSearchItems = withContext(Dispatchers.IO) {
+                runCatching {
+                    OptimizedContentApi.loadSection(
+                        activationCode = activationCode,
+                        section = "movies",
+                        includeAdult = !ParentalControl.isAdultContentHidden(context)
+                    )
+                }.getOrDefault(emptyList())
+            }
+            isLazyMovieSearchLoading = false
         }
     }
 
@@ -537,6 +573,8 @@ fun LiveTvScreen(
                     lastMovieCategoryFocusKey = lastMovieCategoryFocusKey,
                     lazyMovieCategories = lazyMovieCategories,
                     lazyMovieItems = lazyMovieItems,
+                    lazyMovieSearchItems = lazyMovieSearchItems,
+                    isLazyMovieSearchLoading = isLazyMovieSearchLoading,
                     isLazyMoviesLoading = isLazyMoviesLoading,
                     onSelectMovieCategory = {
                         lastMovieCategoryFocusKey = it
@@ -549,6 +587,8 @@ fun LiveTvScreen(
                     onToggleLazySearch = {
                         if (showLazySearch) {
                             lazySearchQuery = ""
+                            lazyMovieSearchItems = emptyList()
+                            isLazyMovieSearchLoading = false
                         }
                         showLazySearch = !showLazySearch
                     },
@@ -627,6 +667,8 @@ fun LiveTvScreen(
                     lastMovieCategoryFocusKey = lastMovieCategoryFocusKey,
                     lazyMovieCategories = lazyMovieCategories,
                     lazyMovieItems = lazyMovieItems,
+                    lazyMovieSearchItems = lazyMovieSearchItems,
+                    isLazyMovieSearchLoading = isLazyMovieSearchLoading,
                     isLazyMoviesLoading = isLazyMoviesLoading,
                     onSelectMovieCategory = {
                         lastMovieCategoryFocusKey = it
@@ -639,6 +681,8 @@ fun LiveTvScreen(
                     onToggleLazySearch = {
                         if (showLazySearch) {
                             lazySearchQuery = ""
+                            lazyMovieSearchItems = emptyList()
+                            isLazyMovieSearchLoading = false
                         }
                         showLazySearch = !showLazySearch
                     },
@@ -667,6 +711,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
     lastMovieCategoryFocusKey: String?,
     lazyMovieCategories: List<OptimizedContentApi.MovieCategoryLite>,
     lazyMovieItems: List<Channel>,
+    lazyMovieSearchItems: List<Channel>,
+    isLazyMovieSearchLoading: Boolean,
     isLazyMoviesLoading: Boolean,
     onSelectMovieCategory: (String) -> Unit,
     onClearMovieCategory: () -> Unit,
@@ -689,7 +735,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
         return
     }
 
-    if (isLazyMoviesLoading || isLazySeriesLoading) {
+    if (isLazyMoviesLoading || isLazyMovieSearchLoading || isLazySeriesLoading) {
         item {
             LoadingSectionCard(
                 text = if (contentMode == ContentMode.Series) {
@@ -704,55 +750,78 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
 
     if (contentMode == ContentMode.Movies && lazyMovieCategories.isNotEmpty()) {
         val movieSearchText = lazySearchQuery.trim().lowercase(Locale.getDefault())
-        val visibleMovieCategories = if (movieSearchText.isBlank()) {
-            lazyMovieCategories
-        } else {
-            lazyMovieCategories.filter {
-                it.title.lowercase(Locale.getDefault()).contains(movieSearchText)
-            }
-        }
-
         val selectedCategory = lazyMovieCategories.firstOrNull { it.key == selectedMovieCategoryKey }
 
         if (selectedCategory == null) {
-            item {
-                LazySearchHeader(
-                    title = "${visibleMovieCategories.size} categorías encontradas",
-                    placeholder = "Buscar película o categoría...",
-                    showSearch = showLazySearch,
-                    query = lazySearchQuery,
-                    onQueryChange = onLazySearchQueryChange,
-                    onToggleSearch = onToggleLazySearch
-                )
-            }
-
-            if (visibleMovieCategories.isEmpty()) {
+            if (movieSearchText.isBlank()) {
                 item {
-                    Text(
-                        text = "Sin resultados para \"$lazySearchQuery\"",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f)
+                    LazySearchHeader(
+                        title = "${lazyMovieCategories.size} categorías encontradas",
+                        placeholder = "Buscar película...",
+                        showSearch = showLazySearch,
+                        query = lazySearchQuery,
+                        onQueryChange = onLazySearchQueryChange,
+                        onToggleSearch = onToggleLazySearch
                     )
                 }
-            }
 
-            itemsIndexed(visibleMovieCategories) { index, category ->
-                MovieCategoryLiteRow(
-                    category = category,
-                    requestInitialFocus =
-                        selectedMovieCategoryKey == null &&
-                            !showLazySearch &&
-                            (
-                                category.key == lastMovieCategoryFocusKey ||
-                                    (
+                itemsIndexed(lazyMovieCategories) { index, category ->
+                    MovieCategoryLiteRow(
+                        category = category,
+                        requestInitialFocus =
+                            selectedMovieCategoryKey == null &&
+                                !showLazySearch &&
+                                (
+                                    category.key == lastMovieCategoryFocusKey ||
                                         (
-                                            lastMovieCategoryFocusKey == null ||
-                                                visibleMovieCategories.none { it.key == lastMovieCategoryFocusKey }
-                                        ) && index == 0
-                                    )
-                            ),
-                    onOpen = { onSelectMovieCategory(category.key) }
-                )
+                                            (
+                                                lastMovieCategoryFocusKey == null ||
+                                                    lazyMovieCategories.none { it.key == lastMovieCategoryFocusKey }
+                                            ) && index == 0
+                                        )
+                                ),
+                        onOpen = { onSelectMovieCategory(category.key) }
+                    )
+                }
+            } else {
+                val visibleMovieResults = lazyMovieSearchItems.filter {
+                    it.name.lowercase(Locale.getDefault()).contains(movieSearchText) ||
+                        it.group.lowercase(Locale.getDefault()).contains(movieSearchText)
+                }
+
+                item {
+                    LazySearchHeader(
+                        title = "${visibleMovieResults.size} películas encontradas",
+                        placeholder = "Buscar película...",
+                        showSearch = showLazySearch,
+                        query = lazySearchQuery,
+                        onQueryChange = onLazySearchQueryChange,
+                        onToggleSearch = onToggleLazySearch
+                    )
+                }
+
+                if (visibleMovieResults.isEmpty() && !isLazyMovieSearchLoading) {
+                    item {
+                        Text(
+                            text = "Sin resultados para \"$lazySearchQuery\"",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f)
+                        )
+                    }
+                }
+
+                itemsIndexed(visibleMovieResults) { index, movie ->
+                    ChannelRow(
+                        channel = movie,
+                        currentProgram = null,
+                        nextProgram = null,
+                        requestInitialFocus = false,
+                        onSkipNext = visibleMovieResults.getOrNull(index + 1)?.let { nextMovie ->
+                            { onPlay(nextMovie, visibleMovieResults) }
+                        },
+                        onPlay = { onPlay(movie, visibleMovieResults) }
+                    )
+                }
             }
         } else {
             item {
@@ -1340,6 +1409,17 @@ private fun LazySearchHeader(
     onQueryChange: (String) -> Unit,
     onToggleSearch: () -> Unit
 ) {
+    val searchFocusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    LaunchedEffect(showSearch, query) {
+        if (showSearch) {
+            kotlinx.coroutines.delay(80)
+            runCatching { searchFocusRequester.requestFocus() }
+            keyboardController?.show()
+        }
+    }
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.48f),
@@ -1422,7 +1502,9 @@ private fun LazySearchHeader(
                     onValueChange = onQueryChange,
                     placeholder = { Text(placeholder) },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(searchFocusRequester)
                 )
             }
         }
