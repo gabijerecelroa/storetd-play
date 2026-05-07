@@ -106,6 +106,7 @@ fun LiveTvScreen(
     val state by viewModel.uiState.collectAsState()
 
     var selectedSeriesKey by remember(contentMode) { mutableStateOf<String?>(null) }
+    var selectedSeriesGroup by remember(contentMode) { mutableStateOf<String?>(null) }
     var selectedMovieCategoryKey by remember(contentMode) { mutableStateOf<String?>(null) }
     var lastSeriesFocusKey by remember(contentMode) { mutableStateOf<String?>(null) }
     var lastMovieCategoryFocusKey by remember(contentMode) { mutableStateOf<String?>(null) }
@@ -214,6 +215,7 @@ fun LiveTvScreen(
 
     fun refreshCurrentContentScreen() {
         selectedSeriesKey = null
+        selectedSeriesGroup = null
         selectedMovieCategoryKey = null
         lastSeriesFocusKey = null
         lastMovieCategoryFocusKey = null
@@ -236,6 +238,12 @@ fun LiveTvScreen(
         when {
             selectedSeriesKey != null -> {
                 selectedSeriesKey = null
+                lazySeriesEpisodes = emptyList()
+                isLazySeriesLoading = false
+            }
+
+            selectedSeriesGroup != null -> {
+                selectedSeriesGroup = null
                 lazySeriesEpisodes = emptyList()
                 isLazySeriesLoading = false
             }
@@ -339,6 +347,7 @@ fun LiveTvScreen(
 
     LaunchedEffect(state.selectedGroup) {
         selectedSeriesKey = null
+        selectedSeriesGroup = null
         selectedMovieCategoryKey = null
     }
 
@@ -506,11 +515,20 @@ fun LiveTvScreen(
                     state = state,
                     contentMode = contentMode,
                     selectedSeriesKey = selectedSeriesKey,
+                    selectedSeriesGroup = selectedSeriesGroup,
                     onSelectSeries = {
                         lastSeriesFocusKey = it
                         selectedSeriesKey = it
                     },
                     onClearSeries = { selectedSeriesKey = null },
+                    onSelectSeriesGroup = { group ->
+                        selectedSeriesKey = null
+                        selectedSeriesGroup = group
+                    },
+                    onClearSeriesGroup = {
+                        selectedSeriesKey = null
+                        selectedSeriesGroup = null
+                    },
                     lazySeriesFolders = lazySeriesFolders,
                     lazySeriesEpisodes = lazySeriesEpisodes,
                     isLazySeriesLoading = isLazySeriesLoading,
@@ -627,8 +645,11 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
     state: LiveTvUiState,
     contentMode: ContentMode,
     selectedSeriesKey: String?,
+    selectedSeriesGroup: String?,
     onSelectSeries: (String) -> Unit,
     onClearSeries: () -> Unit,
+    onSelectSeriesGroup: (String) -> Unit,
+    onClearSeriesGroup: () -> Unit,
     lazySeriesFolders: List<OptimizedContentApi.SeriesFolderLite>,
     lazySeriesEpisodes: List<Channel>,
     isLazySeriesLoading: Boolean,
@@ -750,11 +771,33 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
     }
 
     if (contentMode == ContentMode.Series && lazySeriesFolders.isNotEmpty()) {
+        val allSeriesGroupKey = "__all_series__"
         val seriesSearchText = lazySearchQuery.trim().lowercase(Locale.getDefault())
+        val selectedGroupKey = selectedSeriesGroup
+
+        val sourceGroups = listOf(
+            Triple(allSeriesGroupKey, "Todo", lazySeriesFolders.size)
+        ) + lazySeriesFolders
+            .groupBy { it.group.ifBlank { "Series" } }
+            .map { (group, folders) -> Triple(group, group, folders.size) }
+            .sortedBy { it.second.lowercase(Locale.getDefault()) }
+
+        val baseSeriesFolders = when {
+            selectedGroupKey.isNullOrBlank() -> lazySeriesFolders
+            selectedGroupKey == allSeriesGroupKey -> lazySeriesFolders
+            else -> lazySeriesFolders.filter { it.group == selectedGroupKey }
+        }
+
+        val selectedGroupTitle = when {
+            selectedGroupKey.isNullOrBlank() -> null
+            selectedGroupKey == allSeriesGroupKey -> "Todo"
+            else -> selectedGroupKey
+        }
+
         val visibleSeriesFolders = if (seriesSearchText.isBlank()) {
-            lazySeriesFolders
+            baseSeriesFolders
         } else {
-            lazySeriesFolders.filter {
+            baseSeriesFolders.filter {
                 it.title.lowercase(Locale.getDefault()).contains(seriesSearchText) ||
                     it.group.lowercase(Locale.getDefault()).contains(seriesSearchText)
             }
@@ -763,44 +806,76 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
         val selectedFolder = lazySeriesFolders.firstOrNull { it.key == selectedSeriesKey }
 
         if (selectedFolder == null) {
-            item {
-                LazySearchHeader(
-                    title = "${visibleSeriesFolders.size} series encontradas",
-                    placeholder = "Buscar serie...",
-                    showSearch = showLazySearch,
-                    query = lazySearchQuery,
-                    onQueryChange = onLazySearchQueryChange,
-                    onToggleSearch = onToggleLazySearch
-                )
-            }
-
-            if (visibleSeriesFolders.isEmpty()) {
+            if (selectedGroupKey.isNullOrBlank() && seriesSearchText.isBlank()) {
                 item {
-                    Text(
-                        text = "Sin resultados para \"$lazySearchQuery\"",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f)
+                    LazySearchHeader(
+                        title = "${sourceGroups.size} grupos de series",
+                        placeholder = "Buscar serie o grupo...",
+                        showSearch = showLazySearch,
+                        query = lazySearchQuery,
+                        onQueryChange = onLazySearchQueryChange,
+                        onToggleSearch = onToggleLazySearch
                     )
                 }
-            }
 
-            itemsIndexed(visibleSeriesFolders) { index, folder ->
-                SeriesFolderLiteRow(
-                    folder = folder,
-                    requestInitialFocus =
-                        selectedSeriesKey == null &&
-                            !showLazySearch &&
-                            (
-                                folder.key == lastSeriesFocusKey ||
-                                    (
+                itemsIndexed(sourceGroups) { index, groupInfo ->
+                    SeriesSourceGroupRow(
+                        groupName = groupInfo.second,
+                        seriesCount = groupInfo.third,
+                        requestInitialFocus = !showLazySearch && index == 0,
+                        onOpen = { onSelectSeriesGroup(groupInfo.first) }
+                    )
+                }
+            } else {
+                if (!selectedGroupTitle.isNullOrBlank()) {
+                    item {
+                        SeriesSourceGroupHeader(
+                            groupName = selectedGroupTitle,
+                            seriesCount = visibleSeriesFolders.size,
+                            onBack = onClearSeriesGroup
+                        )
+                    }
+                } else {
+                    item {
+                        LazySearchHeader(
+                            title = "${visibleSeriesFolders.size} series encontradas",
+                            placeholder = "Buscar serie...",
+                            showSearch = showLazySearch,
+                            query = lazySearchQuery,
+                            onQueryChange = onLazySearchQueryChange,
+                            onToggleSearch = onToggleLazySearch
+                        )
+                    }
+                }
+
+                if (visibleSeriesFolders.isEmpty()) {
+                    item {
+                        Text(
+                            text = "Sin resultados para \"$lazySearchQuery\"",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f)
+                        )
+                    }
+                }
+
+                itemsIndexed(visibleSeriesFolders) { index, folder ->
+                    SeriesFolderLiteRow(
+                        folder = folder,
+                        requestInitialFocus =
+                            selectedSeriesKey == null &&
+                                !showLazySearch &&
+                                (
+                                    folder.key == lastSeriesFocusKey ||
                                         (
-                                            lastSeriesFocusKey == null ||
-                                                visibleSeriesFolders.none { it.key == lastSeriesFocusKey }
-                                        ) && index == 0
-                                    )
-                            ),
-                    onOpen = { onSelectSeries(folder.key) }
-                )
+                                            (
+                                                lastSeriesFocusKey == null ||
+                                                    visibleSeriesFolders.none { it.key == lastSeriesFocusKey }
+                                            ) && index == 0
+                                        )
+                                ),
+                        onOpen = { onSelectSeries(folder.key) }
+                    )
+                }
             }
         } else {
             item {
@@ -1515,6 +1590,174 @@ private fun MovieCategoryHeader(
 
 
 
+
+@Composable
+private fun SeriesSourceGroupRow(
+    groupName: String,
+    seriesCount: Int,
+    requestInitialFocus: Boolean = false,
+    onOpen: () -> Unit
+) {
+    var isFocused by remember { mutableStateOf(false) }
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(requestInitialFocus) {
+        if (requestInitialFocus) {
+            runCatching { focusRequester.requestFocus() }
+        }
+    }
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .focusRequester(focusRequester)
+            .onFocusChanged { isFocused = it.isFocused || it.hasFocus }
+            .onPreviewKeyEvent { event ->
+                if (
+                    event.type == KeyEventType.KeyUp &&
+                    (event.key == Key.DirectionCenter || event.key == Key.Enter || event.key == Key.NumPadEnter)
+                ) {
+                    onOpen()
+                    true
+                } else {
+                    false
+                }
+            }
+            .focusable()
+            .clickable { onOpen() },
+        color = if (isFocused) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)
+        } else {
+            MaterialTheme.colorScheme.surface.copy(alpha = 0.58f)
+        },
+        shape = RoundedCornerShape(26.dp),
+        border = BorderStroke(
+            width = if (isFocused) 3.dp else 1.dp,
+            color = if (isFocused) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)
+            }
+        ),
+        shadowElevation = if (isFocused) 10.dp else 3.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Surface(
+                color = MaterialTheme.colorScheme.secondary.copy(alpha = if (isFocused) 0.95f else 0.18f),
+                shape = RoundedCornerShape(999.dp)
+            ) {
+                Text(
+                    text = "GRUPO DE SERIES",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (isFocused) {
+                        MaterialTheme.colorScheme.onSecondary
+                    } else {
+                        MaterialTheme.colorScheme.secondary
+                    },
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                )
+            }
+
+            Text(
+                text = groupName,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Text(
+                text = "$seriesCount series disponibles",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.76f),
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+    }
+}
+
+@Composable
+private fun SeriesSourceGroupHeader(
+    groupName: String,
+    seriesCount: Int,
+    onBack: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.58f),
+        shape = RoundedCornerShape(28.dp),
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.secondary.copy(alpha = 0.28f)
+        ),
+        shadowElevation = 5.dp
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Surface(
+                    color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f),
+                    shape = RoundedCornerShape(999.dp)
+                ) {
+                    Text(
+                        text = "GRUPO ABIERTO",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.secondary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+
+                Text(
+                    text = groupName,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Text(
+                    text = "$seriesCount series disponibles",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.82f),
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            Surface(
+                modifier = Modifier.clickable { onBack() },
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
+                shape = RoundedCornerShape(999.dp),
+                border = BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)
+                )
+            ) {
+                Text(
+                    text = "Volver",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
+                )
+            }
+        }
+    }
+}
+
+
 @Composable
 private fun SeriesFolderLiteRow(
     folder: OptimizedContentApi.SeriesFolderLite,
@@ -1573,7 +1816,7 @@ private fun SeriesFolderLiteRow(
                 shape = RoundedCornerShape(999.dp)
             ) {
                 Text(
-                    text = "CARPETA DE SERIE",
+                    text = folder.group.ifBlank { "CARPETA DE SERIE" },
                     style = MaterialTheme.typography.labelSmall,
                     color = if (isFocused) {
                         MaterialTheme.colorScheme.onSecondary
@@ -1637,7 +1880,7 @@ private fun SeriesFolderLiteHeader(
                     shape = RoundedCornerShape(999.dp)
                 ) {
                     Text(
-                        text = "SERIE ABIERTA",
+                        text = folder.group.ifBlank { "SERIE ABIERTA" },
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.secondary,
                         fontWeight = FontWeight.Bold,
