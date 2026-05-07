@@ -1481,6 +1481,86 @@ async function getMovieCategoryByKey({ activationCode, key, autoRefresh = true }
 }
 
 
+async function searchContentItems({
+  activationCode,
+  section = "movies",
+  query = "",
+  limit = 80,
+  autoRefresh = true
+}) {
+  const safeSection = String(section || "movies").trim().toLowerCase();
+  const safeQuery = String(query || "").trim();
+  const safeLimit = Math.max(1, Math.min(Number(limit || 80), 150));
+
+  if (!safeQuery) {
+    return {
+      success: true,
+      status: 200,
+      fromCache: true,
+      payload: {
+        section: "search",
+        searchSection: safeSection,
+        query: safeQuery,
+        itemCount: 0,
+        items: []
+      }
+    };
+  }
+
+  if (!["live", "movies", "series"].includes(safeSection)) {
+    return {
+      success: false,
+      status: 400,
+      message: "Seccion invalida."
+    };
+  }
+
+  const result = await getCachedContentSection({
+    activationCode,
+    section: safeSection,
+    autoRefresh
+  });
+
+  if (!result.success) return result;
+
+  const payload = result.payload || {};
+  const items = Array.isArray(payload.items) ? payload.items : [];
+  const needle = normalizeText(safeQuery);
+
+  const found = [];
+
+  for (const item of items) {
+    const haystack = normalizeText([
+      item?.name || "",
+      item?.title || "",
+      item?.group || "",
+      item?.tvgId || ""
+    ].join(" "));
+
+    if (haystack.includes(needle)) {
+      found.push(item);
+      if (found.length >= safeLimit) break;
+    }
+  }
+
+  return {
+    success: true,
+    status: 200,
+    fromCache: result.fromCache,
+    payload: {
+      section: "search",
+      searchSection: safeSection,
+      query: safeQuery,
+      activationCode: payload.activationCode,
+      playlistUrlMasked: payload.playlistUrlMasked,
+      updatedAt: payload.updatedAt,
+      itemCount: found.length,
+      items: found
+    }
+  };
+}
+
+
 module.exports = {
   parseM3u,
   refreshContentCacheForClient,
@@ -1489,5 +1569,6 @@ module.exports = {
   getSeriesFolderByKey,
   getMovieCategoriesLite,
   getMovieCategoryByKey,
+  searchContentItems,
   filterPayloadAdultContent
 };

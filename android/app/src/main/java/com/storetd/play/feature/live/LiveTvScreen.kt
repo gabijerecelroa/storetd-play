@@ -385,26 +385,37 @@ fun LiveTvScreen(
         }
     }
 
-    LaunchedEffect(contentMode, selectedMovieCategoryKey, showLazySearch, lazySearchQuery, lazyMovieSearchItems.size) {
+    LaunchedEffect(contentMode, selectedMovieCategoryKey, showLazySearch, lazySearchQuery) {
         val account = LocalAccount.getAccount(context)
         val activationCode = account.activationCode.trim()
         val query = lazySearchQuery.trim()
 
         if (
-            contentMode == ContentMode.Movies &&
-            selectedMovieCategoryKey == null &&
-            showLazySearch &&
-            query.isNotBlank() &&
-            lazyMovieSearchItems.isEmpty() &&
-            activationCode.isNotBlank()
+            contentMode != ContentMode.Movies ||
+            selectedMovieCategoryKey != null ||
+            !showLazySearch
         ) {
+            return@LaunchedEffect
+        }
+
+        if (query.isBlank()) {
+            lazyMovieSearchItems = emptyList()
+            isLazyMovieSearchLoading = false
+            return@LaunchedEffect
+        }
+
+        kotlinx.coroutines.delay(250)
+
+        if (activationCode.isNotBlank()) {
             isLazyMovieSearchLoading = true
             lazyMovieSearchItems = withContext(Dispatchers.IO) {
                 runCatching {
-                    OptimizedContentApi.loadSection(
+                    OptimizedContentApi.searchContent(
                         activationCode = activationCode,
                         section = "movies",
-                        includeAdult = !ParentalControl.isAdultContentHidden(context)
+                        query = query,
+                        includeAdult = !ParentalControl.isAdultContentHidden(context),
+                        limit = 100
                     )
                 }.getOrDefault(emptyList())
             }
@@ -890,18 +901,32 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
         val selectedFolder = lazySeriesFolders.firstOrNull { it.key == selectedSeriesKey }
 
         if (selectedFolder == null) {
-            if (selectedGroupKey.isNullOrBlank() && seriesSearchText.isBlank()) {
+            if (!selectedGroupTitle.isNullOrBlank()) {
                 item {
-                    LazySearchHeader(
-                        title = "${sourceGroups.size} grupos de series",
-                        placeholder = "Buscar serie o grupo...",
-                        showSearch = showLazySearch,
-                        query = lazySearchQuery,
-                        onQueryChange = onLazySearchQueryChange,
-                        onToggleSearch = onToggleLazySearch
+                    SeriesSourceGroupHeader(
+                        groupName = selectedGroupTitle,
+                        seriesCount = visibleSeriesFolders.size,
+                        onBack = onClearSeriesGroup
                     )
                 }
+            }
 
+            item {
+                LazySearchHeader(
+                    title = when {
+                        !selectedGroupTitle.isNullOrBlank() -> "${visibleSeriesFolders.size} series encontradas"
+                        seriesSearchText.isBlank() -> "${sourceGroups.size} grupos de series"
+                        else -> "${visibleSeriesFolders.size} series encontradas"
+                    },
+                    placeholder = "Buscar serie o grupo...",
+                    showSearch = showLazySearch,
+                    query = lazySearchQuery,
+                    onQueryChange = onLazySearchQueryChange,
+                    onToggleSearch = onToggleLazySearch
+                )
+            }
+
+            if (selectedGroupKey.isNullOrBlank() && seriesSearchText.isBlank()) {
                 itemsIndexed(sourceGroups) { index, groupInfo ->
                     SeriesSourceGroupRow(
                         groupName = groupInfo.second,
@@ -911,27 +936,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                     )
                 }
             } else {
-                if (!selectedGroupTitle.isNullOrBlank()) {
-                    item {
-                        SeriesSourceGroupHeader(
-                            groupName = selectedGroupTitle,
-                            seriesCount = visibleSeriesFolders.size,
-                            onBack = onClearSeriesGroup
-                        )
-                    }
-                } else {
-                    item {
-                        LazySearchHeader(
-                            title = "${visibleSeriesFolders.size} series encontradas",
-                            placeholder = "Buscar serie...",
-                            showSearch = showLazySearch,
-                            query = lazySearchQuery,
-                            onQueryChange = onLazySearchQueryChange,
-                            onToggleSearch = onToggleLazySearch
-                        )
-                    }
-                }
-
                 if (visibleSeriesFolders.isEmpty()) {
                     item {
                         Text(

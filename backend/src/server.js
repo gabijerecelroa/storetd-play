@@ -11,6 +11,7 @@ const {
   getSeriesFolderByKey,
   getMovieCategoriesLite,
   getMovieCategoryByKey,
+  searchContentItems,
   filterPayloadAdultContent
 } = require("./playlistContent");
 
@@ -5086,6 +5087,56 @@ app.get("/api/content/movie-category", async (req, res) => {
   }
 });
 
+
+
+app.get("/api/content/search", async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const activationCode = normalizeCode(req.query.code);
+    const section = String(req.query.section || "movies").trim().toLowerCase();
+    const query = String(req.query.q || req.query.query || "").trim();
+    const limit = Number(req.query.limit || 80);
+
+    if (!activationCode) {
+      return res.status(400).json({
+        success: false,
+        message: "Falta code."
+      });
+    }
+
+    const result = await searchContentItems({
+      activationCode,
+      section,
+      query,
+      limit,
+      autoRefresh: req.query.autoRefresh !== "0"
+    });
+
+    if (!result.success) {
+      return res.status(result.status || 500).json({
+        success: false,
+        message: result.message
+      });
+    }
+
+    res.json({
+      success: true,
+      fromCache: result.fromCache,
+      ...filterPayloadAdultContent(
+        result.payload,
+        req.query.includeAdult === "1"
+      )
+    });
+  } catch (error) {
+    console.error("Content search error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudo buscar contenido.",
+      error: error.message
+    });
+  }
+});
 
 app.get("/api/content/:section", async (req, res) => {
   if (!requireDb(res)) return;

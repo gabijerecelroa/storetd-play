@@ -280,6 +280,52 @@ object OptimizedContentApi {
         )
     }
 
+
+    fun searchContent(
+        activationCode: String,
+        section: String,
+        query: String,
+        includeAdult: Boolean = false,
+        limit: Int = 80
+    ): List<Channel> {
+        val base = BuildConfig.API_BASE_URL
+            .trim()
+            .trimEnd('/')
+
+        val code = activationCode.trim()
+        val safeSection = section.trim().lowercase()
+        val safeQuery = query.trim()
+
+        if (base.isBlank() || code.isBlank() || safeQuery.isBlank()) return emptyList()
+        if (safeSection !in setOf("live", "movies", "series")) return emptyList()
+
+        val encodedCode = URLEncoder.encode(code, "UTF-8")
+        val encodedSection = URLEncoder.encode(safeSection, "UTF-8")
+        val encodedQuery = URLEncoder.encode(safeQuery, "UTF-8")
+        val safeLimit = limit.coerceIn(1, 150)
+        val adultParam = if (includeAdult) "&includeAdult=1" else ""
+        val requestUrl = "$base/api/content/search?code=$encodedCode&section=$encodedSection&q=$encodedQuery&limit=$safeLimit&autoRefresh=0$adultParam"
+
+        val raw = readUrl(requestUrl)
+        val json = JSONObject(raw)
+
+        if (!json.optBoolean("success", true)) return emptyList()
+
+        val array = json.optJSONArray("items") ?: return emptyList()
+        val items = mutableListOf<Channel>()
+
+        for (i in 0 until array.length()) {
+            val obj = array.optJSONObject(i) ?: continue
+            val channel = parseChannel(obj)
+
+            if (channel.streamUrl.isNotBlank()) {
+                items.add(channel)
+            }
+        }
+
+        return items
+    }
+
     fun loadSection(
         activationCode: String,
         section: String,
