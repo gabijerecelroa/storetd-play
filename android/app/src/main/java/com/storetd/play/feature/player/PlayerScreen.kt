@@ -106,6 +106,8 @@ private enum class VideoResizeMode(
     }
 }
 
+private const val STREAM_UNAVAILABLE_TIMEOUT_MS = 15_000L
+
 @OptIn(UnstableApi::class)
 @Composable
 fun PlayerScreen(
@@ -161,6 +163,8 @@ fun PlayerScreen(
     }
 
     var hasRestoredVodProgress by remember(currentChannel.streamUrl) { mutableStateOf(false) }
+    var hasStreamReachedReady by remember(currentChannel.streamUrl) { mutableStateOf(false) }
+    var playbackLoadAttempt by remember(currentChannel.streamUrl) { mutableStateOf(0) }
 
     var currentEpgProgram by remember(currentChannel.name) { mutableStateOf<EpgProgram?>(null) }
     var nextEpgProgram by remember(currentChannel.name) { mutableStateOf<EpgProgram?>(null) }
@@ -276,6 +280,7 @@ fun PlayerScreen(
                 isBuffering = playbackState == Player.STATE_BUFFERING
 
                 if (playbackState == Player.STATE_READY) {
+                    hasStreamReachedReady = true
                     retryAttempt = 0
                     reconnectMessage = null
                     errorMessage = null
@@ -347,6 +352,8 @@ fun PlayerScreen(
     fun restartPlayback() {
         errorMessage = null
         shouldAutoRetryPlayback = true
+        hasStreamReachedReady = false
+        playbackLoadAttempt += 1
         showControls = true
 
         player.stop()
@@ -361,6 +368,45 @@ fun PlayerScreen(
         autoRecoverAttempt = 0
         reconnectMessage = "Reintentando reproducción..."
         restartPlayback()
+    }
+
+    fun showPlaybackUnavailable(message: String) {
+        shouldAutoRetryPlayback = false
+        errorMessage = message
+        reconnectMessage = "Contenido no disponible. Puedes reintentar, pasar al siguiente, reportar o volver."
+        selectedErrorActionIndex = 0
+        showControls = true
+
+        runCatching {
+            player.playWhenReady = false
+            player.stop()
+        }
+    }
+
+    LaunchedEffect(player, currentChannel.streamUrl, playbackLoadAttempt) {
+        delay(STREAM_UNAVAILABLE_TIMEOUT_MS)
+
+        if (
+            errorMessage == null &&
+            !hasStreamReachedReady &&
+            player.playbackState != Player.STATE_READY
+        ) {
+            showPlaybackUnavailable("La transmisión tardó demasiado en cargar.")
+        }
+    }
+
+    LaunchedEffect(isBuffering, currentChannel.streamUrl, playbackLoadAttempt, hasStreamReachedReady) {
+        if (isBuffering && hasStreamReachedReady && errorMessage == null) {
+            delay(STREAM_UNAVAILABLE_TIMEOUT_MS)
+
+            if (
+                isBuffering &&
+                errorMessage == null &&
+                player.playbackState == Player.STATE_BUFFERING
+            ) {
+                showPlaybackUnavailable("La transmisión quedó cargando demasiado tiempo.")
+            }
+        }
     }
 
     LaunchedEffect(errorMessage, currentChannel.streamUrl, shouldAutoRetryPlayback) {
