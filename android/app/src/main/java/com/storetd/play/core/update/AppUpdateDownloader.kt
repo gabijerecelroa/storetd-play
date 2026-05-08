@@ -8,12 +8,18 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.Environment
 import android.provider.Settings
 import android.widget.Toast
 import androidx.core.content.ContextCompat
+import java.util.Collections
+import java.util.concurrent.ConcurrentHashMap
 
 object AppUpdateDownloader {
+    private val handledDownloads = Collections.newSetFromMap(ConcurrentHashMap<Long, Boolean>())
+
     fun downloadAndInstall(context: Context, apkUrl: String): Boolean {
         val cleanUrl = apkUrl.trim()
 
@@ -43,6 +49,12 @@ object AppUpdateDownloader {
             val downloadId = manager.enqueue(request)
 
             registerDownloadReceiver(
+                context = appContext,
+                manager = manager,
+                downloadId = downloadId
+            )
+
+            pollDownloadCompletion(
                 context = appContext,
                 manager = manager,
                 downloadId = downloadId
@@ -86,8 +98,7 @@ object AppUpdateDownloader {
                     val status = if (statusIndex >= 0) it.getInt(statusIndex) else DownloadManager.STATUS_FAILED
 
                     if (status == DownloadManager.STATUS_SUCCESSFUL) {
-                        Toast.makeText(context, "Descarga completa. Abriendo instalador...", Toast.LENGTH_LONG).show()
-                        openInstaller(context, manager, downloadId)
+                        handleSuccessfulDownload(context, manager, downloadId)
                     } else {
                         Toast.makeText(context, "La descarga de actualización falló.", Toast.LENGTH_LONG).show()
                     }
@@ -101,8 +112,78 @@ object AppUpdateDownloader {
             context,
             receiver,
             filter,
-            ContextCompat.RECEIVER_NOT_EXPORTED
+            ContextCompat.RECEIVER_EXPORTED
         )
+    }
+
+    private fun pollDownloadCompletion(
+        context: Context,
+        manager: DownloadManager,
+        downloadId: Long
+    ) {
+        Thread {
+            val startedAt = System.currentTimeMillis()
+            val maxWaitMs = 10L * 60L * 1000L
+
+            while (System.currentTimeMillis() - startedAt < maxWaitMs) {
+                try {
+                    val cursor = manager.query(
+                        DownloadManager.Query().setFilterById(downloadId)
+                    )
+
+                    cursor?.use {
+                        if (it.moveToFirst()) {
+                            val statusIndex = it.getColumnIndex(DownloadManager.COLUMN_STATUS)
+                            val status = if (statusIndex >= 0) {
+                                it.getInt(statusIndex)
+                            } else {
+                                DownloadManager.STATUS_FAILED
+                            }
+
+                            when (status) {
+                                DownloadManager.STATUS_SUCCESSFUL -> {
+                                    handleSuccessfulDownload(context, manager, downloadId)
+                                    return@Thread
+                                }
+
+                                DownloadManager.STATUS_FAILED -> {
+                                    Handler(Looper.getMainLooper()).post {
+                                        Toast.makeText(
+                                            context,
+                                            "La descarga de actualización falló.",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                    }
+                                    return@Thread
+                                }
+                            }
+                        }
+                    }
+                } catch (_: Exception) {
+                    // Se reintenta hasta agotar tiempo.
+                }
+
+                Thread.sleep(1000L)
+            }
+        }.start()
+    }
+
+    private fun handleSuccessfulDownload(
+        context: Context,
+        manager: DownloadManager,
+        downloadId: Long
+    ) {
+        if (!handledDownloads.add(downloadId)) return
+
+        Handler(Looper.getMainLooper()).post {
+            Toast.makeText(
+                context,
+                "Descarga completa. Abriendo instalador...",
+                Toast.LENGTH_LONG
+            ).show()
+
+            openInstaller(context, manager, downloadId)
+        }
     }
 
     private fun openInstaller(
