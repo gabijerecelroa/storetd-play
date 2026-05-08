@@ -2,6 +2,7 @@ package com.storetd.play.feature.home
 
 import com.storetd.play.core.network.AppUpdateInfo
 import com.storetd.play.core.network.AppUpdateApi
+import com.storetd.play.core.update.AppUpdateDownloader
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
@@ -189,15 +190,7 @@ fun HomeScreen(
     var appUpdateChecked by remember { mutableStateOf(false) }
 
     fun openAppUpdate(apkUrl: String) {
-        if (apkUrl.isBlank()) return
-
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(apkUrl)).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-
-        runCatching {
-            context.startActivity(intent)
-        }
+        AppUpdateDownloader.downloadAndInstall(context, apkUrl)
     }
 
     LaunchedEffect(Unit) {
