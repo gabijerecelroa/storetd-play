@@ -297,11 +297,7 @@ fun checkAccountStatus() {
                         currentStreamUrl = channel.streamUrl
                     )
                     LocalLibrary.addHistory(context, saved)
-                    val encName = android.net.Uri.encode(saved.name)
-                    val encUrl = android.net.Uri.encode(saved.streamUrl)
-                    val encGroup = android.net.Uri.encode(saved.group)
-                    val encLogo = if (saved.logoUrl.isNullOrBlank() || saved.logoUrl == "-") "-" else android.net.Uri.encode(saved.logoUrl!!)
-                    navController.navigate("${Routes.VodDetail}/$encName/$encUrl/$encGroup/$encLogo")
+                    openPlayer(saved)
                 }
             )
         }

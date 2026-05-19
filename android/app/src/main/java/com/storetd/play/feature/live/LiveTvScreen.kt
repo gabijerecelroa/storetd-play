@@ -1013,6 +1013,13 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
             )
         }
 
+                item {
+                    val groupVal = state.selectedGroup
+                    if (contentMode.name == "Series" && !groupVal.isNullOrBlank() && groupVal != "Todo") {
+                        SeriesTmdbHeader(groupName = groupVal, isSeriesMode = true)
+                    }
+                }
+
         items(folders) { folder ->
             SeriesFolderRow(
                 folder = folder,
