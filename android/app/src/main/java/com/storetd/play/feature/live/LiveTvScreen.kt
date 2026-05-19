@@ -1025,13 +1025,13 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
     } else {
         item {
             androidx.compose.foundation.layout.Column {
-                com.storetd.play.feature.vod.SeriesTmdbHeader(groupName = selectedFolder.title, isSeriesMode = true)
-                androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.height(16.dp))
-                SeriesFolderHeader(
+        com.storetd.play.feature.vod.SeriesTmdbHeader(groupName = selectedFolder.title, isSeriesMode = true)
+        androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.height(16.dp))
+        SeriesFolderHeader(
                 folder = selectedFolder,
                 onBack = onClearSeries
             )
-            }
+    }
         }
 
         itemsIndexed(selectedFolder.episodes) { index, episode ->

@@ -37,7 +37,6 @@ fun SeriesTmdbHeader(groupName: String, isSeriesMode: Boolean) {
         isLoading = false
     }
 
-    // SIEMPRE SE DIBUJA, INCLUSO MIENTRAS CARGA O SI FALLA
     Surface(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp),
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.35f),
