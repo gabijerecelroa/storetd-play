@@ -1,5 +1,7 @@
 package com.storetd.play.feature.live
 
+import com.storetd.play.feature.vod.SeriesTmdbHeader
+
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.key.onPreviewKeyEvent
