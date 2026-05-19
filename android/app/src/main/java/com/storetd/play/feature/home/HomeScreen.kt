@@ -463,7 +463,7 @@ fun HomeScreen(
         }
 
         Column(
-            modifier = Modifier.verticalScroll(rememberScrollState()).fillMaxSize(),
+            modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
             Column {
