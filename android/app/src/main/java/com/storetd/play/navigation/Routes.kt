@@ -7,7 +7,7 @@ object Routes {
     const val Movies = "movies"
     const val Series = "series"
     const val Player = "player"
-    const val VodDetail = "vod_detail" = "player"
+    const val VodDetail = "vod_detail"
     const val Favorites = "favorites"
     const val History = "history"
     const val Account = "account"
