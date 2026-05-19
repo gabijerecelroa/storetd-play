@@ -1,5 +1,6 @@
 package com.storetd.play.feature.vod
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -28,7 +29,6 @@ fun SeriesTmdbHeader(groupName: String, isSeriesMode: Boolean) {
 
     if (!isSeriesMode || groupName.isBlank() || groupName.lowercase(Locale.ROOT) == "todo") return
 
-    // Limpiamos el nombre de la carpeta por si viene con texto extra
     val cleanGroupName = groupName.replace(Regex("(?i)^(series?|tv|carpetas?)\\s*\\|?\\s*"), "").trim()
 
     LaunchedEffect(cleanGroupName) {
@@ -37,8 +37,7 @@ fun SeriesTmdbHeader(groupName: String, isSeriesMode: Boolean) {
         isLoading = false
     }
 
-    if (info == null && !isLoading) return
-
+    // SIEMPRE SE DIBUJA, INCLUSO MIENTRAS CARGA O SI FALLA
     Surface(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp),
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.35f),
@@ -51,6 +50,11 @@ fun SeriesTmdbHeader(groupName: String, isSeriesMode: Boolean) {
                         model = info!!.posterPath, contentDescription = null, contentScale = ContentScale.Crop, 
                         modifier = Modifier.width(130.dp).aspectRatio(0.66f).clip(RoundedCornerShape(12.dp))
                     )
+                    Spacer(modifier = Modifier.width(24.dp))
+                } else if (isLoading) {
+                    Box(modifier = Modifier.width(130.dp).aspectRatio(0.66f).clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.05f)), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    }
                     Spacer(modifier = Modifier.width(24.dp))
                 }
                 Column(modifier = Modifier.weight(1f)) {
@@ -66,7 +70,10 @@ fun SeriesTmdbHeader(groupName: String, isSeriesMode: Boolean) {
                         }
                     }
                     Spacer(modifier = Modifier.height(12.dp))
-                    Text(text = info?.overview ?: "Buscando información...", color = Color.LightGray, fontSize = 14.sp, maxLines = 4, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        text = info?.overview ?: if (isLoading) "Buscando información en la base de datos de Hollywood..." else "Elegí un capítulo a continuación para empezar a ver.", 
+                        color = Color.LightGray, fontSize = 14.sp, maxLines = 4, overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         } else {
@@ -77,6 +84,11 @@ fun SeriesTmdbHeader(groupName: String, isSeriesMode: Boolean) {
                             model = info!!.posterPath, contentDescription = null, contentScale = ContentScale.Crop, 
                             modifier = Modifier.width(100.dp).aspectRatio(0.66f).clip(RoundedCornerShape(8.dp))
                         )
+                        Spacer(modifier = Modifier.width(16.dp))
+                    } else if (isLoading) {
+                        Box(modifier = Modifier.width(100.dp).aspectRatio(0.66f).clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.05f)), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                        }
                         Spacer(modifier = Modifier.width(16.dp))
                     }
                     Column(modifier = Modifier.weight(1f)) {
@@ -94,7 +106,10 @@ fun SeriesTmdbHeader(groupName: String, isSeriesMode: Boolean) {
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                Text(text = info?.overview ?: "Buscando información...", color = Color.LightGray, fontSize = 14.sp, maxLines = 5, overflow = TextOverflow.Ellipsis)
+                Text(
+                    text = info?.overview ?: if (isLoading) "Buscando información en la base de datos de Hollywood..." else "Elegí un capítulo a continuación para empezar a ver.", 
+                    color = Color.LightGray, fontSize = 14.sp, maxLines = 5, overflow = TextOverflow.Ellipsis
+                )
             }
         }
     }
