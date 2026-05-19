@@ -9,10 +9,9 @@ import java.util.concurrent.TimeUnit
 class IptvRepository(
     private val parser: M3uParser = M3uParser(),
     private val client: OkHttpClient = OkHttpClient.Builder()
-        .cache(okhttp3.Cache(java.io.File(System.getProperty("java.io.tmpdir") ?: "/tmp", "http_cache"), 15L * 1024 * 1024))
-        .addNetworkInterceptor { chain -> 
-            val res = chain.proceed(chain.request())
-            res.newBuilder().header("Cache-Control", "public, max-age=300").build() 
+        .connectTimeout(12, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .build() 
         }
         .connectTimeout(12, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
