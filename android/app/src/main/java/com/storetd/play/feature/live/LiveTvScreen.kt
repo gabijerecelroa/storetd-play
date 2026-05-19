@@ -2161,7 +2161,6 @@ private fun SeriesFolderRow(
 
 
 @Composable
-@androidx.compose.runtime.Composable
 private fun SeriesFolderHeader(
     folder: SeriesFolder,
     onBack: () -> Unit
@@ -2173,6 +2172,7 @@ private fun SeriesFolderHeader(
     }
 }
 
+@Composable
 private fun OriginalSeriesFolderHeader(
     folder: SeriesFolder,
     onBack: () -> Unit
