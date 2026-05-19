@@ -24,7 +24,12 @@ class TmdbRepository {
             val yearRegex = "\\((\\d{4})\\)".toRegex()
             val match = yearRegex.find(name)
             val year = match?.groupValues?.get(1) ?: ""
-            val cleanName = name.replace(yearRegex, "").trim()
+            var cleanName = name.replace(yearRegex, "").trim()
+            if (isSeries) {
+                // Filtro mágico: Borra S01E01, 1x01, Temporada 1, etc solo para buscar en TMDB
+                val epRegex = Regex("(?i)(\\s*[-_]?\\s*(S\\d+\\s*E\\d+|T\\d+\\s*E\\d+|\\d+x\\d+|Temporada\\s*\\d+|Capitulo\\s*\\d+|Capítulo\\s*\\d+|Episodio\\s*\\d+|Cap\\s*\\d+|Ep\\s*\\d+).*)")
+                cleanName = cleanName.replace(epRegex, "").trim()
+            }
 
             val type = if (isSeries) "tv" else "multi"
             var url = "https://api.themoviedb.org/3/search/$type?api_key=$apiKey&language=es-ES&query=${URLEncoder.encode(cleanName, "UTF-8")}"

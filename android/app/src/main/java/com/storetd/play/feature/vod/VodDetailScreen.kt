@@ -60,7 +60,8 @@ fun VodDetailScreen(
         }
 
         val posterUrl = info?.posterPath ?: logoUrl
-        val titleText = info?.title ?: channelName.replace(Regex("\\(\\d{4}\\)"), "").trim()
+        val baseName = channelName.replace(Regex("\\(\\d{4}\\)"), "").trim()
+        val titleText = if (isSeries) baseName else (info?.title ?: baseName)
         val descText = info?.overview ?: if (isLoading) "Buscando información..." else "Sin descripción disponible."
 
         if (isLandscape) {
