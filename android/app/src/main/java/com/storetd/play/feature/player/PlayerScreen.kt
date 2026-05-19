@@ -226,8 +226,8 @@ fun PlayerScreen(
             .setBufferDurationsMs(
                 8_000,
                 45_000,
-                500,
-                2_000
+                1_500,
+                4_000
             )
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()
