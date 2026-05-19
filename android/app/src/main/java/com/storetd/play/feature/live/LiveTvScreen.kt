@@ -1015,12 +1015,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
             )
         }
 
-                item {
-                    val groupVal = state.selectedGroup
-                    if (contentMode.name == "Series" && !groupVal.isNullOrBlank() && groupVal != "Todo") {
-                        SeriesTmdbHeader(groupName = groupVal, isSeriesMode = true)
-                    }
-                }
 
         items(folders) { folder ->
             SeriesFolderRow(
@@ -1030,10 +1024,14 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
         }
     } else {
         item {
-            SeriesFolderHeader(
+            androidx.compose.foundation.layout.Column {
+                com.storetd.play.feature.vod.SeriesTmdbHeader(groupName = selectedFolder.title, isSeriesMode = true)
+                androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.height(16.dp))
+                SeriesFolderHeader(
                 folder = selectedFolder,
                 onBack = onClearSeries
             )
+            }
         }
 
         itemsIndexed(selectedFolder.episodes) { index, episode ->
