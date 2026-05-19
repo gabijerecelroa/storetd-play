@@ -16,6 +16,8 @@ const {
 } = require("./playlistContent");
 
 const app = express();
+const compression = require('compression');
+app.use(compression());
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
