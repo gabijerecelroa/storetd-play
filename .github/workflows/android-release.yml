@@ -34,7 +34,9 @@ jobs:
         working-directory: android
 
       - name: Build signed release APK
-        run: ./gradlew assembleRelease
+        run: |
+          sed -i 's/REPLACE_ME_IN_ACTIONS/${{ secrets.TMDB_API_KEY }}/g' app/src/main/java/com/storetd/play/core/Secrets.kt
+          ./gradlew assembleRelease
         working-directory: android
         env:
           STORETD_KEYSTORE_FILE: ${{ github.workspace }}/storetd-release.jks

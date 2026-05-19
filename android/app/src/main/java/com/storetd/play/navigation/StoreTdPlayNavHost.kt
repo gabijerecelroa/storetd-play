@@ -38,6 +38,7 @@ import com.storetd.play.feature.live.LiveTvScreen
 import com.storetd.play.feature.live.LiveTvViewModel
 import com.storetd.play.feature.maintenance.MaintenanceScreen
 import com.storetd.play.feature.player.PlayerScreen
+import com.storetd.play.feature.vod.VodDetailScreen
 import com.storetd.play.feature.settings.SettingsScreen
 import com.storetd.play.feature.security.SecurityBlockedScreen
 import com.storetd.play.feature.support.SupportScreen
@@ -297,7 +298,37 @@ fun checkAccountStatus() {
             )
         }
 
-        composable(
+                composable(
+            route = "${Routes.VodDetail}/{name}/{url}/{group}/{logo}",
+            arguments = listOf(
+                androidx.navigation.navArgument("name") { type = androidx.navigation.NavType.StringType },
+                androidx.navigation.navArgument("url") { type = androidx.navigation.NavType.StringType },
+                androidx.navigation.navArgument("group") { type = androidx.navigation.NavType.StringType },
+                androidx.navigation.navArgument("logo") { type = androidx.navigation.NavType.StringType }
+            )
+        ) { entry ->
+            val name = entry.arguments?.getString("name").orEmpty()
+            val url = entry.arguments?.getString("url").orEmpty()
+            val group = entry.arguments?.getString("group").orEmpty()
+            val logo = entry.arguments?.getString("logo").orEmpty()
+
+            VodDetailScreen(
+                channelName = name,
+                streamUrl = url,
+                groupName = group,
+                logoUrl = logo.takeIf { it != "-" },
+                onPlay = {
+                    val encName = android.net.Uri.encode(name)
+                    val encUrl = android.net.Uri.encode(url)
+                    val encGroup = android.net.Uri.encode(group)
+                    val encLogo = if (logo.isBlank() || logo == "-") "-" else android.net.Uri.encode(logo)
+                    navController.navigate("${Routes.Player}/$encName/$encUrl/$encGroup/$encLogo")
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+composable(
             route = "${Routes.Player}/{name}/{url}/{group}/{logo}",
             arguments = listOf(
                 navArgument("name") { type = NavType.StringType },

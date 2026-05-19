@@ -108,7 +108,9 @@ jobs:
       - name: Build Release APK
         if: env.KEYSTORE_PASSWORD != ''
         working-directory: android
-        run: ./gradlew assembleRelease
+        run: |
+          sed -i 's/REPLACE_ME_IN_ACTIONS/${{ secrets.TMDB_API_KEY }}/g' app/src/main/java/com/storetd/play/core/Secrets.kt
+          ./gradlew assembleRelease
 
       - name: Upload Release APK
         if: env.KEYSTORE_PASSWORD != ''
