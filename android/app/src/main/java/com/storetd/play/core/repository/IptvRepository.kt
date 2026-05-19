@@ -11,10 +11,6 @@ class IptvRepository(
     private val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(12, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
-        .build() 
-        }
-        .connectTimeout(12, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
         .build()
 ) {
     fun loadPlaylistFromUrl(url: String): List<Channel> {
