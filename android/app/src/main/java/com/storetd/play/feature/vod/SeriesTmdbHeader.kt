@@ -1,6 +1,8 @@
 package com.storetd.play.feature.vod
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -24,6 +26,7 @@ import java.util.Locale
 fun SeriesTmdbHeader(groupName: String, isSeriesMode: Boolean) {
     var info by remember { mutableStateOf<TmdbResult?>(null) }
     var isLoading by remember { mutableStateOf(true) }
+    var isExpanded by remember { mutableStateOf(false) } // Estado para recordar si está expandido
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.screenWidthDp > configuration.screenHeightDp
 
@@ -33,6 +36,7 @@ fun SeriesTmdbHeader(groupName: String, isSeriesMode: Boolean) {
 
     LaunchedEffect(cleanGroupName) {
         isLoading = true
+        isExpanded = false // Lo volvemos a encoger si cambias de serie
         info = TmdbRepository().searchContent(cleanGroupName, true)
         isLoading = false
     }
@@ -43,7 +47,7 @@ fun SeriesTmdbHeader(groupName: String, isSeriesMode: Boolean) {
         shape = RoundedCornerShape(20.dp)
     ) {
         if (isLandscape) {
-            Row(modifier = Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(modifier = Modifier.padding(20.dp), verticalAlignment = Alignment.Top) {
                 if (info?.posterPath != null) {
                     AsyncImage(
                         model = info!!.posterPath, contentDescription = null, contentScale = ContentScale.Crop, 
@@ -69,10 +73,25 @@ fun SeriesTmdbHeader(groupName: String, isSeriesMode: Boolean) {
                         }
                     }
                     Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = info?.overview ?: if (isLoading) "Buscando información en la base de datos de Hollywood..." else "Elegí un capítulo a continuación para empezar a ver.", 
-                        color = Color.LightGray, fontSize = 14.sp, maxLines = 4, overflow = TextOverflow.Ellipsis
-                    )
+                    
+                    // Columna con Animación y Click
+                    Column(modifier = Modifier.animateContentSize().clickable { isExpanded = !isExpanded }) {
+                        Text(
+                            text = info?.overview ?: if (isLoading) "Buscando información en la base de datos de Hollywood..." else "Elegí un capítulo a continuación para empezar a ver.", 
+                            color = Color.LightGray, fontSize = 14.sp, 
+                            maxLines = if (isExpanded) Int.MAX_VALUE else 3, 
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (info?.overview != null && info!!.overview.length > 130) {
+                            Text(
+                                text = if (isExpanded) "Ver menos" else "Ver más...",
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
+                    }
                 }
             }
         } else {
@@ -105,10 +124,25 @@ fun SeriesTmdbHeader(groupName: String, isSeriesMode: Boolean) {
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = info?.overview ?: if (isLoading) "Buscando información en la base de datos de Hollywood..." else "Elegí un capítulo a continuación para empezar a ver.", 
-                    color = Color.LightGray, fontSize = 14.sp, maxLines = 5, overflow = TextOverflow.Ellipsis
-                )
+                
+                // Columna con Animación y Click
+                Column(modifier = Modifier.animateContentSize().clickable { isExpanded = !isExpanded }) {
+                    Text(
+                        text = info?.overview ?: if (isLoading) "Buscando información en la base de datos de Hollywood..." else "Elegí un capítulo a continuación para empezar a ver.", 
+                        color = Color.LightGray, fontSize = 14.sp, 
+                        maxLines = if (isExpanded) Int.MAX_VALUE else 4, 
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (info?.overview != null && info!!.overview.length > 150) {
+                        Text(
+                            text = if (isExpanded) "Ver menos" else "Ver más...",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                }
             }
         }
     }
