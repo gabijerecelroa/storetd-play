@@ -1957,6 +1957,18 @@ private fun SeriesFolderLiteHeader(
     folder: OptimizedContentApi.SeriesFolderLite,
     onBack: () -> Unit
 ) {
+    androidx.compose.foundation.layout.Column {
+        com.storetd.play.feature.vod.SeriesTmdbHeader(groupName = folder.title, isSeriesMode = true)
+        androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.height(16.dp))
+        OriginalSeriesFolderLiteHeader(folder = folder, onBack = onBack)
+    }
+}
+
+@Composable
+private fun OriginalSeriesFolderLiteHeader(
+    folder: OptimizedContentApi.SeriesFolderLite,
+    onBack: () -> Unit
+) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.58f),
