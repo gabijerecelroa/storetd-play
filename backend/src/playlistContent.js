@@ -1149,6 +1149,69 @@ function normalizeXtreamLiveItems(rows, categoryMap) {
     .filter(Boolean);
 }
 
+
+function xtreamCategoryIds(row) {
+  return String(row?.category_id || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function xtreamCategoryMatches(row, categoryId) {
+  const safeCategoryId = String(categoryId || "").trim();
+  if (!safeCategoryId) return true;
+  return xtreamCategoryIds(row).includes(safeCategoryId);
+}
+
+function buildXtreamMovieCategoriesPayload({ activationCode, playlistUrl, rows, categoryMap }) {
+  const categoriesById = new Map();
+
+  if (Array.isArray(rows)) {
+    for (const row of rows) {
+      const categoryIds = xtreamCategoryIds(row);
+      const ids = categoryIds.length ? categoryIds : [""];
+
+      for (const categoryId of ids) {
+        const rawTitle = xtreamCategoryName(categoryMap, categoryId, "Sin Categoria");
+        const title = xtreamGroupName("movie", rawTitle);
+        const keyBase = slugKey(title) || "sin-categoria";
+        const key = categoryId ? `${keyBase}-${categoryId}` : keyBase;
+
+        if (!categoriesById.has(key)) {
+          categoriesById.set(key, {
+            key,
+            title,
+            itemCount: 0,
+            items: [],
+            source: {
+              provider: "xtream",
+              categoryId
+            }
+          });
+        }
+
+        categoriesById.get(key).itemCount += 1;
+      }
+    }
+  }
+
+  const categories = Array.from(categoriesById.values())
+    .filter((category) => Number(category.itemCount || 0) > 0)
+    .sort((a, b) => String(a.title).localeCompare(String(b.title)));
+
+  return {
+    section: "movie-categories",
+    groupingVersion: "xtream-movies-lazy-v1",
+    activationCode,
+    playlistUrlMasked: maskUrl(playlistUrl),
+    updatedAt: new Date().toISOString(),
+    categoryCount: categories.length,
+    itemCount: categories.reduce((sum, category) => sum + Number(category.itemCount || 0), 0),
+    categories
+  };
+}
+
+
 function normalizeXtreamMovieItems(rows, categoryMap) {
   if (!Array.isArray(rows)) return [];
 
@@ -1351,21 +1414,24 @@ async function refreshXtreamContentCacheForClient({ activationCode, refreshSecti
       fetchXtreamJson("get_vod_streams")
     ]);
 
-    const movieItems = normalizeXtreamMovieItems(movieRows, xtreamCategoryMap(movieCategories));
-    const movieCategoriesPayload = buildMovieCategoriesPayload({
+    const movieCategoryMap = xtreamCategoryMap(movieCategories);
+    const movieCategoriesPayload = buildXtreamMovieCategoriesPayload({
       activationCode,
       playlistUrl,
-      items: movieItems
+      rows: movieRows,
+      categoryMap: movieCategoryMap
     });
 
+    counts.movies = Number(movieCategoriesPayload.itemCount || 0);
+
+    // En modo Xtream no guardamos la lista plana de peliculas para evitar timeout.
+    // Las peliculas se cargan lazy cuando se abre cada categoria.
     tasks.push(
       saveSectionCache({
         activationCode,
         playlistUrl,
         section: "movies",
-        items: movieItems
-      }).then((payload) => {
-        counts.movies = payload.itemCount;
+        items: []
       })
     );
 
@@ -1945,7 +2011,22 @@ async function getMovieCategoryByKey({ activationCode, key, autoRefresh = true }
     };
   }
 
-  const items = Array.isArray(category.items) ? category.items : [];
+  let items = Array.isArray(category.items) ? category.items : [];
+
+  if (isXtreamContentMode() && category?.source?.provider === "xtream") {
+    const categoryId = String(category.source.categoryId || "").trim();
+    const movieRows = await fetchXtreamJson("get_vod_streams");
+    const filteredRows = Array.isArray(movieRows)
+      ? movieRows.filter((row) => xtreamCategoryMatches(row, categoryId))
+      : [];
+
+    const categoryMap = new Map([[categoryId, category.title]]);
+    items = normalizeXtreamMovieItems(filteredRows, categoryMap)
+      .map((item) => ({
+        ...item,
+        group: category.title
+      }));
+  }
 
   return {
     success: true,
