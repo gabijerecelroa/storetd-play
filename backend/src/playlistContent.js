@@ -948,6 +948,480 @@ async function saveSectionCache({ activationCode, playlistUrl, section, items })
   return payload;
 }
 
+
+// XTREAM_SOURCE_START
+const xtreamSeriesInfoMemoryCache = new Map();
+
+function isXtreamContentMode() {
+  return String(process.env.CONTENT_SOURCE_MODE || "")
+    .trim()
+    .toLowerCase() === "xtream";
+}
+
+function xtreamConfig() {
+  const baseUrl = String(process.env.XTREAM_BASE_URL || process.env.XTREAM_BASE || "")
+    .trim()
+    .replace(/\/+$/, "");
+  const username = String(process.env.XTREAM_USERNAME || process.env.XTREAM_USER || "").trim();
+  const password = String(process.env.XTREAM_PASSWORD || process.env.XTREAM_PASS || "").trim();
+
+  if (!baseUrl || !username || !password) {
+    throw new Error("Xtream no configurado. Revisa XTREAM_BASE_URL, XTREAM_USERNAME y XTREAM_PASSWORD.");
+  }
+
+  return { baseUrl, username, password };
+}
+
+function xtreamSourceUrlMasked() {
+  const { baseUrl, username } = xtreamConfig();
+  return `${baseUrl}/player_api.php?username=${encodeURIComponent(username)}&password=***`;
+}
+
+function xtreamBuildUrl(action, extra = {}) {
+  const { baseUrl, username, password } = xtreamConfig();
+  const params = new URLSearchParams();
+
+  params.set("username", username);
+  params.set("password", password);
+
+  if (action) {
+    params.set("action", action);
+  }
+
+  for (const [key, value] of Object.entries(extra || {})) {
+    if (value !== undefined && value !== null && String(value).trim() !== "") {
+      params.set(key, String(value));
+    }
+  }
+
+  return `${baseUrl}/player_api.php?${params.toString()}`;
+}
+
+async function fetchXtreamJson(action, extra = {}) {
+  const url = xtreamBuildUrl(action, extra);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 120000);
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Accept: "application/json,*/*",
+        "User-Agent": "StoreTD-Play-Backend"
+      },
+      signal: controller.signal
+    });
+
+    const text = await response.text();
+
+    if (!response.ok) {
+      throw new Error(`Xtream HTTP ${response.status}: ${text.slice(0, 240)}`);
+    }
+
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      throw new Error(`Xtream no devolvio JSON valido: ${text.slice(0, 240)}`);
+    }
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function xtreamString(row, ...keys) {
+  for (const key of keys) {
+    const value = row?.[key];
+
+    if (value !== undefined && value !== null && String(value).trim() !== "") {
+      return String(value).trim();
+    }
+  }
+
+  return "";
+}
+
+function xtreamNumber(row, ...keys) {
+  for (const key of keys) {
+    const value = Number(row?.[key]);
+
+    if (Number.isFinite(value) && value > 0) {
+      return value;
+    }
+  }
+
+  return 0;
+}
+
+function xtreamCategoryMap(rows) {
+  const map = new Map();
+
+  if (!Array.isArray(rows)) return map;
+
+  for (const row of rows) {
+    const id = xtreamString(row, "category_id", "id");
+    const name = xtreamString(row, "category_name", "name", "title");
+
+    if (id) {
+      map.set(id, name || `Categoria ${id}`);
+    }
+  }
+
+  return map;
+}
+
+function xtreamCategoryName(map, categoryId, fallback) {
+  const firstId = String(categoryId || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)[0];
+
+  return map.get(firstId) || fallback;
+}
+
+function xtreamGroupName(type, rawName) {
+  const name = String(rawName || "").trim();
+
+  if (type === "live") {
+    if (!name) return "TV | Sin Categoria";
+    if (/^TV\s*\|/i.test(name) || /^TV\s+ADULTO/i.test(name)) return name;
+    return `TV | ${name}`;
+  }
+
+  if (type === "movie") {
+    if (!name) return "Peliculas | Sin Categoria";
+    if (/^Peliculas\s*\|/i.test(name)) return name;
+    return `Peliculas | ${name}`;
+  }
+
+  if (type === "series") {
+    if (!name) return "Series | Sin Categoria";
+    if (/^Series\s*\|/i.test(name)) return name;
+    return `Series | ${name}`;
+  }
+
+  return name || "Sin Categoria";
+}
+
+function xtreamLiveUrl(streamId, ext = "ts") {
+  const { baseUrl, username, password } = xtreamConfig();
+  const safeExt = String(ext || "ts").replace(/^\./, "");
+  return `${baseUrl}/live/${encodeURIComponent(username)}/${encodeURIComponent(password)}/${streamId}.${safeExt}`;
+}
+
+function xtreamMovieUrl(streamId, ext = "mp4") {
+  const { baseUrl, username, password } = xtreamConfig();
+  const safeExt = String(ext || "mp4").replace(/^\./, "");
+  return `${baseUrl}/movie/${encodeURIComponent(username)}/${encodeURIComponent(password)}/${streamId}.${safeExt}`;
+}
+
+function xtreamSeriesEpisodeUrl(episodeId, ext = "mp4") {
+  const { baseUrl, username, password } = xtreamConfig();
+  const safeExt = String(ext || "mp4").replace(/^\./, "");
+  return `${baseUrl}/series/${encodeURIComponent(username)}/${encodeURIComponent(password)}/${episodeId}.${safeExt}`;
+}
+
+function normalizeXtreamLiveItems(rows, categoryMap) {
+  if (!Array.isArray(rows)) return [];
+
+  return rows
+    .map((row) => {
+      const streamId = xtreamNumber(row, "stream_id", "id");
+      if (!streamId) return null;
+
+      const categoryId = xtreamString(row, "category_id");
+      const category = xtreamCategoryName(categoryMap, categoryId, "Sin Categoria");
+      const ext = xtreamString(row, "container_extension") || "ts";
+
+      return {
+        id: String(streamId),
+        name: xtreamString(row, "name", "title") || `Canal ${streamId}`,
+        streamUrl: xtreamLiveUrl(streamId, ext),
+        logoUrl: xtreamString(row, "stream_icon", "cover", "image") || null,
+        group: xtreamGroupName("live", category),
+        tvgId: xtreamString(row, "epg_channel_id", "tvg_id") || null,
+        source: {
+          provider: "xtream",
+          streamId,
+          categoryId
+        }
+      };
+    })
+    .filter(Boolean);
+}
+
+function normalizeXtreamMovieItems(rows, categoryMap) {
+  if (!Array.isArray(rows)) return [];
+
+  return rows
+    .map((row) => {
+      const streamId = xtreamNumber(row, "stream_id", "id");
+      if (!streamId) return null;
+
+      const categoryId = xtreamString(row, "category_id");
+      const category = xtreamCategoryName(categoryMap, categoryId, "Sin Categoria");
+      const ext = xtreamString(row, "container_extension") || "mp4";
+
+      return {
+        id: String(streamId),
+        name: xtreamString(row, "name", "title") || `Pelicula ${streamId}`,
+        streamUrl: xtreamMovieUrl(streamId, ext),
+        logoUrl: xtreamString(row, "stream_icon", "cover", "image") || null,
+        group: xtreamGroupName("movie", category),
+        tvgId: null,
+        source: {
+          provider: "xtream",
+          streamId,
+          categoryId,
+          extension: ext
+        }
+      };
+    })
+    .filter(Boolean);
+}
+
+function buildXtreamSeriesFoldersPayload({ activationCode, playlistUrl, rows, categoryMap }) {
+  const folders = [];
+
+  if (Array.isArray(rows)) {
+    for (const row of rows) {
+      const seriesId = xtreamNumber(row, "series_id", "id");
+      if (!seriesId) continue;
+
+      const title = xtreamString(row, "name", "title") || `Serie ${seriesId}`;
+      const categoryId = xtreamString(row, "category_id");
+      const category = xtreamCategoryName(categoryMap, categoryId, "Sin Categoria");
+      const baseKey = slugKey(title) || "serie";
+      const key = `${baseKey}-${seriesId}`;
+
+      folders.push({
+        key,
+        title,
+        group: xtreamGroupName("series", category),
+        posterUrl: xtreamString(row, "cover", "stream_icon", "image") || null,
+        episodeCount: Number(row.episode_count || row.episodes_count || row.episodes || 1) || 1,
+        episodes: [],
+        source: {
+          provider: "xtream",
+          seriesId,
+          categoryId
+        }
+      });
+    }
+  }
+
+  folders.sort((a, b) => String(a.title).localeCompare(String(b.title)));
+
+  return {
+    section: "series-folders",
+    groupingVersion: "xtream-series-lazy-v1",
+    activationCode,
+    playlistUrlMasked: maskUrl(playlistUrl),
+    updatedAt: new Date().toISOString(),
+    folderCount: folders.length,
+    itemCount: folders.reduce((sum, folder) => sum + Number(folder.episodeCount || 0), 0),
+    folders
+  };
+}
+
+function flattenXtreamEpisodes(info) {
+  const episodes = info?.episodes;
+  const result = [];
+
+  if (Array.isArray(episodes)) {
+    for (const episode of episodes) {
+      if (episode && typeof episode === "object") {
+        result.push(episode);
+      }
+    }
+
+    return result;
+  }
+
+  if (episodes && typeof episodes === "object") {
+    for (const [seasonKey, list] of Object.entries(episodes)) {
+      if (!Array.isArray(list)) continue;
+
+      for (const episode of list) {
+        if (episode && typeof episode === "object") {
+          result.push({
+            ...episode,
+            _season: seasonKey
+          });
+        }
+      }
+    }
+  }
+
+  return result;
+}
+
+function xtreamEpisodeName(folderTitle, episode) {
+  const direct = xtreamString(episode, "title", "name");
+
+  if (direct) return direct;
+
+  const season = xtreamString(episode, "season", "_season") || "1";
+  const episodeNumberValue = xtreamString(episode, "episode_num", "episode", "episode_number") || "1";
+
+  return `${folderTitle} S${String(season).padStart(2, "0")}E${String(episodeNumberValue).padStart(2, "0")}`;
+}
+
+async function getXtreamEpisodesForSeriesFolder(folder) {
+  const seriesId = Number(folder?.source?.seriesId || 0);
+
+  if (!seriesId) return [];
+
+  const cacheKey = String(seriesId);
+  let info = xtreamSeriesInfoMemoryCache.get(cacheKey);
+
+  if (!info) {
+    info = await fetchXtreamJson("get_series_info", { series_id: seriesId });
+    xtreamSeriesInfoMemoryCache.set(cacheKey, info);
+  }
+
+  const rawEpisodes = flattenXtreamEpisodes(info);
+
+  return rawEpisodes
+    .map((episode) => {
+      const episodeId = xtreamNumber(episode, "id", "episode_id");
+      if (!episodeId) return null;
+
+      const infoObject = episode.info && typeof episode.info === "object" ? episode.info : {};
+      const ext =
+        xtreamString(episode, "container_extension") ||
+        xtreamString(infoObject, "container_extension") ||
+        "mp4";
+
+      const logo =
+        xtreamString(infoObject, "movie_image", "cover", "image") ||
+        xtreamString(episode, "cover", "image", "stream_icon") ||
+        folder.posterUrl ||
+        null;
+
+      const season = Number(xtreamString(episode, "season", "_season") || 0) || episodeSeason(xtreamEpisodeName(folder.title, episode));
+      const episodeIndex = Number(xtreamString(episode, "episode_num", "episode", "episode_number") || 0) || episodeNumber(xtreamEpisodeName(folder.title, episode));
+
+      return {
+        id: String(episodeId),
+        name: xtreamEpisodeName(folder.title, episode),
+        streamUrl: xtreamSeriesEpisodeUrl(episodeId, ext),
+        logoUrl: logo,
+        group: folder.title,
+        tvgId: null,
+        season,
+        episode: episodeIndex
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => {
+      return (a.season - b.season) ||
+        (a.episode - b.episode) ||
+        String(a.name).localeCompare(String(b.name));
+    });
+}
+
+async function refreshXtreamContentCacheForClient({ activationCode, refreshSection, shouldRefresh }) {
+  const playlistUrl = xtreamSourceUrlMasked();
+  const counts = {};
+  const tasks = [];
+
+  if (shouldRefresh("live")) {
+    const [liveCategories, liveRows] = await Promise.all([
+      fetchXtreamJson("get_live_categories"),
+      fetchXtreamJson("get_live_streams")
+    ]);
+
+    const liveItems = normalizeXtreamLiveItems(liveRows, xtreamCategoryMap(liveCategories));
+
+    tasks.push(
+      saveSectionCache({
+        activationCode,
+        playlistUrl,
+        section: "live",
+        items: liveItems
+      }).then((payload) => {
+        counts.live = payload.itemCount;
+      })
+    );
+  }
+
+  if (shouldRefresh("movies")) {
+    const [movieCategories, movieRows] = await Promise.all([
+      fetchXtreamJson("get_vod_categories"),
+      fetchXtreamJson("get_vod_streams")
+    ]);
+
+    const movieItems = normalizeXtreamMovieItems(movieRows, xtreamCategoryMap(movieCategories));
+    const movieCategoriesPayload = buildMovieCategoriesPayload({
+      activationCode,
+      playlistUrl,
+      items: movieItems
+    });
+
+    tasks.push(
+      saveSectionCache({
+        activationCode,
+        playlistUrl,
+        section: "movies",
+        items: movieItems
+      }).then((payload) => {
+        counts.movies = payload.itemCount;
+      })
+    );
+
+    tasks.push(
+      saveRawPayloadCache({
+        activationCode,
+        playlistUrl,
+        section: "movie-categories",
+        payload: movieCategoriesPayload
+      }).then((payload) => {
+        counts.movieCategories = payload.categoryCount;
+      })
+    );
+  }
+
+  if (shouldRefresh("series")) {
+    const [seriesCategories, seriesRows] = await Promise.all([
+      fetchXtreamJson("get_series_categories"),
+      fetchXtreamJson("get_series")
+    ]);
+
+    const seriesFoldersPayload = buildXtreamSeriesFoldersPayload({
+      activationCode,
+      playlistUrl,
+      rows: seriesRows,
+      categoryMap: xtreamCategoryMap(seriesCategories)
+    });
+
+    counts.series = Number(seriesFoldersPayload.folderCount || 0);
+
+    tasks.push(
+      saveRawPayloadCache({
+        activationCode,
+        playlistUrl,
+        section: "series-folders",
+        payload: seriesFoldersPayload
+      }).then((payload) => {
+        counts.seriesFolders = payload.folderCount;
+      })
+    );
+  }
+
+  await Promise.all(tasks);
+
+  return {
+    success: true,
+    activationCode,
+    sourceMode: "xtream",
+    section: refreshSection,
+    counts,
+    updatedAt: new Date().toISOString()
+  };
+}
+// XTREAM_SOURCE_END
+
+
 async function refreshContentCacheForClient(activationCode, options = {}) {
   const code = normalizeCode(activationCode);
   const requestedSection = String(options.section || options.sections || "all")
@@ -972,6 +1446,14 @@ async function refreshContentCacheForClient(activationCode, options = {}) {
       success: false,
       message: invalidReason
     };
+  }
+
+  if (isXtreamContentMode()) {
+    return await refreshXtreamContentCacheForClient({
+      activationCode: code,
+      refreshSection,
+      shouldRefresh
+    });
   }
 
   const raw = await fetchPlaylist(client.playlist_url);
@@ -1371,7 +1853,11 @@ async function getSeriesFolderByKey({ activationCode, key, autoRefresh = true })
     };
   }
 
-  const episodes = Array.isArray(folder.episodes) ? folder.episodes : [];
+  let episodes = Array.isArray(folder.episodes) ? folder.episodes : [];
+
+  if (isXtreamContentMode() && folder?.source?.provider === "xtream") {
+    episodes = await getXtreamEpisodesForSeriesFolder(folder);
+  }
 
   return {
     success: true,

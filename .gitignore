@@ -47,3 +47,16 @@ backend/prisma/migrations/*/migration_lock.toml
 signing/
 *.jks
 *.keystore
+.storetd_xtream.env
+
+# StoreTD local secrets / generated content
+.storetd_xtream.env
+.storetd_xtream.env.bak.*
+data_xtream/
+contenido_nuevo.json
+contenido_storetd_*.json
+contenido_storetd_*.m3u
+contenido_storetd_*.csv
+lista_*.m3u
+lista_*.csv
+backups_local/
