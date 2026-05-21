@@ -2182,25 +2182,148 @@ function smartoneM3uLineForItem(item, type) {
   ].join("\n");
 }
 
+
+function smartoneIncludeSeriesEnabled() {
+  return ["1", "true", "yes", "si"].includes(
+    String(process.env.SMARTONE_INCLUDE_SERIES || "")
+      .trim()
+      .toLowerCase()
+  );
+}
+
+function smartoneSeriesMaxEpisodes() {
+  const value = Number(process.env.SMARTONE_SERIES_MAX_EPISODES || process.env.SMARTONE_SERIES_LIMIT || 30000);
+  return Number.isFinite(value) && value >= 0 ? value : 30000;
+}
+
+function smartoneSeriesConcurrency() {
+  const value = Number(process.env.SMARTONE_SERIES_CONCURRENCY || 6);
+  if (!Number.isFinite(value)) return 6;
+  return Math.max(1, Math.min(12, Math.floor(value)));
+}
+
+function smartoneSeriesEpisodeName(folder, episode) {
+  const folderTitle = String(folder?.title || "").trim();
+  const episodeName = String(episode?.name || "").trim();
+
+  if (!folderTitle) return episodeName || "Episodio";
+  if (!episodeName) return folderTitle;
+
+  const cleanFolder = normalizeText(folderTitle);
+  const cleanEpisode = normalizeText(episodeName);
+
+  if (cleanEpisode.includes(cleanFolder.slice(0, 12))) {
+    return episodeName;
+  }
+
+  return `${folderTitle} - ${episodeName}`;
+}
+
+function smartoneSeriesItemFromEpisode(folder, episode) {
+  return {
+    type: "series",
+    name: smartoneSeriesEpisodeName(folder, episode),
+    streamUrl: episode.streamUrl,
+    logoUrl: episode.logoUrl || folder.posterUrl || "",
+    group: folder.group || `Series | ${folder.title || "Sin Categoria"}`,
+    tvgId: null
+  };
+}
+
+async function collectSmartoneSeriesItems({ activationCode, playlistUrl, seriesRows, categoryMap }) {
+  const foldersPayload = buildXtreamSeriesFoldersPayload({
+    activationCode,
+    playlistUrl,
+    rows: seriesRows,
+    categoryMap
+  });
+
+  const folders = Array.isArray(foldersPayload.folders) ? foldersPayload.folders : [];
+  const maxEpisodes = smartoneSeriesMaxEpisodes();
+  const concurrency = smartoneSeriesConcurrency();
+  const items = [];
+
+  let index = 0;
+
+  async function worker() {
+    while (index < folders.length) {
+      if (maxEpisodes > 0 && items.length >= maxEpisodes) return;
+
+      const folder = folders[index];
+      index += 1;
+
+      try {
+        const episodes = await getXtreamEpisodesForSeriesFolder(folder);
+
+        for (const episode of episodes) {
+          if (maxEpisodes > 0 && items.length >= maxEpisodes) return;
+
+          if (episode?.streamUrl) {
+            items.push(smartoneSeriesItemFromEpisode(folder, episode));
+          }
+        }
+      } catch (error) {
+        console.error("Smartone Xtream series folder error:", folder?.key, error.message);
+      }
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: concurrency }, () => worker())
+  );
+
+  return {
+    folderCount: folders.length,
+    items,
+    limited: maxEpisodes > 0 && items.length >= maxEpisodes,
+    maxEpisodes
+  };
+}
+
 async function buildSmartoneXtreamM3u() {
   if (!isXtreamContentMode()) {
     return null;
   }
 
+  const includeSeries = smartoneIncludeSeriesEnabled();
+
   const [
     liveCategories,
     liveRows,
     movieCategories,
-    movieRows
+    movieRows,
+    seriesCategories,
+    seriesRows
   ] = await Promise.all([
     fetchXtreamJson("get_live_categories"),
     fetchXtreamJson("get_live_streams"),
     fetchXtreamJson("get_vod_categories"),
-    fetchXtreamJson("get_vod_streams")
+    fetchXtreamJson("get_vod_streams"),
+    includeSeries ? fetchXtreamJson("get_series_categories") : Promise.resolve([]),
+    includeSeries ? fetchXtreamJson("get_series") : Promise.resolve([])
   ]);
 
   const liveItems = normalizeXtreamLiveItems(liveRows, xtreamCategoryMap(liveCategories));
   const movieItems = normalizeXtreamMovieItems(movieRows, xtreamCategoryMap(movieCategories));
+
+  let seriesItems = [];
+  let seriesFolderCount = 0;
+  let seriesLimited = false;
+  let seriesMaxEpisodes = 0;
+
+  if (includeSeries) {
+    const seriesResult = await collectSmartoneSeriesItems({
+      activationCode: "SMARTONE",
+      playlistUrl: xtreamSourceUrlMasked(),
+      seriesRows,
+      categoryMap: xtreamCategoryMap(seriesCategories)
+    });
+
+    seriesItems = seriesResult.items;
+    seriesFolderCount = seriesResult.folderCount;
+    seriesLimited = seriesResult.limited;
+    seriesMaxEpisodes = seriesResult.maxEpisodes;
+  }
 
   const lines = ["#EXTM3U"];
 
@@ -2212,18 +2335,26 @@ async function buildSmartoneXtreamM3u() {
     lines.push(smartoneM3uLineForItem(item, "movie"));
   }
 
+  for (const item of seriesItems) {
+    lines.push(smartoneM3uLineForItem(item, "series"));
+  }
+
   return {
-    sourceMode: "xtream",
+    sourceMode: includeSeries ? "xtream-live-movies-series" : "xtream-live-movies",
     content: lines.join("\n") + "\n",
     counts: {
       live: liveItems.length,
       movies: movieItems.length,
-      series: 0,
-      total: liveItems.length + movieItems.length
+      series: seriesItems.length,
+      seriesFolders: seriesFolderCount,
+      seriesLimited,
+      seriesMaxEpisodes,
+      total: liveItems.length + movieItems.length + seriesItems.length
     },
     generatedAt: new Date().toISOString()
   };
 }
+
 // SMARTONE_XTREAM_END
 
 

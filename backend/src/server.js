@@ -1165,11 +1165,14 @@ app.get(["/smartone.m3u", "/smartone-final.m3u", "/smartone-v2.m3u"], async (req
       res.setHeader("Pragma", "no-cache");
       res.setHeader("Expires", "0");
       res.setHeader("Surrogate-Control", "no-store");
-      res.setHeader("X-StoreTD-Smartone-Mode", "xtream-live-movies");
+      res.setHeader("X-StoreTD-Smartone-Mode", xtreamM3u.sourceMode || "xtream-live-movies");
       res.setHeader("X-StoreTD-Smartone-Generated-At", xtreamM3u.generatedAt);
       res.setHeader("X-StoreTD-Smartone-Live", String(xtreamM3u.counts?.live || 0));
       res.setHeader("X-StoreTD-Smartone-Movies", String(xtreamM3u.counts?.movies || 0));
       res.setHeader("X-StoreTD-Smartone-Series", String(xtreamM3u.counts?.series || 0));
+      res.setHeader("X-StoreTD-Smartone-Series-Folders", String(xtreamM3u.counts?.seriesFolders || 0));
+      res.setHeader("X-StoreTD-Smartone-Series-Limited", String(xtreamM3u.counts?.seriesLimited || false));
+      res.setHeader("X-StoreTD-Smartone-Series-Max", String(xtreamM3u.counts?.seriesMaxEpisodes || 0));
 
       return res.send(xtreamM3u.content);
     }
