@@ -1789,6 +1789,23 @@ function filterPayloadAdultContent(payload, includeAdult) {
 }
 
 
+
+function shouldPreserveXtreamSeriesFolders(payload) {
+  return isXtreamContentMode() ||
+    String(payload?.groupingVersion || "").startsWith("xtream-");
+}
+
+function normalizeSeriesFoldersForPayload(payload) {
+  const sourceFolders = Array.isArray(payload?.folders) ? payload.folders : [];
+
+  if (shouldPreserveXtreamSeriesFolders(payload)) {
+    return sourceFolders;
+  }
+
+  return mergeGeneratedSeriesFolders(sourceFolders);
+}
+
+
 async function getSeriesFoldersLite({ activationCode, autoRefresh = true }) {
   const result = await getCachedContentSection({
     activationCode,
@@ -1907,8 +1924,7 @@ async function getSeriesFolderByKey({ activationCode, key, autoRefresh = true })
   if (!result.success) return result;
 
   const payload = result.payload || {};
-  const sourceFolders = Array.isArray(payload.folders) ? payload.folders : [];
-  const folders = mergeGeneratedSeriesFolders(sourceFolders);
+  const folders = normalizeSeriesFoldersForPayload(payload);
   const folder = folders.find((item) => String(item.key || "") === safeKey);
 
   if (!folder) {
