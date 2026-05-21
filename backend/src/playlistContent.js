@@ -1840,6 +1840,35 @@ async function getSeriesFoldersLite({ activationCode, autoRefresh = true }) {
   if (!result.success) return result;
 
   const payload = result.payload || {};
+
+  if (shouldPreserveXtreamSeriesFolders(payload)) {
+    const sourceFolders = Array.isArray(payload.folders) ? payload.folders : [];
+
+    const liteFolders = sourceFolders.map((folder) => ({
+      key: folder.key,
+      title: folder.title,
+      group: folder.group,
+      posterUrl: folder.posterUrl || null,
+      episodeCount: Number(folder.episodeCount || folder.episodes?.length || 0)
+    }));
+
+    return {
+      success: true,
+      status: 200,
+      fromCache: result.fromCache,
+      payload: {
+        section: "series-folders-lite",
+        groupingVersion: "xtream-fast-lite-v1",
+        activationCode: payload.activationCode,
+        playlistUrlMasked: payload.playlistUrlMasked,
+        updatedAt: payload.updatedAt,
+        folderCount: liteFolders.length,
+        itemCount: liteFolders.reduce((sum, folder) => sum + Number(folder.episodeCount || 0), 0),
+        folders: liteFolders
+      }
+    };
+  }
+
   const sourceFolders = Array.isArray(payload.folders) ? payload.folders : [];
   const liteMap = new Map();
 
