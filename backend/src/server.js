@@ -12,7 +12,8 @@ const {
   getMovieCategoriesLite,
   getMovieCategoryByKey,
   searchContentItems,
-  filterPayloadAdultContent
+  filterPayloadAdultContent,
+  buildSmartoneXtreamM3u
 } = require("./playlistContent");
 
 const app = express();
@@ -1147,6 +1148,32 @@ app.post("/reseller/api/requests", requireReseller, async (req, res) => {
 
 app.get(["/smartone.m3u", "/smartone-final.m3u", "/smartone-v2.m3u"], async (req, res) => {
   try {
+    const useXtreamSmartone =
+      String(process.env.CONTENT_SOURCE_MODE || "").trim().toLowerCase() === "xtream" ||
+      String(process.env.SMARTONE_SOURCE_MODE || "").trim().toLowerCase() === "xtream";
+
+    if (useXtreamSmartone) {
+      const xtreamM3u = await buildSmartoneXtreamM3u();
+
+      if (!xtreamM3u) {
+        throw new Error("Smartone Xtream no disponible.");
+      }
+
+      res.setHeader("Content-Type", "audio/x-mpegurl; charset=utf-8");
+      res.setHeader("Content-Disposition", 'inline; filename="smartone.m3u"');
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+      res.setHeader("Surrogate-Control", "no-store");
+      res.setHeader("X-StoreTD-Smartone-Mode", "xtream-live-movies");
+      res.setHeader("X-StoreTD-Smartone-Generated-At", xtreamM3u.generatedAt);
+      res.setHeader("X-StoreTD-Smartone-Live", String(xtreamM3u.counts?.live || 0));
+      res.setHeader("X-StoreTD-Smartone-Movies", String(xtreamM3u.counts?.movies || 0));
+      res.setHeader("X-StoreTD-Smartone-Series", String(xtreamM3u.counts?.series || 0));
+
+      return res.send(xtreamM3u.content);
+    }
+
     const gistConfig = requireGistConfig(res);
     if (!gistConfig) return;
 
@@ -1180,7 +1207,7 @@ app.get(["/smartone.m3u", "/smartone-final.m3u", "/smartone-v2.m3u"], async (req
 
     res.send(normalized.content);
   } catch (error) {
-    console.error("Smartone live normalized proxy error:", error);
+    console.error("Smartone proxy error:", error);
     res.status(500).send(`#EXTM3U\n# Error: ${error.message}\n`);
   }
 });

@@ -2152,7 +2152,83 @@ async function searchContentItems({
 }
 
 
+
+// SMARTONE_XTREAM_START
+function m3uAttrEscape(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "")
+    .replace(/>/g, "");
+}
+
+function m3uDisplayName(value) {
+  return String(value || "Sin nombre")
+    .replace(/\r/g, " ")
+    .replace(/\n/g, " ")
+    .trim() || "Sin nombre";
+}
+
+function smartoneM3uLineForItem(item, type) {
+  const name = m3uDisplayName(item.name);
+  const tvgType = type || item.type || "live";
+  const logo = item.logoUrl || "";
+  const group = item.group || "Sin categoría";
+  const tvgId = item.tvgId || "";
+
+  return [
+    `#EXTINF:-1 tvg-type="${m3uAttrEscape(tvgType)}" tvg-id="${m3uAttrEscape(tvgId)}" tvg-name="${m3uAttrEscape(name)}" tvg-logo="${m3uAttrEscape(logo)}" group-title="${m3uAttrEscape(group)}",${name}`,
+    item.streamUrl || ""
+  ].join("\n");
+}
+
+async function buildSmartoneXtreamM3u() {
+  if (!isXtreamContentMode()) {
+    return null;
+  }
+
+  const [
+    liveCategories,
+    liveRows,
+    movieCategories,
+    movieRows
+  ] = await Promise.all([
+    fetchXtreamJson("get_live_categories"),
+    fetchXtreamJson("get_live_streams"),
+    fetchXtreamJson("get_vod_categories"),
+    fetchXtreamJson("get_vod_streams")
+  ]);
+
+  const liveItems = normalizeXtreamLiveItems(liveRows, xtreamCategoryMap(liveCategories));
+  const movieItems = normalizeXtreamMovieItems(movieRows, xtreamCategoryMap(movieCategories));
+
+  const lines = ["#EXTM3U"];
+
+  for (const item of liveItems) {
+    lines.push(smartoneM3uLineForItem(item, "live"));
+  }
+
+  for (const item of movieItems) {
+    lines.push(smartoneM3uLineForItem(item, "movie"));
+  }
+
+  return {
+    sourceMode: "xtream",
+    content: lines.join("\n") + "\n",
+    counts: {
+      live: liveItems.length,
+      movies: movieItems.length,
+      series: 0,
+      total: liveItems.length + movieItems.length
+    },
+    generatedAt: new Date().toISOString()
+  };
+}
+// SMARTONE_XTREAM_END
+
+
 module.exports = {
+  buildSmartoneXtreamM3u,
   parseM3u,
   refreshContentCacheForClient,
   getCachedContentSection,
