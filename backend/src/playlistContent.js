@@ -1790,6 +1790,30 @@ function filterPayloadAdultContent(payload, includeAdult) {
 
 
 
+
+function findSeriesFolderKeyByTitle(sourceFolders, title, fallbackKey = "") {
+  const wanted = normalizeText(title);
+
+  if (!wanted) return fallbackKey;
+
+  const exact = (sourceFolders || []).find((folder) => {
+    return normalizeText(folder?.title) === wanted;
+  });
+
+  if (exact?.key) return exact.key;
+
+  const loose = (sourceFolders || []).find((folder) => {
+    const current = normalizeText(folder?.title);
+    return current && (
+      current.includes(wanted) ||
+      wanted.includes(current)
+    );
+  });
+
+  return loose?.key || fallbackKey;
+}
+
+
 function shouldPreserveXtreamSeriesFolders(payload) {
   return isXtreamContentMode() ||
     String(payload?.groupingVersion || "").startsWith("xtream-");
@@ -1889,9 +1913,9 @@ async function getSeriesFoldersLite({ activationCode, autoRefresh = true }) {
 
   const sourceFoldersForKeys = Array.isArray(payload.folders) ? payload.folders : [];
   const responseLiteFolders = shouldPreserveXtreamSeriesFolders(payload)
-    ? liteFolders.map((folder, index) => ({
+    ? liteFolders.map((folder) => ({
         ...folder,
-        key: sourceFoldersForKeys[index]?.key || folder.key
+        key: findSeriesFolderKeyByTitle(sourceFoldersForKeys, folder.title, folder.key)
       }))
     : liteFolders;
 
