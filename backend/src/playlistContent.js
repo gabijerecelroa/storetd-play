@@ -1887,6 +1887,14 @@ async function getSeriesFoldersLite({ activationCode, autoRefresh = true }) {
     .filter((folder) => Number(folder.episodeCount || 0) > 0)
     .sort((a, b) => String(a.title).localeCompare(String(b.title)));
 
+  const sourceFoldersForKeys = Array.isArray(payload.folders) ? payload.folders : [];
+  const responseLiteFolders = shouldPreserveXtreamSeriesFolders(payload)
+    ? liteFolders.map((folder, index) => ({
+        ...folder,
+        key: sourceFoldersForKeys[index]?.key || folder.key
+      }))
+    : liteFolders;
+
   return {
     success: true,
     status: 200,
@@ -1897,9 +1905,9 @@ async function getSeriesFoldersLite({ activationCode, autoRefresh = true }) {
       activationCode: payload.activationCode,
       playlistUrlMasked: payload.playlistUrlMasked,
       updatedAt: payload.updatedAt,
-      folderCount: liteFolders.length,
-      itemCount: liteFolders.reduce((sum, folder) => sum + Number(folder.episodeCount || 0), 0),
-      folders: liteFolders
+      folderCount: responseLiteFolders.length,
+      itemCount: responseLiteFolders.reduce((sum, folder) => sum + Number(folder.episodeCount || 0), 0),
+      folders: responseLiteFolders
     }
   };
 }
