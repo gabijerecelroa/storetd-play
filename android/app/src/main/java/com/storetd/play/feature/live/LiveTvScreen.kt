@@ -968,6 +968,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
             item {
                 SeriesFolderLiteHeader(
                     folder = selectedFolder,
+                    episodeCount = lazySeriesEpisodes.size.takeIf { it > 0 },
                     onBack = onClearSeries
                 )
             }
@@ -1939,7 +1940,7 @@ private fun SeriesFolderLiteRow(
             )
 
             Text(
-                text = "${folder.episodeCount} capítulos disponibles",
+                text = "Ver capítulos",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.76f),
                 fontWeight = FontWeight.SemiBold
@@ -1955,18 +1956,20 @@ private fun SeriesFolderLiteRow(
 @Composable
 private fun SeriesFolderLiteHeader(
     folder: OptimizedContentApi.SeriesFolderLite,
+    episodeCount: Int? = null,
     onBack: () -> Unit
 ) {
     androidx.compose.foundation.layout.Column {
         com.storetd.play.feature.vod.SeriesTmdbHeader(groupName = folder.title, isSeriesMode = true)
         androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.height(16.dp))
-        OriginalSeriesFolderLiteHeader(folder = folder, onBack = onBack)
+        OriginalSeriesFolderLiteHeader(folder = folder, episodeCount = episodeCount, onBack = onBack)
     }
 }
 
 @Composable
 private fun OriginalSeriesFolderLiteHeader(
     folder: OptimizedContentApi.SeriesFolderLite,
+    episodeCount: Int? = null,
     onBack: () -> Unit
 ) {
     Surface(
@@ -2011,7 +2014,7 @@ private fun OriginalSeriesFolderLiteHeader(
                 )
 
                 Text(
-                    text = "${folder.episodeCount} capítulos disponibles",
+                    text = "${episodeCount ?: folder.episodeCount} capítulos disponibles",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.82f),
                     fontWeight = FontWeight.SemiBold
