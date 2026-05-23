@@ -10,12 +10,23 @@ import java.util.concurrent.TimeUnit
 class IptvRepository(
     private val parser: M3uParser = M3uParser(),
     private val client: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS) // Más tiempo para conectar
-        .readTimeout(45, TimeUnit.SECONDS)    // Más tiempo para descargar listas pesadas
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(45, TimeUnit.SECONDS)
         .build()
 ) {
+    // 🧠 MAGIA: VARIABLE INMORTAL
+    // Esta variable guarda la lista ya procesada. Si está llena, no vuelve a leer nada.
+    companion object {
+        private var cacheDeCanales: List<Channel>? = null
+    }
+
     fun loadPlaylistFromUrl(url: String): List<Channel> {
-        // Obtenemos la carpeta oculta del celular donde no necesitamos pedir permisos
+        // 1. Si ya tenemos los canales en memoria RAM, ¡los devolvemos al instante!
+        cacheDeCanales?.let { 
+            println("⚡ Devolviendo lista desde la RAM al instante.")
+            return it 
+        }
+
         val cacheDir = System.getProperty("java.io.tmpdir")
         val cacheFile = File(cacheDir, "lista_secreta_cache.m3u")
 
@@ -27,28 +38,27 @@ class IptvRepository(
 
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
-                    throw IllegalStateException("No se pudo cargar la lista. Codigo HTTP: ${response.code}")
+                    throw IllegalStateException("Código HTTP: ${response.code}")
                 }
                 
                 val body = response.body?.string() ?: throw IllegalStateException("Cuerpo vacío")
                 
-                // GUARDAMOS EL CACHÉ FÍSICO EN SILENCIO
-                try {
-                    cacheFile.writeText(body)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
+                try { cacheFile.writeText(body) } catch (e: Exception) { e.printStackTrace() }
                 
-                parser.parse(body)
+                // 2. Procesamos, GUARDAMOS EN LA VARIABLE INMORTAL y devolvemos
+                val canales = parser.parse(body)
+                cacheDeCanales = canales
+                canales
             }
         } catch (e: Exception) {
-            // ¡LA MAGIA! Si falla el internet o tarda mucho, leemos del almacenamiento local
             if (cacheFile.exists()) {
-                println("⚠️ Falló la red, cargando lista desde el Caché Silencioso a la velocidad de la luz...")
+                println("⚠️ Falló la red, leyendo disco duro...")
                 val bodyLocal = cacheFile.readText()
-                parser.parse(bodyLocal)
+                val canales = parser.parse(bodyLocal)
+                cacheDeCanales = canales
+                canales
             } else {
-                throw e // Si nunca se descargó nada antes, no queda otra que tirar el error
+                throw e
             }
         }
     }
