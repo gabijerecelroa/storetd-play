@@ -218,39 +218,36 @@ fun PlayerScreen(
 
 
 
-    val player = remember(currentChannel.streamUrl) {
+    val player = remember(currentChannel.streamUrl, playbackLoadAttempt) {
         val renderersFactory = DefaultRenderersFactory(context)
             .setEnableDecoderFallback(true)
 
-        // --- INICIO MOTOR SUPERVIVENCIA LOCAL (V1.4.6) ---
+        // --- INICIO MOTOR SMART TV OPTIMIZADO (V1.4.9) ---
         val trackSelector = androidx.media3.exoplayer.trackselection.DefaultTrackSelector(
             context,
             androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection.Factory()
         )
 
-        // 1. TIEMPOS DE ESPERA EXTREMOS: Si tu Wi-Fi se congela, esperamos hasta 2 minutos sin cancelar el video
         val dataSourceFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
             .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
             .setAllowCrossProtocolRedirects(true)
-            .setConnectTimeoutMs(30_000)
-            .setReadTimeoutMs(120_000)
+            .setConnectTimeoutMs(20_000)
+            .setReadTimeoutMs(45_000)
 
-        // 2. EL SECRETO (POLÍTICA DE ERRORES): En lugar de rendirse a los 3 errores de red, intentará reconectar silenciosamente 25 veces seguidas.
-        val loadErrorPolicy = androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy(25)
+        val loadErrorPolicy = androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy(30)
 
         val mediaSourceFactory = androidx.media3.exoplayer.source.DefaultMediaSourceFactory(dataSourceFactory)
             .setLoadErrorHandlingPolicy(loadErrorPolicy)
 
-        // 3. BUFFER PACIENTE: Como sabemos que el servidor no nos echa, le decimos que junte hasta 5 MINUTOS de video cuando el internet ande bien.
+        // Dieta de RAM: Máximo 50 segundos de buffer para no ahogar la memoria de la TV
         val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
             .setBufferDurationsMs(
-                20_000,   // Min: 20 seg 
-                300_000,  // Max: 5 minutos enteros de reserva
-                1_500,    // Arranca casi al instante
-                3_000     // Si hay corte severo, junta 3s para arrancar
+                15_000,  // Min buffer: 15s
+                50_000,  // Max buffer: 50s (Seguro para TV)
+                1_500,   // Arranca instantáneo
+                3_000
             )
             .setPrioritizeTimeOverSizeThresholds(true)
-            .setTargetBufferBytes(128 * 1024 * 1024) // 128 MB dedicados solo a tu tranquilidad
             .build()
 
         androidx.media3.exoplayer.ExoPlayer.Builder(context, renderersFactory)
@@ -376,14 +373,8 @@ fun PlayerScreen(
         errorMessage = null
         shouldAutoRetryPlayback = true
         hasStreamReachedReady = false
-        playbackLoadAttempt += 1
+        playbackLoadAttempt += 1 // <-- Explotamos el remember para revivir el chip de video
         showControls = true
-
-        player.stop()
-        player.clearMediaItems()
-        player.setMediaItem(MediaItem.fromUri(currentChannel.streamUrl))
-        player.prepare()
-        player.playWhenReady = true
     }
 
     fun retryPlayback() {
