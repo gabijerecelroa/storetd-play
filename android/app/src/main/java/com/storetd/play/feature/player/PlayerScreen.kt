@@ -230,12 +230,13 @@ fun PlayerScreen(
         )
 
         // 2. Buffer Súper Glotón: Descarga hasta 2 minutos de video por adelantado en RAM
+        // 🥷 MODO NINJA: Buffer pequeño y constante para que los servidores .ts no nos corten la conexión
         val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
             .setBufferDurationsMs(
-                32_000,  // Mínimo de reserva: 32 segundos listos
-                120_000, // Máximo de reserva: ¡2 minutos! (Cura los micro-cortes)
-                2_500,   // Arranca al tener 2.5 seg
-                5_000    // Si hay un corte fuerte, espera reunir 5 seg para volver a arrancar suave
+                15_000,  // Mínimo: 15 seg
+                30_000,  // Máximo: 30 seg (Evita que el servidor nos bloquee por descargar muy rápido)
+                1_000,   // ¡Arranca al instante al tener 1 segundo!
+                2_000    // Si hay un corte, solo junta 2 segundos para retomar rápido
             )
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()
