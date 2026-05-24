@@ -222,26 +222,36 @@ fun PlayerScreen(
         val renderersFactory = DefaultRenderersFactory(context)
             .setEnableDecoderFallback(true)
 
-        // --- INICIO HACK ANTI-LAG 5MBPS ---
-        // 1. Selector Adaptativo: Baja la calidad automáticamente si el WiFi está lento (Para M3U8)
+        // --- INICIO MOTOR TANQUE IPTV (V1.4.5) ---
         val trackSelector = androidx.media3.exoplayer.trackselection.DefaultTrackSelector(
             context,
             androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection.Factory()
         )
 
-        // 2. Buffer Súper Glotón: Descarga hasta 2 minutos de video por adelantado en RAM
-        // 🥷 MODO NINJA: Buffer pequeño y constante para que los servidores .ts no nos corten la conexión
+        // 🛡️ RED BLINDADA: Nos hacemos pasar por Google Chrome de PC para que el servidor nos dé trato VIP
+        // y le damos 60 segundos de paciencia a tu WiFi de 5mbps en vez de los 8 segundos por defecto.
+        val dataSourceFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
+            .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
+            .setAllowCrossProtocolRedirects(true)
+            .setConnectTimeoutMs(15_000)
+            .setReadTimeoutMs(60_000)
+
+        val mediaSourceFactory = androidx.media3.exoplayer.source.DefaultMediaSourceFactory(dataSourceFactory)
+
+        // 🐘 BUFFER GLOTÓN SEGURO: 64MB de RAM permitidos para acumular hasta 3 minutos sin que el servidor nos eche
         val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
             .setBufferDurationsMs(
-                15_000,  // Mínimo: 15 seg
-                30_000,  // Máximo: 30 seg (Evita que el servidor nos bloquee por descargar muy rápido)
-                1_000,   // ¡Arranca al instante al tener 1 segundo!
-                2_000    // Si hay un corte, solo junta 2 segundos para retomar rápido
+                30_000,   // Min: 30 seg
+                180_000,  // Max: 3 minutos
+                2_500,    // Arranca a los 2.5 seg
+                5_000     // Retoma a los 5 seg
             )
             .setPrioritizeTimeOverSizeThresholds(true)
+            .setTargetBufferBytes(64 * 1024 * 1024) // 64 MB
             .build()
 
         androidx.media3.exoplayer.ExoPlayer.Builder(context, renderersFactory)
+            .setMediaSourceFactory(mediaSourceFactory)
             .setTrackSelector(trackSelector)
             .setLoadControl(loadControl)
             .build()
