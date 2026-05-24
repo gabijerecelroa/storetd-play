@@ -106,7 +106,7 @@ private enum class VideoResizeMode(
     }
 }
 
-private const val STREAM_UNAVAILABLE_TIMEOUT_MS = 15_000L
+private const val STREAM_UNAVAILABLE_TIMEOUT_MS = 60_000L
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -434,7 +434,7 @@ fun PlayerScreen(
 
     LaunchedEffect(isBuffering, currentChannel.streamUrl) {
         if (isBuffering && errorMessage == null && autoRecoverAttempt < 3) {
-            delay(12000L)
+            delay(60000L)
 
             if (isBuffering && errorMessage == null) {
                 val nextAttempt = autoRecoverAttempt + 1
@@ -498,7 +498,7 @@ fun PlayerScreen(
 
             lastPositionMs = positionMs
 
-            if (stuckSeconds >= 12) {
+            if (stuckSeconds >= 60) {
                 if (autoRecoverAttempt < 3) {
                     val nextAttempt = autoRecoverAttempt + 1
                     autoRecoverAttempt = nextAttempt
