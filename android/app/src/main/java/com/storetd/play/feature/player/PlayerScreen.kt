@@ -226,7 +226,10 @@ fun PlayerScreen(
         val trackSelector = androidx.media3.exoplayer.trackselection.DefaultTrackSelector(
             context,
             androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection.Factory()
-        )
+        ).apply {
+            // 🛑 APAGAR TUNNELING: El causante #1 de que los Smart TV se cuelguen con IPTV
+            setParameters(buildUponParameters().setTunnelingEnabled(false))
+        }
 
         // 1. TIEMPOS DE ESPERA EXTREMOS: Si tu Wi-Fi se congela, esperamos hasta 2 minutos sin cancelar el video
         val dataSourceFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
@@ -262,7 +265,11 @@ fun PlayerScreen(
             .setTargetBufferBytes(128 * 1024 * 1024) // 128 MB dedicados solo a tu tranquilidad
             .build()
 
-        androidx.media3.exoplayer.ExoPlayer.Builder(context, renderersFactory)
+        // 🛟 SALVAVIDAS DE HARDWARE: Si el chip de video del TV colapsa, usa decodificación por software
+        val tvRenderersFactory = androidx.media3.exoplayer.DefaultRenderersFactory(context)
+            .setEnableDecoderFallback(true)
+
+        androidx.media3.exoplayer.ExoPlayer.Builder(context, tvRenderersFactory)
             .setMediaSourceFactory(mediaSourceFactory)
             .setTrackSelector(trackSelector)
             .setLoadControl(loadControl)
