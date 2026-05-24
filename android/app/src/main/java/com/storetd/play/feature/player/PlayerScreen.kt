@@ -236,7 +236,16 @@ fun PlayerScreen(
 
         val loadErrorPolicy = androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy(30)
 
-        val mediaSourceFactory = androidx.media3.exoplayer.source.DefaultMediaSourceFactory(dataSourceFactory)
+        // 🧹 FILTRO PURIFICADOR PARA TV: Limpia los paquetes .ts sucios (típicos del fútbol) antes de que el chip de video colapse
+        val extractorsFactory = androidx.media3.extractor.DefaultExtractorsFactory()
+            .setTsExtractorFlags(
+                androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES or
+                androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS or
+                androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.FLAG_IGNORE_SPLICE_INFO_STREAM
+            )
+
+        val mediaSourceFactory = androidx.media3.exoplayer.source.DefaultMediaSourceFactory(context, extractorsFactory)
+            .setDataSourceFactory(dataSourceFactory)
             .setLoadErrorHandlingPolicy(loadErrorPolicy)
 
         // Dieta de RAM: Máximo 50 segundos de buffer para no ahogar la memoria de la TV
