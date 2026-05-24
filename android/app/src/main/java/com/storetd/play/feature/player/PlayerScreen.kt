@@ -266,7 +266,213 @@ fun PlayerScreen(
     }
 
     LaunchedEffect(player, currentChannel.streamUrl, isVodContent) {
-        if (isVodContent) return@LaunchedEffect
+        var saveTick = 0
+
+        while (true) {
+            currentPositionMs = player.currentPosition.coerceAtLeast(0L)
+            durationMs = if (player.duration > 0L) player.duration else 0L
+
+            if (isVodContent && durationMs > 0L && currentPositionMs > 5000L) {
+                saveTick += 1
+
+                if (saveTick >= 5) {
+                    saveTick = 0
+
+                    val saveChannel = currentChannel
+                    val savePosition = currentPositionMs
+                    val saveDuration = durationMs
+
+                    withContext(Dispatchers.IO) {
+                        PlaybackProgressStore.save(
+                            context = context.applicationContext,
+                            channel = saveChannel,
+                            positionMs = savePosition,
+                            durationMs = saveDuration
+                        )
+                    }
+                }
+            }
+
+            delay(1000)
+        }
+    }
+
+    DisposableEffect(player) {
+        val listener = object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                isBuffering = playbackState == Player.STATE_BUFFERING
+
+                if (playbackState == Player.STATE_READY) {
+                    hasStreamReachedReady = true
+                    retryAttempt = 0
+                    reconnectMessage = null
+                    errorMessage = null
+
+                    if (isVodContent && !hasRestoredVodProgress) {
+                        hasRestoredVodProgress = true
+
+                        val saved = PlaybackProgressStore.get(context, currentChannel.streamUrl)
+                        val duration = if (player.duration > 0L) {
+                            player.duration
+                        } else {
+                            saved?.durationMs ?: 0L
+                        }
+
+                        val position = saved?.positionMs ?: 0L
+
+                        if (
+                            saved != null &&
+                            !saved.finished &&
+                            duration > 0L &&
+                            position > 15000L &&
+                            position < duration - 15000L
+                        ) {
+                            player.seekTo(position)
+                            currentPositionMs = position
+                            durationMs = duration
+                            reconnectMessage = "Continuando desde ${formatPlaybackTime(position)}"
+                            showControls = true
+                        }
+                    }
+                }
+            }
+
+            override fun onIsPlayingChanged(playing: Boolean) {
+                isPlaying = playing
+            }
+
+            override fun onPlayerError(error: PlaybackException) {
+                val friendlyError = friendlyPlaybackErrorMessage(error)
+
+                shouldAutoRetryPlayback = shouldAutoRetryForPlaybackError(error)
+                errorMessage = friendlyError
+
+                reconnectMessage = if (shouldAutoRetryPlayback) {
+                    "Detectamos un problema de reproducción."
+                } else {
+                    "El contenido no respondió como video válido."
+                }
+
+                showControls = true
+            }
+        }
+
+        player.addListener(listener)
+
+        onDispose {
+            player.removeListener(listener)
+
+            runCatching {
+                player.playWhenReady = false
+                player.stop()
+                player.clearMediaItems()
+            }
+
+            player.release()
+        }
+    }
+
+    fun restartPlayback() {
+        errorMessage = null
+        shouldAutoRetryPlayback = true
+        hasStreamReachedReady = false
+        playbackLoadAttempt += 1
+        showControls = true
+
+        player.stop()
+        player.clearMediaItems()
+        player.setMediaItem(MediaItem.fromUri(currentChannel.streamUrl))
+        player.prepare()
+        player.playWhenReady = true
+    }
+
+    fun retryPlayback() {
+        retryAttempt = 0
+        autoRecoverAttempt = 0
+        reconnectMessage = "Reintentando reproducción..."
+        restartPlayback()
+    }
+
+    fun showPlaybackUnavailable(message: String) {
+        shouldAutoRetryPlayback = false
+        errorMessage = message
+        reconnectMessage = "Contenido no disponible. Puedes reintentar, pasar al siguiente, reportar o volver."
+        selectedErrorActionIndex = 0
+        showControls = true
+
+        runCatching {
+            player.playWhenReady = false
+            player.stop()
+        }
+    }
+
+    LaunchedEffect(player, currentChannel.streamUrl, playbackLoadAttempt) {
+        delay(STREAM_UNAVAILABLE_TIMEOUT_MS)
+
+        if (
+            errorMessage == null &&
+            !hasStreamReachedReady &&
+            player.playbackState != Player.STATE_READY
+        ) {
+            showPlaybackUnavailable("La transmisión tardó demasiado en cargar.")
+        }
+    }
+
+    LaunchedEffect(isBuffering, currentChannel.streamUrl, playbackLoadAttempt, hasStreamReachedReady) {
+        if (isBuffering && hasStreamReachedReady && errorMessage == null) {
+            delay(STREAM_UNAVAILABLE_TIMEOUT_MS)
+
+            if (
+                isBuffering &&
+                errorMessage == null &&
+                player.playbackState == Player.STATE_BUFFERING
+            ) {
+                showPlaybackUnavailable("La transmisión quedó cargando demasiado tiempo.")
+            }
+        }
+    }
+
+    LaunchedEffect(errorMessage, currentChannel.streamUrl, shouldAutoRetryPlayback) {
+        if (errorMessage != null && shouldAutoRetryPlayback && retryAttempt < 9999) {
+            val nextAttempt = retryAttempt + 1
+            retryAttempt = nextAttempt
+            reconnectMessage = "Reintentando automáticamente $nextAttempt/3..."
+            delay(1800L * nextAttempt)
+            restartPlayback()
+        } else if (errorMessage != null && !shouldAutoRetryPlayback) {
+            reconnectMessage = "Contenido no disponible. Puedes reportarlo o volver."
+        } else if (errorMessage != null && retryAttempt >= 9999) {
+            reconnectMessage = "No se pudo recuperar la reproducción. Prueba Reintentar o Reportar."
+        }
+    }
+
+    LaunchedEffect(isBuffering, currentChannel.streamUrl) {
+        if (isBuffering && errorMessage == null && autoRecoverAttempt < 9999) {
+            delay(15000L)
+
+            if (isBuffering && errorMessage == null) {
+                val nextAttempt = autoRecoverAttempt + 1
+                autoRecoverAttempt = nextAttempt
+                reconnectMessage = "El canal tarda en responder. Reconectando $nextAttempt/3..."
+                showControls = true
+                restartPlayback()
+            }
+        } else if (isBuffering && errorMessage == null && autoRecoverAttempt >= 9999) {
+            delay(5000L)
+
+            if (isBuffering && errorMessage == null) {
+                shouldAutoRetryPlayback = false
+                errorMessage = "La transmisión quedó cargando demasiado tiempo."
+                reconnectMessage = "No se pudo recuperar automáticamente. Prueba Reintentar o Reportar."
+                showControls = true
+            }
+        }
+    }
+
+    LaunchedEffect(player, currentChannel.streamUrl, isVodContent) {
+        if (isVodContent) {
+            return@LaunchedEffect
+        }
 
         var lastPositionMs = -1L
         var stuckSeconds = 0
@@ -295,6 +501,10 @@ fun PlayerScreen(
             if (moved) {
                 stuckSeconds = 0
                 healthyTicks += 1
+
+                if (healthyTicks >= 4) {
+                    autoRecoverAttempt = 0
+                }
             } else {
                 stuckSeconds += 3
                 healthyTicks = 0
@@ -302,15 +512,28 @@ fun PlayerScreen(
 
             lastPositionMs = positionMs
 
-            if (stuckSeconds >= 15) { // Si la imagen se congela por 15 segundos...
-                reconnectMessage = "Transmisión congelada. Reanudando señal..."
-                showControls = true
-                restartPlayback() // Hace el "salir y entrar" de forma interna
+            if (stuckSeconds >= 15) {
+                if (autoRecoverAttempt < 9999) {
+                    val nextAttempt = autoRecoverAttempt + 1
+                    autoRecoverAttempt = nextAttempt
+                    reconnectMessage = "La transmisión quedó congelada. Reconectando $nextAttempt/3..."
+                    showControls = true
+                    restartPlayback()
 
-                lastPositionMs = -1L
-                stuckSeconds = 0
-                healthyTicks = 0
-                delay(4000L)
+                    lastPositionMs = -1L
+                    stuckSeconds = 0
+                    healthyTicks = 0
+                    delay(5000L)
+                } else {
+                    shouldAutoRetryPlayback = false
+                    errorMessage = "La transmisión quedó congelada."
+                    reconnectMessage = "No se pudo recuperar automáticamente. Prueba Reintentar o Reportar."
+                    showControls = true
+
+                    lastPositionMs = -1L
+                    stuckSeconds = 0
+                    healthyTicks = 0
+                }
             }
         }
     }
