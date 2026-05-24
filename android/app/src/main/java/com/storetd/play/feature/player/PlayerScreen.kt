@@ -222,17 +222,26 @@ fun PlayerScreen(
         val renderersFactory = DefaultRenderersFactory(context)
             .setEnableDecoderFallback(true)
 
-        val loadControl = DefaultLoadControl.Builder()
+        // --- INICIO HACK ANTI-LAG 5MBPS ---
+        // 1. Selector Adaptativo: Baja la calidad automáticamente si el WiFi está lento (Para M3U8)
+        val trackSelector = androidx.media3.exoplayer.trackselection.DefaultTrackSelector(
+            context,
+            androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection.Factory()
+        )
+
+        // 2. Buffer Súper Glotón: Descarga hasta 2 minutos de video por adelantado en RAM
+        val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
             .setBufferDurationsMs(
-                8_000,
-                45_000,
-                1_200,
-                3_500
+                32_000,  // Mínimo de reserva: 32 segundos listos
+                120_000, // Máximo de reserva: ¡2 minutos! (Cura los micro-cortes)
+                2_500,   // Arranca al tener 2.5 seg
+                5_000    // Si hay un corte fuerte, espera reunir 5 seg para volver a arrancar suave
             )
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()
 
-        ExoPlayer.Builder(context, renderersFactory)
+        androidx.media3.exoplayer.ExoPlayer.Builder(context, renderersFactory)
+            .setTrackSelector(trackSelector)
             .setLoadControl(loadControl)
             .build()
             .apply {
