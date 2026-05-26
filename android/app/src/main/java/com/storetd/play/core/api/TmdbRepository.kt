@@ -25,9 +25,13 @@ class TmdbRepository {
             val match = yearRegex.find(name)
             val year = match?.groupValues?.get(1) ?: ""
             var cleanName = name.replace(yearRegex, "").trim()
+            
+            // FILTRO PRTV: Borrar prefijos numericos de las listas (ej: "09 Sniper" -> "Sniper")
+            val prefixRegex = Regex("^\\d+\\s*[\\.\\-\\|]?\\s*")
+            cleanName = cleanName.replace(prefixRegex, "").trim()
             if (isSeries) {
                 // Filtro mágico: Borra S01E01, 1x01, Temporada 1, etc solo para buscar en TMDB
-                val epRegex = Regex("(?i)(\\s*[-_]?\\s*(S\\d+\\s*E\\d+|T\\d+\\s*E\\d+|\\d+x\\d+|Temporada\\s*\\d+|Capitulo\\s*\\d+|Capítulo\\s*\\d+|Episodio\\s*\\d+|Cap\\s*\\d+|Ep\\s*\\d+).*)")
+                val epRegex = Regex("(?i)(\\s*[-_]?\\s*(S\\d+\\s*E\\d+|T\\d+\\s*E\\d+|\\d+x\\d+|Temporada\\s*\\d+|Capitulo\\s*\\d+|Capítulo\\s*\\d+|Episodio\\s*\\d+|Cap\\s*\\d+|Ep\\s*\\d+|T\\s*\\d+|S\\s*\\d+).*)")
                 cleanName = cleanName.replace(epRegex, "").trim()
             }
 
