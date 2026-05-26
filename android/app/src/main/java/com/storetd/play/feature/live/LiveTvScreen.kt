@@ -2630,7 +2630,7 @@ private fun buildSectionPlaylistUrl(
 
     val encodedCode = URLEncoder.encode(code, "UTF-8")
 
-    return "https://storetd-play-backend.onrender.com/playlist/proxy?code=$encodedCode&type=$type"
+    return "http://82.39.109.213/playlist/proxy?code=$encodedCode&type=$type"
 }
 
 
