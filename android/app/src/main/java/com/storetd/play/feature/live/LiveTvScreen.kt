@@ -931,6 +931,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                         groupName = groupInfo.second,
                         seriesCount = groupInfo.third,
                         requestInitialFocus = !showLazySearch && index == 0,
+                        focusToken = "series-source-groups|${selectedGroupKey ?: ""}|$seriesSearchText|${sourceGroups.size}",
                         onOpen = { onSelectSeriesGroup(groupInfo.first) }
                     )
                 }
@@ -960,6 +961,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                                             ) && index == 0
                                         )
                                 ),
+                        focusToken = "series-folders|${selectedGroupKey ?: ""}|$seriesSearchText|${visibleSeriesFolders.size}|${lastSeriesFocusKey ?: ""}",
                         onOpen = { onSelectSeries(folder.key) }
                     )
                 }
@@ -979,6 +981,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                     currentProgram = null,
                     nextProgram = null,
                     requestInitialFocus = index == 0,
+                    focusToken = "series-episodes|${selectedFolder.key}|${lazySeriesEpisodes.size}",
                     onSkipNext = lazySeriesEpisodes.getOrNull(index + 1)?.let { nextEpisode ->
                         { onPlay(nextEpisode, lazySeriesEpisodes) }
                     },
@@ -1698,15 +1701,18 @@ private fun SeriesSourceGroupRow(
     groupName: String,
     seriesCount: Int,
     requestInitialFocus: Boolean = false,
+    focusToken: String = "",
     onOpen: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
 
-    LaunchedEffect(requestInitialFocus, groupName) {
+    LaunchedEffect(requestInitialFocus, groupName, focusToken) {
         if (requestInitialFocus) {
-            delay(220)
-            runCatching { focusRequester.requestFocus() }
+            repeat(5) {
+                delay(180)
+                runCatching { focusRequester.requestFocus() }
+            }
         }
     }
 
@@ -1865,15 +1871,18 @@ private fun SeriesSourceGroupHeader(
 private fun SeriesFolderLiteRow(
     folder: OptimizedContentApi.SeriesFolderLite,
     requestInitialFocus: Boolean = false,
+    focusToken: String = "",
     onOpen: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
 
-    LaunchedEffect(requestInitialFocus, folder.key) {
+    LaunchedEffect(requestInitialFocus, folder.key, focusToken) {
         if (requestInitialFocus) {
-            delay(220)
-            runCatching { focusRequester.requestFocus() }
+            repeat(5) {
+                delay(180)
+                runCatching { focusRequester.requestFocus() }
+            }
         }
     }
 
@@ -2248,15 +2257,18 @@ private fun ChannelRow(
     currentProgram: EpgProgram?,
     nextProgram: EpgProgram?,
     requestInitialFocus: Boolean = false,
+    focusToken: String = "",
     onSkipNext: (() -> Unit)? = null,
     onPlay: () -> Unit
 ) {
     val rowFocusRequester = remember { FocusRequester() }
 
-    LaunchedEffect(requestInitialFocus, channel.streamUrl, channel.name) {
+    LaunchedEffect(requestInitialFocus, channel.streamUrl, channel.name, focusToken) {
         if (requestInitialFocus) {
-            delay(220)
-            runCatching { rowFocusRequester.requestFocus() }
+            repeat(5) {
+                delay(180)
+                runCatching { rowFocusRequester.requestFocus() }
+            }
         }
     }
 
