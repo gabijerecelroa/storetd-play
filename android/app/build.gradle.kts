@@ -39,8 +39,8 @@ android {
         applicationId = "com.storetd.play"
         minSdk = 23
         targetSdk = 36
-        versionCode = 45
-        versionName = "1.5.5"
+        versionCode = 46
+        versionName = "1.5.6"
 
         buildConfigField(
             "String",
