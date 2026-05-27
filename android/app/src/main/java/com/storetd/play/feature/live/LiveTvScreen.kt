@@ -1703,8 +1703,9 @@ private fun SeriesSourceGroupRow(
     var isFocused by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
 
-    LaunchedEffect(requestInitialFocus) {
+    LaunchedEffect(requestInitialFocus, groupName) {
         if (requestInitialFocus) {
+            delay(220)
             runCatching { focusRequester.requestFocus() }
         }
     }
@@ -1869,8 +1870,9 @@ private fun SeriesFolderLiteRow(
     var isFocused by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
 
-    LaunchedEffect(requestInitialFocus) {
+    LaunchedEffect(requestInitialFocus, folder.key) {
         if (requestInitialFocus) {
+            delay(220)
             runCatching { focusRequester.requestFocus() }
         }
     }
@@ -2251,8 +2253,9 @@ private fun ChannelRow(
 ) {
     val rowFocusRequester = remember { FocusRequester() }
 
-    LaunchedEffect(requestInitialFocus) {
+    LaunchedEffect(requestInitialFocus, channel.streamUrl, channel.name) {
         if (requestInitialFocus) {
+            delay(220)
             runCatching { rowFocusRequester.requestFocus() }
         }
     }
