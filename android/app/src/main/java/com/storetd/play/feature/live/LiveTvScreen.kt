@@ -19,7 +19,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -450,7 +450,7 @@ fun LiveTvScreen(
         }
     }
 
-    BoxWithConstraints(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
@@ -1079,7 +1079,7 @@ private fun PremiumSectionHeader(
                     MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
                 )
             ) {
-                BoxWithConstraints(
+                Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
@@ -1685,7 +1685,7 @@ private fun MovieCategoryLiteRow(
                     MaterialTheme.colorScheme.primary.copy(alpha = if (active) 0.55f else 0.20f)
                 )
             ) {
-                BoxWithConstraints(
+                Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
@@ -1889,7 +1889,7 @@ private fun SeriesSourceGroupRow(
                     MaterialTheme.colorScheme.secondary.copy(alpha = if (isFocused) 0.55f else 0.20f)
                 )
             ) {
-                BoxWithConstraints(
+                Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
@@ -2092,7 +2092,7 @@ private fun SeriesFolderLiteRow(
                     MaterialTheme.colorScheme.primary.copy(alpha = if (isFocused) 0.55f else 0.20f)
                 )
             ) {
-                BoxWithConstraints(
+                Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
