@@ -542,6 +542,7 @@ fun LiveTvScreen(
                         onRefresh = { refreshCurrentContent() },
                         refreshMessage = refreshMessage,
                         isRefreshing = state.isLoading || state.isFiltering || isLazySeriesLoading || isLazyMoviesLoading,
+                        disableRefreshFocus = contentMode == ContentMode.Series,
                         onBack = onBack
                     )
                 }
@@ -627,6 +628,7 @@ fun LiveTvScreen(
                         onRefresh = { refreshCurrentContent() },
                         refreshMessage = refreshMessage,
                         isRefreshing = state.isLoading || state.isFiltering || isLazySeriesLoading || isLazyMoviesLoading,
+                        disableRefreshFocus = contentMode == ContentMode.Series,
                         onBack = onBack
                     )
 
@@ -1075,6 +1077,7 @@ private fun ContentControls(
     onRefresh: () -> Unit,
     refreshMessage: String? = null,
     isRefreshing: Boolean = false,
+    disableRefreshFocus: Boolean = false,
     onBack: () -> Unit
 ) {
     Surface(
@@ -1122,8 +1125,10 @@ private fun ContentControls(
                 }
             }
 
-                        Surface(
-                modifier = Modifier
+                        val refreshButtonModifier = if (disableRefreshFocus) {
+                Modifier
+            } else {
+                Modifier
                     .onPreviewKeyEvent { event ->
                         if (event.type != KeyEventType.KeyDown) {
                             return@onPreviewKeyEvent false
@@ -1141,8 +1146,16 @@ private fun ContentControls(
                         }
                     }
                     .focusable()
-                    .clickable { onRefresh() },
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.92f),
+                    .clickable { onRefresh() }
+            }
+
+            Surface(
+                modifier = refreshButtonModifier,
+                color = if (disableRefreshFocus) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.32f)
+                } else {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.92f)
+                },
                 shape = RoundedCornerShape(999.dp),
                 border = BorderStroke(
                     1.dp,
