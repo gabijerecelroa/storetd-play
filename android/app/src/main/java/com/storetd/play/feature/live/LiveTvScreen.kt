@@ -2456,7 +2456,7 @@ private fun ChannelRow(
     LaunchedEffect(requestInitialFocus, channel.streamUrl, channel.name, focusToken) {
         if (requestInitialFocus) {
             repeat(5) {
-                delay(180)
+                delay(160)
                 runCatching { rowFocusRequester.requestFocus() }
             }
         }
@@ -2472,7 +2472,6 @@ private fun ChannelRow(
     LaunchedEffect(channel.streamUrl) {
         isReportedBroken = BrokenLinkStore.isReported(context, channel.streamUrl)
     }
-    val shape = RoundedCornerShape(22.dp)
 
     fun handlePlayRequest() {
         if (isReportedBroken) {
@@ -2481,6 +2480,9 @@ private fun ChannelRow(
             onPlay()
         }
     }
+
+    val active = focused
+    val shape = RoundedCornerShape(30.dp)
 
     Card(
         onClick = { handlePlayRequest() },
@@ -2501,182 +2503,175 @@ private fun ChannelRow(
                         true
                     }
 
+                    Key.DirectionRight -> {
+                        onSkipNext?.invoke()
+                        onSkipNext != null
+                    }
+
                     else -> false
                 }
             }
             .border(
-                width = if (focused) 4.dp else 1.dp,
-                color = if (focused) {
-                    MaterialTheme.colorScheme.primary
+                width = if (active) 3.dp else 1.dp,
+                color = if (active) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.95f)
                 } else {
                     MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
                 },
                 shape = shape
             )
-            .clip(shape)
-            .focusable()
-            .clickable { handlePlayRequest() },
+            .focusable(),
         colors = CardDefaults.cardColors(
-            containerColor = if (focused) {
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
-            } else if (isReportedBroken) {
-                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.32f)
+            containerColor = if (active) {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.24f)
             } else {
-                MaterialTheme.colorScheme.surfaceVariant
+                MaterialTheme.colorScheme.surface.copy(alpha = 0.64f)
             }
         ),
+        shape = shape,
         elevation = CardDefaults.cardElevation(
-            defaultElevation = if (focused) 12.dp else 4.dp
-        ),
-        shape = shape
+            defaultElevation = if (active) 14.dp else 4.dp
+        )
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            if (!channel.logoUrl.isNullOrBlank()) {
-                Image(
-                    painter = rememberAsyncImagePainter(channel.logoUrl),
-                    contentDescription = channel.name,
-                    modifier = Modifier.size(64.dp)
+            Surface(
+                modifier = Modifier.size(86.dp),
+                color = if (active) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.58f)
+                },
+                shape = RoundedCornerShape(26.dp),
+                border = BorderStroke(
+                    1.dp,
+                    if (active) {
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
+                    } else {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)
+                    }
                 )
-
-                Spacer(Modifier.width(16.dp))
+            ) {
+                if (!channel.logoUrl.isNullOrBlank()) {
+                    Image(
+                        painter = rememberAsyncImagePainter(channel.logoUrl),
+                        contentDescription = channel.name,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(12.dp)
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = channel.name.take(2).uppercase(Locale.getDefault()),
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                }
             }
 
-            Column(modifier = Modifier.weight(1f)) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(7.dp)
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (isReportedBroken) {
+                        ReportedBrokenChip()
+                    }
+
+                    Surface(
+                        color = if (active) {
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.64f)
+                        },
+                        shape = RoundedCornerShape(999.dp)
+                    ) {
+                        Text(
+                            text = channel.group.ifBlank { "Sin categoría" },
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.82f),
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
+                        )
+                    }
+                }
+
                 Text(
                     text = channel.name,
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.ExtraBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
 
-                if (isReportedBroken) {
-                    Spacer(Modifier.height(6.dp))
-                    ReportedBrokenChip()
+                val programText = when {
+                    currentProgram != null -> "Ahora: ${currentProgram.title}"
+                    nextProgram != null -> "Luego: ${nextProgram.title}"
+                    else -> "Listo para reproducir"
                 }
 
-                currentProgram?.let { program ->
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = "Ahora: ${program.title}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                nextProgram?.let { program ->
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = "Próximo ${formatLiveEpgTime(program.startAtMillis)}: ${program.title}",
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                Spacer(Modifier.height(8.dp))
-
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    item {
-                        AssistChip(
-                            onClick = {},
-                            label = { Text(channel.group) }
-                        )
-                    }
-
-                    item {
-                        AssistChip(
-                            onClick = {},
-                            label = { Text(if (focused) "OK para ver" else "Listo") }
-                        )
-                    }
-                }
+                Text(
+                    text = programText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
 
             Surface(
-                color = if (focused) {
+                color = if (active) {
                     MaterialTheme.colorScheme.primary
                 } else {
-                    MaterialTheme.colorScheme.surface
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.74f)
                 },
-                border = BorderStroke(
-                    1.dp,
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.70f)
-                ),
                 shape = RoundedCornerShape(999.dp)
             ) {
                 Text(
                     text = "Ver",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = if (focused) {
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (active) {
                         MaterialTheme.colorScheme.onPrimary
                     } else {
-                        MaterialTheme.colorScheme.primary
+                        MaterialTheme.colorScheme.onSurface
                     },
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 9.dp)
                 )
             }
         }
     }
+
     if (showReportedDialog) {
         AlertDialog(
             onDismissRequest = { showReportedDialog = false },
-            title = { Text("Este contenido fue reportado") },
+            title = { Text("Canal reportado") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Este enlace fue marcado como caído o no disponible en este dispositivo.")
-
-                    Button(
-                        onClick = {
-                            showReportedDialog = false
-                            onPlay()
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Reproducir igual")
-                    }
-
-                    if (onSkipNext != null) {
-                        OutlinedButton(
-                            onClick = {
-                                showReportedDialog = false
-                                onSkipNext()
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Siguiente")
-                        }
-                    }
-
-                    OutlinedButton(
-                        onClick = {
-                            BrokenLinkStore.clear(context, channel.streamUrl)
-                            isReportedBroken = false
-                            showReportedDialog = false
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Quitar marca local")
-                    }
-                }
+                Text("Este contenido fue marcado como caído. Revisalo desde el panel de enlaces reportados antes de reproducirlo.")
             },
-            confirmButton = {},
-            dismissButton = {
+            confirmButton = {
                 TextButton(onClick = { showReportedDialog = false }) {
-                    Text("Cancelar")
+                    Text("Entendido")
                 }
             }
         )
     }
-
 }
-
 
 private fun buildSeriesFolders(channels: List<Channel>): List<SeriesFolder> {
     if (channels.isEmpty()) return emptyList()
