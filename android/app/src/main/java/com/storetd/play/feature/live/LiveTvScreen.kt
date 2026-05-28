@@ -530,20 +530,10 @@ fun LiveTvScreen(
                 modifier = Modifier.fillMaxSize()
             ) {
                 item {
-                    ContentControls(
-                        state = state,
+                    PremiumSectionHeader(
                         mode = contentMode,
-                        onSearchChange = viewModel::setSearchQuery,
-                        onHideAdultChange = { hidden ->
-                            ParentalControl.setAdultContentHidden(context, hidden)
-                            viewModel.setHideAdultContent(hidden)
-                            refreshCurrentContent()
-                        },
-                        onRefresh = { refreshCurrentContent() },
                         refreshMessage = refreshMessage,
-                        isRefreshing = state.isLoading || state.isFiltering || isLazySeriesLoading || isLazyMoviesLoading,
-                        disableRefreshFocus = contentMode == ContentMode.Series,
-                        onBack = onBack
+                        isLoading = state.isLoading || state.isFiltering || isLazySeriesLoading || isLazyMoviesLoading
                     )
                 }
 
@@ -616,20 +606,10 @@ fun LiveTvScreen(
                         .width(360.dp)
                         .fillMaxHeight()
                 ) {
-                    ContentControls(
-                        state = state,
+                    PremiumSectionHeader(
                         mode = contentMode,
-                        onSearchChange = viewModel::setSearchQuery,
-                        onHideAdultChange = { hidden ->
-                            ParentalControl.setAdultContentHidden(context, hidden)
-                            viewModel.setHideAdultContent(hidden)
-                            refreshCurrentContent()
-                        },
-                        onRefresh = { refreshCurrentContent() },
                         refreshMessage = refreshMessage,
-                        isRefreshing = state.isLoading || state.isFiltering || isLazySeriesLoading || isLazyMoviesLoading,
-                        disableRefreshFocus = contentMode == ContentMode.Series,
-                        onBack = onBack
+                        isLoading = state.isLoading || state.isFiltering || isLazySeriesLoading || isLazyMoviesLoading
                     )
 
                     if (!usingLazyBackendContent) {
@@ -1069,17 +1049,11 @@ private fun LoadingSectionCard(
 }
 
 @Composable
-private fun ContentControls(
-    state: LiveTvUiState,
-    mode: ContentMode,
-    onSearchChange: (String) -> Unit,
-    onHideAdultChange: (Boolean) -> Unit,
-    onRefresh: () -> Unit,
-    refreshMessage: String? = null,
-    isRefreshing: Boolean = false,
-    disableRefreshFocus: Boolean = false,
-    onBack: () -> Unit
-) {
+private fun PremiumSectionHeader(
+private fun     mode = contentMode,
+private fun     refreshMessage = refreshMessage,
+private fun     isLoading = state.isLoading || state.isFiltering || isLazySeriesLoading || isLazyMoviesLoading
+private fun ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.52f),
