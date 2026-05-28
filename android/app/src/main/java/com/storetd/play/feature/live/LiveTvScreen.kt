@@ -2119,7 +2119,7 @@ private fun SeriesFolderLiteRow(
                 )
 
                 Text(
-                    text = "${folder.itemCount} capítulos / elementos · ${folder.group}",
+                    text = folder.group.ifBlank { "Serie" },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
                     fontWeight = FontWeight.SemiBold,
