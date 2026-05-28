@@ -1048,12 +1048,83 @@ private fun LoadingSectionCard(
     }
 }
 
+
 @Composable
 private fun PremiumSectionHeader(
-private fun     mode = contentMode,
-private fun     refreshMessage = refreshMessage,
-private fun     isLoading = state.isLoading || state.isFiltering || isLazySeriesLoading || isLazyMoviesLoading
-private fun ) {
+    mode: ContentMode,
+    refreshMessage: String? = null,
+    isLoading: Boolean = false
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.10f),
+        shape = RoundedCornerShape(30.dp),
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 22.dp, vertical = 18.dp),
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = mode.title,
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1
+                )
+
+                Text(
+                    text = when (mode) {
+                        ContentMode.LiveTv -> "Canales en vivo organizados por categoría"
+                        ContentMode.Movies -> "Películas organizadas por carpetas"
+                        ContentMode.Series -> "Series, temporadas y capítulos"
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                    maxLines = 1
+                )
+
+                refreshMessage?.let { message ->
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                }
+            }
+
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(26.dp),
+                    strokeWidth = 3.dp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ContentControls(
+    state: LiveTvUiState,
+    mode: ContentMode,
+    onSearchChange: (String) -> Unit,
+    onHideAdultChange: (Boolean) -> Unit,
+    onRefresh: () -> Unit,
+    refreshMessage: String? = null,
+    isRefreshing: Boolean = false,
+    disableRefreshFocus: Boolean = false,
+    onBack: () -> Unit
+) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.52f),
