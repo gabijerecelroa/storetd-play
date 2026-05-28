@@ -1057,39 +1057,68 @@ private fun PremiumSectionHeader(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.10f),
-        shape = RoundedCornerShape(30.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.16f),
+        shape = RoundedCornerShape(34.dp),
         border = BorderStroke(
             1.dp,
-            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f)
-        )
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+        ),
+        shadowElevation = 8.dp
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 22.dp, vertical = 18.dp),
-            horizontalArrangement = Arrangement.spacedBy(18.dp),
+            modifier = Modifier.padding(horizontal = 26.dp, vertical = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(22.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Surface(
+                modifier = Modifier.size(58.dp),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.22f),
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
+                )
+            ) {
+                BoxWithConstraints(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = when (mode) {
+                            ContentMode.LiveTv -> "TV"
+                            ContentMode.Movies -> "🎬"
+                            ContentMode.Series -> "S"
+                        },
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
+
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(5.dp)
             ) {
                 Text(
                     text = mode.title,
                     style = MaterialTheme.typography.headlineMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.ExtraBold,
-                    maxLines = 1
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
 
                 Text(
                     text = when (mode) {
-                        ContentMode.LiveTv -> "Canales en vivo organizados por categoría"
-                        ContentMode.Movies -> "Películas organizadas por carpetas"
-                        ContentMode.Series -> "Series, temporadas y capítulos"
+                        ContentMode.LiveTv -> "Canales en vivo con navegación optimizada para TV"
+                        ContentMode.Movies -> "Explorá películas por carpetas con una vista más inmersiva"
+                        ContentMode.Series -> "Series, temporadas y capítulos con selector optimizado"
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
-                    maxLines = 1
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
 
                 refreshMessage?.let { message ->
@@ -1105,13 +1134,14 @@ private fun PremiumSectionHeader(
 
             if (isLoading) {
                 CircularProgressIndicator(
-                    modifier = Modifier.size(26.dp),
+                    modifier = Modifier.size(28.dp),
                     strokeWidth = 3.dp
                 )
             }
         }
     }
 }
+
 
 @Composable
 private fun ContentControls(
@@ -1592,11 +1622,16 @@ private fun MovieCategoryLiteRow(
     var isFocused by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
 
-    LaunchedEffect(requestInitialFocus) {
+    LaunchedEffect(requestInitialFocus, category.key) {
         if (requestInitialFocus) {
-            runCatching { focusRequester.requestFocus() }
+            repeat(4) {
+                delay(150)
+                runCatching { focusRequester.requestFocus() }
+            }
         }
     }
+
+    val active = isFocused
 
     Surface(
         modifier = Modifier
@@ -1616,64 +1651,96 @@ private fun MovieCategoryLiteRow(
             }
             .focusable()
             .clickable { onOpen() },
-        color = if (isFocused) {
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.26f)
+        color = if (active) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)
         } else {
-            MaterialTheme.colorScheme.surface.copy(alpha = 0.58f)
+            MaterialTheme.colorScheme.surface.copy(alpha = 0.62f)
         },
-        shape = RoundedCornerShape(26.dp),
+        shape = RoundedCornerShape(30.dp),
         border = BorderStroke(
-            width = if (isFocused) 3.dp else 1.dp,
-            color = if (isFocused) {
-                MaterialTheme.colorScheme.error
+            width = if (active) 3.dp else 1.dp,
+            color = if (active) {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.95f)
             } else {
                 MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)
             }
         ),
-        shadowElevation = if (isFocused) 10.dp else 3.dp
+        shadowElevation = if (active) 14.dp else 4.dp
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+        Row(
+            modifier = Modifier.padding(horizontal = 22.dp, vertical = 18.dp),
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                color = MaterialTheme.colorScheme.primary.copy(alpha = if (isFocused) 0.95f else 0.16f),
-                shape = RoundedCornerShape(999.dp)
+                modifier = Modifier.size(64.dp),
+                color = if (active) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.60f)
+                },
+                shape = RoundedCornerShape(22.dp),
+                border = BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.primary.copy(alpha = if (active) 0.55f else 0.20f)
+                )
+            ) {
+                BoxWithConstraints(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "🎬",
+                        style = MaterialTheme.typography.headlineSmall
+                    )
+                }
+            }
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(7.dp)
             ) {
                 Text(
-                    text = "CARPETA DE PELÍCULAS",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (isFocused) {
-                        MaterialTheme.colorScheme.onPrimary
-                    } else {
-                        MaterialTheme.colorScheme.primary
-                    },
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    text = category.title,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Text(
+                    text = "${category.itemCount} películas disponibles",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1
                 )
             }
 
-            Text(
-                text = category.title,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Bold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Text(
-                text = "${category.itemCount} películas disponibles",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.76f),
-                fontWeight = FontWeight.SemiBold
-            )
+            Surface(
+                color = if (active) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)
+                },
+                shape = RoundedCornerShape(999.dp)
+            ) {
+                Text(
+                    text = "Abrir",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (active) {
+                        MaterialTheme.colorScheme.onPrimary
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
         }
     }
 }
-
-
-
 
 
 @Composable
@@ -1767,8 +1834,8 @@ private fun SeriesSourceGroupRow(
 
     LaunchedEffect(requestInitialFocus, groupName, focusToken) {
         if (requestInitialFocus) {
-            repeat(5) {
-                delay(180)
+            repeat(4) {
+                delay(150)
                 runCatching { focusRequester.requestFocus() }
             }
         }
@@ -1793,60 +1860,93 @@ private fun SeriesSourceGroupRow(
             .focusable()
             .clickable { onOpen() },
         color = if (isFocused) {
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)
+            MaterialTheme.colorScheme.secondary.copy(alpha = 0.30f)
         } else {
-            MaterialTheme.colorScheme.surface.copy(alpha = 0.58f)
+            MaterialTheme.colorScheme.surface.copy(alpha = 0.62f)
         },
-        shape = RoundedCornerShape(26.dp),
+        shape = RoundedCornerShape(30.dp),
         border = BorderStroke(
             width = if (isFocused) 3.dp else 1.dp,
             color = if (isFocused) {
-                MaterialTheme.colorScheme.error
+                MaterialTheme.colorScheme.secondary.copy(alpha = 0.95f)
             } else {
                 MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)
             }
         ),
-        shadowElevation = if (isFocused) 10.dp else 3.dp
+        shadowElevation = if (isFocused) 14.dp else 4.dp
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+        Row(
+            modifier = Modifier.padding(horizontal = 22.dp, vertical = 18.dp),
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                color = MaterialTheme.colorScheme.secondary.copy(alpha = if (isFocused) 0.95f else 0.18f),
-                shape = RoundedCornerShape(999.dp)
+                modifier = Modifier.size(64.dp),
+                color = MaterialTheme.colorScheme.secondary.copy(alpha = if (isFocused) 0.28f else 0.14f),
+                shape = RoundedCornerShape(22.dp),
+                border = BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.secondary.copy(alpha = if (isFocused) 0.55f else 0.20f)
+                )
+            ) {
+                BoxWithConstraints(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "S",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.secondary,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(7.dp)
             ) {
                 Text(
-                    text = "GRUPO DE SERIES",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (isFocused) {
-                        MaterialTheme.colorScheme.onSecondary
-                    } else {
-                        MaterialTheme.colorScheme.secondary
-                    },
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    text = groupName,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Text(
+                    text = "$seriesCount series disponibles",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                    fontWeight = FontWeight.SemiBold
                 )
             }
 
-            Text(
-                text = groupName,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Bold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Text(
-                text = "$seriesCount series disponibles",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.76f),
-                fontWeight = FontWeight.SemiBold
-            )
+            Surface(
+                color = if (isFocused) {
+                    MaterialTheme.colorScheme.secondary
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)
+                },
+                shape = RoundedCornerShape(999.dp)
+            ) {
+                Text(
+                    text = "Abrir",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (isFocused) {
+                        MaterialTheme.colorScheme.onSecondary
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
         }
     }
 }
+
 
 @Composable
 private fun SeriesSourceGroupHeader(
@@ -1938,7 +2038,7 @@ private fun SeriesFolderLiteRow(
     LaunchedEffect(requestInitialFocus, folder.key, focusToken) {
         if (requestInitialFocus) {
             repeat(5) {
-                delay(180)
+                delay(160)
                 runCatching { focusRequester.requestFocus() }
             }
         }
@@ -1963,63 +2063,94 @@ private fun SeriesFolderLiteRow(
             .focusable()
             .clickable { onOpen() },
         color = if (isFocused) {
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.26f)
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)
         } else {
-            MaterialTheme.colorScheme.surface.copy(alpha = 0.58f)
+            MaterialTheme.colorScheme.surface.copy(alpha = 0.62f)
         },
-        shape = RoundedCornerShape(26.dp),
+        shape = RoundedCornerShape(30.dp),
         border = BorderStroke(
             width = if (isFocused) 3.dp else 1.dp,
             color = if (isFocused) {
-                MaterialTheme.colorScheme.error
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.95f)
             } else {
                 MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)
             }
         ),
-        shadowElevation = if (isFocused) 10.dp else 3.dp
+        shadowElevation = if (isFocused) 14.dp else 4.dp
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+        Row(
+            modifier = Modifier.padding(horizontal = 22.dp, vertical = 18.dp),
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                color = MaterialTheme.colorScheme.secondary.copy(alpha = if (isFocused) 0.95f else 0.18f),
-                shape = RoundedCornerShape(999.dp)
+                modifier = Modifier.size(68.dp),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = if (isFocused) 0.28f else 0.14f),
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.primary.copy(alpha = if (isFocused) 0.55f else 0.20f)
+                )
+            ) {
+                BoxWithConstraints(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "▶",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(7.dp)
             ) {
                 Text(
-                    text = folder.group.ifBlank { "CARPETA DE SERIE" },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (isFocused) {
-                        MaterialTheme.colorScheme.onSecondary
-                    } else {
-                        MaterialTheme.colorScheme.secondary
-                    },
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    text = folder.title,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Text(
+                    text = "${folder.itemCount} capítulos / elementos · ${folder.group}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 
-            Text(
-                text = folder.title,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Bold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Text(
-                text = "Ver capítulos",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.76f),
-                fontWeight = FontWeight.SemiBold
-            )
+            Surface(
+                color = if (isFocused) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)
+                },
+                shape = RoundedCornerShape(999.dp)
+            ) {
+                Text(
+                    text = "Ver",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (isFocused) {
+                        MaterialTheme.colorScheme.onPrimary
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
         }
     }
 }
-
-
-
 
 
 @Composable
