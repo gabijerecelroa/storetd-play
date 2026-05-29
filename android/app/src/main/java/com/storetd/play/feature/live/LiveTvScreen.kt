@@ -890,6 +890,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                         currentProgram = null,
                         nextProgram = null,
                         requestInitialFocus = false,
+                        onFocusPreview = { focusedItem ->
+                            onHeroChannel(focusedItem)
+                            onHeroText(null, null)
+                        },
                         onSkipNext = visibleMovieResults.getOrNull(index + 1)?.let { nextMovie ->
                             { onPlay(nextMovie, visibleMovieResults) }
                         },
@@ -911,6 +915,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                     currentProgram = null,
                     nextProgram = null,
                     requestInitialFocus = index == 0,
+                    onFocusPreview = { focusedItem ->
+                        onHeroChannel(focusedItem)
+                        onHeroText(null, null)
+                    },
                     onSkipNext = lazyMovieItems.getOrNull(index + 1)?.let { nextMovie ->
                         { onPlay(nextMovie, lazyMovieItems) }
                     },
@@ -1048,6 +1056,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                     nextProgram = null,
                     requestInitialFocus = index == 0,
                     focusToken = "series-episodes|${selectedFolder.key}|${lazySeriesEpisodes.size}",
+                    onFocusPreview = { focusedItem ->
+                        onHeroChannel(focusedItem)
+                        onHeroText(null, null)
+                    },
                     onSkipNext = lazySeriesEpisodes.getOrNull(index + 1)?.let { nextEpisode ->
                         { onPlay(nextEpisode, lazySeriesEpisodes) }
                     },
@@ -1065,6 +1077,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                 channel = channel,
                 currentProgram = null,
                 nextProgram = null,
+                onFocusPreview = { focusedItem ->
+                    onHeroChannel(focusedItem)
+                    onHeroText(null, null)
+                },
                 onSkipNext = state.visibleChannels.getOrNull(index + 1)?.let { nextChannel ->
                     { onPlay(nextChannel, state.visibleChannels) }
                 },
@@ -1105,6 +1121,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                 channel = episode,
                 currentProgram = null,
                 nextProgram = null,
+                onFocusPreview = { focusedItem ->
+                    onHeroChannel(focusedItem)
+                    onHeroText(null, null)
+                },
                 onSkipNext = selectedFolder.episodes.getOrNull(index + 1)?.let { nextEpisode ->
                     { onPlay(nextEpisode, selectedFolder.episodes) }
                 },
@@ -2071,7 +2091,7 @@ private fun SeriesSourceGroupRow(
             .focusable()
             .clickable { onOpen() },
         color = if (isFocused) {
-            MaterialTheme.colorScheme.secondary.copy(alpha = 0.30f)
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)
         } else {
             MaterialTheme.colorScheme.surface.copy(alpha = 0.62f)
         },
@@ -2079,7 +2099,7 @@ private fun SeriesSourceGroupRow(
         border = BorderStroke(
             width = if (isFocused) 3.dp else 1.dp,
             color = if (isFocused) {
-                MaterialTheme.colorScheme.secondary.copy(alpha = 0.95f)
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.95f)
             } else {
                 MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)
             }
@@ -2093,11 +2113,11 @@ private fun SeriesSourceGroupRow(
         ) {
             Surface(
                 modifier = Modifier.size(64.dp),
-                color = MaterialTheme.colorScheme.secondary.copy(alpha = if (isFocused) 0.28f else 0.14f),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = if (isFocused) 0.28f else 0.14f),
                 shape = RoundedCornerShape(22.dp),
                 border = BorderStroke(
                     1.dp,
-                    MaterialTheme.colorScheme.secondary.copy(alpha = if (isFocused) 0.55f else 0.20f)
+                    MaterialTheme.colorScheme.primary.copy(alpha = if (isFocused) 0.55f else 0.20f)
                 )
             ) {
                 Box(
@@ -2107,7 +2127,7 @@ private fun SeriesSourceGroupRow(
                     Text(
                         text = "S",
                         style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.secondary,
+                        color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.ExtraBold
                     )
                 }
@@ -2136,7 +2156,7 @@ private fun SeriesSourceGroupRow(
 
             Surface(
                 color = if (isFocused) {
-                    MaterialTheme.colorScheme.secondary
+                    MaterialTheme.colorScheme.primary
                 } else {
                     MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)
                 },
@@ -2146,7 +2166,7 @@ private fun SeriesSourceGroupRow(
                     text = "Abrir",
                     style = MaterialTheme.typography.labelLarge,
                     color = if (isFocused) {
-                        MaterialTheme.colorScheme.onSecondary
+                        MaterialTheme.colorScheme.onPrimary
                     } else {
                         MaterialTheme.colorScheme.onSurface
                     },
