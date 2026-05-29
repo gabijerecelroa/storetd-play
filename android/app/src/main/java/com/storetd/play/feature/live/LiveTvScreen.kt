@@ -118,6 +118,9 @@ fun LiveTvScreen(
     var lazySearchQuery by remember(contentMode) { mutableStateOf("") }
     var lazyRefreshToken by remember(contentMode) { mutableStateOf(0) }
     var refreshMessage by remember(contentMode) { mutableStateOf<String?>(null) }
+    var heroChannel by remember(contentMode) { mutableStateOf<Channel?>(null) }
+    var heroTitleOverride by remember(contentMode) { mutableStateOf<String?>(null) }
+    var heroSubtitleOverride by remember(contentMode) { mutableStateOf<String?>(null) }
 
     var lazySeriesFolders by remember(contentMode) {
         mutableStateOf<List<OptimizedContentApi.SeriesFolderLite>>(emptyList())
@@ -146,6 +149,18 @@ fun LiveTvScreen(
     }
 
     val refreshScope = rememberCoroutineScope()
+
+    fun updateHeroFromChannel(channel: Channel?) {
+        heroChannel = channel
+        heroTitleOverride = null
+        heroSubtitleOverride = null
+    }
+
+    fun updateHeroText(title: String?, subtitle: String?) {
+        heroChannel = null
+        heroTitleOverride = title
+        heroSubtitleOverride = subtitle
+    }
 
     fun refreshCurrentContent() {
         val account = LocalAccount.getAccount(context)
@@ -541,12 +556,12 @@ fun LiveTvScreen(
 
                     PremiumHeroPanel(
                         mode = contentMode,
-                        titleOverride = when (contentMode) {
+                        titleOverride = heroTitleOverride ?: when (contentMode) {
                             ContentMode.Movies -> lazyMovieCategories.firstOrNull { it.key == selectedMovieCategoryKey }?.title
                             ContentMode.Series -> lazySeriesFolders.firstOrNull { it.key == selectedSeriesKey }?.title ?: selectedSeriesGroup?.takeIf { it.isNotBlank() && it != "__all_series__" }
                             ContentMode.LiveTv -> null
                         },
-                        subtitleOverride = when (contentMode) {
+                        subtitleOverride = heroTitleOverride ?: when (contentMode) {
                             ContentMode.LiveTv -> "${state.visibleChannels.size} canales disponibles"
                             ContentMode.Movies -> if (selectedMovieCategoryKey == null) "${lazyMovieCategories.size} carpetas de películas" else "${lazyMovieItems.size} películas disponibles"
                             ContentMode.Series -> when {
@@ -555,7 +570,7 @@ fun LiveTvScreen(
                                 else -> "${lazySeriesFolders.count { it.group == selectedSeriesGroup }} series disponibles"
                             }
                         },
-                        channel = when (contentMode) {
+                        channel = heroChannel ?: when (contentMode) {
                             ContentMode.LiveTv -> state.visibleChannels.firstOrNull()
                             ContentMode.Movies -> lazyMovieItems.firstOrNull() ?: lazyMovieSearchItems.firstOrNull()
                             ContentMode.Series -> lazySeriesEpisodes.firstOrNull()
@@ -622,6 +637,8 @@ fun LiveTvScreen(
                         }
                         showLazySearch = !showLazySearch
                     },
+                    onHeroChannel = { updateHeroFromChannel(it) },
+                    onHeroText = { title, subtitle -> updateHeroText(title, subtitle) },
                     onPlay = onPlay
                 )
             }
@@ -642,12 +659,12 @@ fun LiveTvScreen(
 
                     PremiumHeroPanel(
                         mode = contentMode,
-                        titleOverride = when (contentMode) {
+                        titleOverride = heroTitleOverride ?: when (contentMode) {
                             ContentMode.Movies -> lazyMovieCategories.firstOrNull { it.key == selectedMovieCategoryKey }?.title
                             ContentMode.Series -> lazySeriesFolders.firstOrNull { it.key == selectedSeriesKey }?.title ?: selectedSeriesGroup?.takeIf { it.isNotBlank() && it != "__all_series__" }
                             ContentMode.LiveTv -> null
                         },
-                        subtitleOverride = when (contentMode) {
+                        subtitleOverride = heroTitleOverride ?: when (contentMode) {
                             ContentMode.LiveTv -> "${state.visibleChannels.size} canales disponibles"
                             ContentMode.Movies -> if (selectedMovieCategoryKey == null) "${lazyMovieCategories.size} carpetas de películas" else "${lazyMovieItems.size} películas disponibles"
                             ContentMode.Series -> when {
@@ -656,7 +673,7 @@ fun LiveTvScreen(
                                 else -> "${lazySeriesFolders.count { it.group == selectedSeriesGroup }} series disponibles"
                             }
                         },
-                        channel = when (contentMode) {
+                        channel = heroChannel ?: when (contentMode) {
                             ContentMode.LiveTv -> state.visibleChannels.firstOrNull()
                             ContentMode.Movies -> lazyMovieItems.firstOrNull() ?: lazyMovieSearchItems.firstOrNull()
                             ContentMode.Series -> lazySeriesEpisodes.firstOrNull()
@@ -732,6 +749,8 @@ fun LiveTvScreen(
                         }
                         showLazySearch = !showLazySearch
                     },
+                    onHeroChannel = { updateHeroFromChannel(it) },
+                    onHeroText = { title, subtitle -> updateHeroText(title, subtitle) },
                     onPlay = onPlay
                     )
                 }
@@ -766,6 +785,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
     lazySearchQuery: String,
     onLazySearchQueryChange: (String) -> Unit,
     onToggleLazySearch: () -> Unit,
+    onHeroChannel: (Channel?) -> Unit,
+    onHeroText: (String?, String?) -> Unit,
     onPlay: (Channel, List<Channel>) -> Unit
 ) {
     if (state.isLoading || state.isFiltering) {
@@ -839,6 +860,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                                             ) && index == 0
                                         )
                                 ),
+                        onFocusPreview = {
+                            onHeroText(category.title, "${category.itemCount} películas disponibles")
+                            onHeroChannel(null)
+                        },
                         onOpen = { onSelectMovieCategory(category.key) }
                     )
                 }
@@ -965,6 +990,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                         seriesCount = groupInfo.third,
                         requestInitialFocus = !showLazySearch && index == 0,
                         focusToken = "series-source-groups|${selectedGroupKey ?: ""}|$seriesSearchText|${sourceGroups.size}",
+                        onFocusPreview = {
+                            onHeroText(groupInfo.second, "${groupInfo.third} series disponibles")
+                            onHeroChannel(null)
+                        },
                         onOpen = { onSelectSeriesGroup(groupInfo.first) }
                     )
                 }
@@ -995,6 +1024,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                                         )
                                 ),
                         focusToken = "series-folders|${selectedGroupKey ?: ""}|$seriesSearchText|${visibleSeriesFolders.size}|${lastSeriesFocusKey ?: ""}",
+                        onFocusPreview = {
+                            onHeroText(folder.title, folder.group.ifBlank { "Series" })
+                            onHeroChannel(null)
+                        },
                         onOpen = { onSelectSeries(folder.key) }
                     )
                 }
@@ -1787,6 +1820,7 @@ private fun LazySearchHeader(
 private fun MovieCategoryLiteRow(
     category: OptimizedContentApi.MovieCategoryLite,
     requestInitialFocus: Boolean = false,
+    onFocusPreview: (() -> Unit)? = null,
     onOpen: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
@@ -1807,7 +1841,10 @@ private fun MovieCategoryLiteRow(
         modifier = Modifier
             .fillMaxWidth()
             .focusRequester(focusRequester)
-            .onFocusChanged { isFocused = it.isFocused || it.hasFocus }
+            .onFocusChanged { focusState ->
+                isFocused = focusState.isFocused || focusState.hasFocus
+                if (isFocused) onFocusPreview?.invoke()
+            }
             .onPreviewKeyEvent { event ->
                 if (
                     event.type == KeyEventType.KeyUp &&
@@ -1997,6 +2034,7 @@ private fun SeriesSourceGroupRow(
     seriesCount: Int,
     requestInitialFocus: Boolean = false,
     focusToken: String = "",
+    onFocusPreview: (() -> Unit)? = null,
     onOpen: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
@@ -2015,7 +2053,10 @@ private fun SeriesSourceGroupRow(
         modifier = Modifier
             .fillMaxWidth()
             .focusRequester(focusRequester)
-            .onFocusChanged { isFocused = it.isFocused || it.hasFocus }
+            .onFocusChanged { focusState ->
+                isFocused = focusState.isFocused || focusState.hasFocus
+                if (isFocused) onFocusPreview?.invoke()
+            }
             .onPreviewKeyEvent { event ->
                 if (
                     event.type == KeyEventType.KeyUp &&
@@ -2200,6 +2241,7 @@ private fun SeriesFolderLiteRow(
     folder: OptimizedContentApi.SeriesFolderLite,
     requestInitialFocus: Boolean = false,
     focusToken: String = "",
+    onFocusPreview: (() -> Unit)? = null,
     onOpen: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
@@ -2218,7 +2260,10 @@ private fun SeriesFolderLiteRow(
         modifier = Modifier
             .fillMaxWidth()
             .focusRequester(focusRequester)
-            .onFocusChanged { isFocused = it.isFocused || it.hasFocus }
+            .onFocusChanged { focusState ->
+                isFocused = focusState.isFocused || focusState.hasFocus
+                if (isFocused) onFocusPreview?.invoke()
+            }
             .onPreviewKeyEvent { event ->
                 if (
                     event.type == KeyEventType.KeyUp &&
@@ -2618,6 +2663,7 @@ private fun ChannelRow(
     requestInitialFocus: Boolean = false,
     focusToken: String = "",
     onSkipNext: (() -> Unit)? = null,
+    onFocusPreview: ((Channel) -> Unit)? = null,
     onPlay: () -> Unit
 ) {
     val rowFocusRequester = remember { FocusRequester() }
@@ -2658,7 +2704,10 @@ private fun ChannelRow(
         modifier = Modifier
             .fillMaxWidth()
             .focusRequester(rowFocusRequester)
-            .onFocusChanged { focused = it.isFocused || it.hasFocus }
+            .onFocusChanged { focusState ->
+                focused = focusState.isFocused || focusState.hasFocus
+                if (focused) onFocusPreview?.invoke(channel)
+            }
             .onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) {
                     return@onPreviewKeyEvent false
