@@ -536,6 +536,31 @@ fun LiveTvScreen(
                         refreshMessage = refreshMessage,
                         isLoading = state.isLoading || state.isFiltering || isLazySeriesLoading || isLazyMoviesLoading
                     )
+
+                    Spacer(Modifier.height(16.dp))
+
+                    PremiumHeroPanel(
+                        mode = contentMode,
+                        titleOverride = when (contentMode) {
+                            ContentMode.Movies -> lazyMovieCategories.firstOrNull { it.key == selectedMovieCategoryKey }?.title
+                            ContentMode.Series -> lazySeriesFolders.firstOrNull { it.key == selectedSeriesKey }?.title ?: selectedSeriesGroup?.takeIf { it.isNotBlank() && it != "__all_series__" }
+                            ContentMode.LiveTv -> null
+                        },
+                        subtitleOverride = when (contentMode) {
+                            ContentMode.LiveTv -> "${state.visibleChannels.size} canales disponibles"
+                            ContentMode.Movies -> if (selectedMovieCategoryKey == null) "${lazyMovieCategories.size} carpetas de películas" else "${lazyMovieItems.size} películas disponibles"
+                            ContentMode.Series -> when {
+                                selectedSeriesKey != null -> "${lazySeriesEpisodes.size} capítulos disponibles"
+                                selectedSeriesGroup == null || selectedSeriesGroup == "__all_series__" -> "${lazySeriesFolders.size} series disponibles"
+                                else -> "${lazySeriesFolders.count { it.group == selectedSeriesGroup }} series disponibles"
+                            }
+                        },
+                        channel = when (contentMode) {
+                            ContentMode.LiveTv -> state.visibleChannels.firstOrNull()
+                            ContentMode.Movies -> lazyMovieItems.firstOrNull() ?: lazyMovieSearchItems.firstOrNull()
+                            ContentMode.Series -> lazySeriesEpisodes.firstOrNull()
+                        }
+                    )
                 }
 
                 if (!usingLazyBackendContent) {
@@ -611,6 +636,31 @@ fun LiveTvScreen(
                         mode = contentMode,
                         refreshMessage = refreshMessage,
                         isLoading = state.isLoading || state.isFiltering || isLazySeriesLoading || isLazyMoviesLoading
+                    )
+
+                    Spacer(Modifier.height(16.dp))
+
+                    PremiumHeroPanel(
+                        mode = contentMode,
+                        titleOverride = when (contentMode) {
+                            ContentMode.Movies -> lazyMovieCategories.firstOrNull { it.key == selectedMovieCategoryKey }?.title
+                            ContentMode.Series -> lazySeriesFolders.firstOrNull { it.key == selectedSeriesKey }?.title ?: selectedSeriesGroup?.takeIf { it.isNotBlank() && it != "__all_series__" }
+                            ContentMode.LiveTv -> null
+                        },
+                        subtitleOverride = when (contentMode) {
+                            ContentMode.LiveTv -> "${state.visibleChannels.size} canales disponibles"
+                            ContentMode.Movies -> if (selectedMovieCategoryKey == null) "${lazyMovieCategories.size} carpetas de películas" else "${lazyMovieItems.size} películas disponibles"
+                            ContentMode.Series -> when {
+                                selectedSeriesKey != null -> "${lazySeriesEpisodes.size} capítulos disponibles"
+                                selectedSeriesGroup == null || selectedSeriesGroup == "__all_series__" -> "${lazySeriesFolders.size} series disponibles"
+                                else -> "${lazySeriesFolders.count { it.group == selectedSeriesGroup }} series disponibles"
+                            }
+                        },
+                        channel = when (contentMode) {
+                            ContentMode.LiveTv -> state.visibleChannels.firstOrNull()
+                            ContentMode.Movies -> lazyMovieItems.firstOrNull() ?: lazyMovieSearchItems.firstOrNull()
+                            ContentMode.Series -> lazySeriesEpisodes.firstOrNull()
+                        }
                     )
 
                     if (!usingLazyBackendContent) {
@@ -1049,6 +1099,125 @@ private fun LoadingSectionCard(
     }
 }
 
+
+
+@Composable
+private fun PremiumHeroPanel(
+    mode: ContentMode,
+    titleOverride: String? = null,
+    subtitleOverride: String? = null,
+    channel: Channel? = null
+) {
+    val title = titleOverride?.takeIf { it.isNotBlank() }
+        ?: channel?.name?.takeIf { it.isNotBlank() }
+        ?: when (mode) {
+            ContentMode.LiveTv -> "TV en vivo"
+            ContentMode.Movies -> "Películas"
+            ContentMode.Series -> "Series"
+        }
+
+    val subtitle = subtitleOverride?.takeIf { it.isNotBlank() }
+        ?: channel?.group?.takeIf { it.isNotBlank() }
+        ?: when (mode) {
+            ContentMode.LiveTv -> "Canales organizados para reproducción inmediata"
+            ContentMode.Movies -> "Exploración visual de contenido VOD"
+            ContentMode.Series -> "Temporadas, carpetas y capítulos"
+        }
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 150.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.18f),
+        shape = RoundedCornerShape(36.dp),
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+        ),
+        shadowElevation = 10.dp
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 26.dp, vertical = 22.dp),
+            horizontalArrangement = Arrangement.spacedBy(24.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                modifier = Modifier.size(104.dp),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                shape = RoundedCornerShape(30.dp),
+                border = BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.32f)
+                )
+            ) {
+                if (!channel?.logoUrl.isNullOrBlank()) {
+                    Image(
+                        painter = rememberAsyncImagePainter(channel!!.logoUrl),
+                        contentDescription = title,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp)
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = when (mode) {
+                                ContentMode.LiveTv -> "TV"
+                                ContentMode.Movies -> "🎬"
+                                ContentMode.Series -> "S"
+                            },
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                }
+            }
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(9.dp)
+            ) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                    shape = RoundedCornerShape(999.dp)
+                ) {
+                    Text(
+                        text = when (mode) {
+                            ContentMode.LiveTv -> "EN VIVO"
+                            ContentMode.Movies -> "VOD"
+                            ContentMode.Series -> "SERIES"
+                        },
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.ExtraBold,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
+                    )
+                }
+
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.74f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
 
 @Composable
 private fun PremiumSectionHeader(
