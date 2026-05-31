@@ -134,11 +134,6 @@ class LiveTvViewModel(
         val mode = _uiState.value.contentMode
         val key = cacheKey(cleanUrl, mode)
 
-        if (mode == ContentMode.LiveTv) {
-            loadOptimizedLiveFromBackend(appContext, cleanUrl)
-            return
-        }
-
         screenStateCache[key]?.let { cachedState ->
             if (cachedState.channels.isNotEmpty()) {
                 _uiState.value = cachedState.copy(
@@ -208,6 +203,11 @@ class LiveTvViewModel(
 
             _uiState.value = cachedState
             saveScreenState(cachedState)
+            return
+        }
+
+        if (mode == ContentMode.LiveTv) {
+            loadOptimizedLiveFromBackend(appContext, cleanUrl)
             return
         }
 

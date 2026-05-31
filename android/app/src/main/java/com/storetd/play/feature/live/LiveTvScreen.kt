@@ -98,6 +98,40 @@ private data class SeriesFolder(
     val episodes: List<Channel>
 )
 
+private object PremiumContentSessionCache {
+    private val seriesFolders = mutableMapOf<String, List<OptimizedContentApi.SeriesFolderLite>>()
+    private val movieCategories = mutableMapOf<String, List<OptimizedContentApi.MovieCategoryLite>>()
+
+    fun key(
+        activationCode: String,
+        includeAdult: Boolean
+    ): String = activationCode.trim().uppercase(Locale.getDefault()) + "|adult=" + includeAdult
+
+    fun getSeriesFolders(key: String): List<OptimizedContentApi.SeriesFolderLite>? =
+        seriesFolders[key]?.takeIf { it.isNotEmpty() }
+
+    fun putSeriesFolders(key: String, value: List<OptimizedContentApi.SeriesFolderLite>) {
+        if (value.isNotEmpty()) {
+            seriesFolders[key] = value
+        }
+    }
+
+    fun getMovieCategories(key: String): List<OptimizedContentApi.MovieCategoryLite>? =
+        movieCategories[key]?.takeIf { it.isNotEmpty() }
+
+    fun putMovieCategories(key: String, value: List<OptimizedContentApi.MovieCategoryLite>) {
+        if (value.isNotEmpty()) {
+            movieCategories[key] = value
+        }
+    }
+
+    fun clearForCode(activationCode: String) {
+        val prefix = activationCode.trim().uppercase(Locale.getDefault()) + "|"
+        seriesFolders.keys.removeAll { it.startsWith(prefix) }
+        movieCategories.keys.removeAll { it.startsWith(prefix) }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LiveTvScreen(
@@ -152,6 +186,7 @@ fun LiveTvScreen(
         val activationCode = account.activationCode.trim()
 
         refreshMessage = "Actualizando contenido..."
+        PremiumContentSessionCache.clearForCode(activationCode)
         LocalSettings.markContentSyncStarted(context.applicationContext)
 
         if (
@@ -297,9 +332,7 @@ fun LiveTvScreen(
         lastMovieCategoryFocusKey = null
         showLazySearch = false
         lazySearchQuery = ""
-        lazySeriesFolders = emptyList()
         lazySeriesEpisodes = emptyList()
-        lazyMovieCategories = emptyList()
         lazyMovieItems = emptyList()
         isLazySeriesLoading = false
         isLazyMoviesLoading = false
@@ -309,38 +342,58 @@ fun LiveTvScreen(
 
         val account = LocalAccount.getAccount(context)
         val activationCode = account.activationCode.trim()
+        val includeAdult = !ParentalControl.isAdultContentHidden(context)
+        val sessionCacheKey = PremiumContentSessionCache.key(activationCode, includeAdult)
 
         if (activationCode.isNotBlank() && contentMode == ContentMode.Series) {
+            if (lazyRefreshToken == 0) {
+                PremiumContentSessionCache.getSeriesFolders(sessionCacheKey)?.let { cachedFolders ->
+                    lazySeriesFolders = cachedFolders
+                    isLazySeriesLoading = false
+                    return@LaunchedEffect
+                }
+            }
+
             isLazySeriesLoading = true
             val folders = withContext(Dispatchers.IO) {
                 runCatching {
                     OptimizedContentApi.loadSeriesFoldersLite(
                         activationCode = activationCode,
-                        includeAdult = !ParentalControl.isAdultContentHidden(context)
+                        includeAdult = includeAdult
                     )
                 }.getOrDefault(emptyList())
             }
             isLazySeriesLoading = false
 
             if (folders.isNotEmpty()) {
+                PremiumContentSessionCache.putSeriesFolders(sessionCacheKey, folders)
                 lazySeriesFolders = folders
                 return@LaunchedEffect
             }
         }
 
         if (activationCode.isNotBlank() && contentMode == ContentMode.Movies) {
+            if (lazyRefreshToken == 0) {
+                PremiumContentSessionCache.getMovieCategories(sessionCacheKey)?.let { cachedCategories ->
+                    lazyMovieCategories = cachedCategories
+                    isLazyMoviesLoading = false
+                    return@LaunchedEffect
+                }
+            }
+
             isLazyMoviesLoading = true
             val categories = withContext(Dispatchers.IO) {
                 runCatching {
                     OptimizedContentApi.loadMovieCategoriesLite(
                         activationCode = activationCode,
-                        includeAdult = !ParentalControl.isAdultContentHidden(context)
+                        includeAdult = includeAdult
                     )
                 }.getOrDefault(emptyList())
             }
             isLazyMoviesLoading = false
 
             if (categories.isNotEmpty()) {
+                PremiumContentSessionCache.putMovieCategories(sessionCacheKey, categories)
                 lazyMovieCategories = categories
                 return@LaunchedEffect
             }
