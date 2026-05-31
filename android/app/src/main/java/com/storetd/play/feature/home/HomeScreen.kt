@@ -426,7 +426,7 @@ fun HomeScreen(
             .navigationBarsPadding()
             .padding(30.dp)
     ) {
-        val isTvWide = maxWidth >= 700.dp
+        val isTvWide = maxWidth >= 900.dp && maxHeight >= 480.dp
 
         if (isTvWide) {
             HomeGlobalRefreshCard(
@@ -743,7 +743,7 @@ private fun TvHomeCard(
 
     Surface(
         modifier = modifier
-            .height(196.dp)
+            .height(176.dp)
             .focusRequester(focusRequester)
             .onFocusChanged { focused = it.isFocused || it.hasFocus }
             .onPreviewKeyEvent { event ->

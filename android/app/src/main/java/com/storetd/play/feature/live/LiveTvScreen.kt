@@ -511,7 +511,7 @@ fun LiveTvScreen(
             .navigationBarsPadding()
             .padding(20.dp)
     ) {
-        val isCompact = maxWidth < 700.dp
+        val isCompact = maxWidth < 900.dp || maxHeight < 480.dp
         val usingLazyBackendContent =
             contentMode == ContentMode.Series || contentMode == ContentMode.Movies
 
@@ -1592,7 +1592,7 @@ private fun CategoryRow(
                             },
                             fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold,
                             maxLines = 2,
-                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 17.dp)
+                            modifier = Modifier.padding(horizontal = 22.dp, vertical = 14.dp)
                         )
                     }
                 }
@@ -2761,7 +2761,7 @@ private fun ChannelRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                modifier = Modifier.size(102.dp),
+                modifier = Modifier.size(96.dp),
                 color = if (active) {
                     MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
                 } else {
