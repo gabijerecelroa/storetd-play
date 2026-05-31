@@ -56,6 +56,7 @@ import androidx.compose.material3.TextButton
 import com.storetd.play.core.network.AppUpdateApi
 import com.storetd.play.core.network.AppUpdateInfo
 import com.storetd.play.core.update.AppUpdateDownloader
+import androidx.compose.ui.unit.dp
 @Composable
 fun StoreTdPlayNavHost() {
     val navController = rememberNavController()
