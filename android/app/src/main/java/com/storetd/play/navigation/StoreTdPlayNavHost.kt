@@ -47,6 +47,15 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import com.storetd.play.core.network.AppUpdateApi
+import com.storetd.play.core.network.AppUpdateInfo
+import com.storetd.play.core.update.AppUpdateDownloader
 @Composable
 fun StoreTdPlayNavHost() {
     val navController = rememberNavController()
@@ -183,6 +192,8 @@ fun checkAccountStatus() {
         )
         return
     }
+
+    GlobalAppUpdateGate(enabled = LocalAccount.isActivated(context))
 
     NavHost(navController = navController, startDestination = startDestination) {
         composable(Routes.Activation) {
@@ -401,3 +412,110 @@ composable(
         }
     }
 }
+
+@Composable
+private fun GlobalAppUpdateGate(
+    enabled: Boolean
+) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val scope = rememberCoroutineScope()
+
+    var appUpdateInfo by remember { mutableStateOf<AppUpdateInfo?>(null) }
+    var showAppUpdateDialog by remember { mutableStateOf(false) }
+    var checkingUpdate by remember { mutableStateOf(false) }
+
+    fun checkForUpdate() {
+        if (!enabled || checkingUpdate) return
+
+        checkingUpdate = true
+
+        scope.launch {
+            val update = withContext(Dispatchers.IO) {
+                AppUpdateApi.check()
+            }
+
+            checkingUpdate = false
+
+            if (update.success && update.updateAvailable && update.apkUrl.isNotBlank()) {
+                appUpdateInfo = update
+                showAppUpdateDialog = true
+            }
+        }
+    }
+
+    DisposableEffect(enabled, lifecycleOwner) {
+        if (enabled) {
+            checkForUpdate()
+        }
+
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME && enabled) {
+                checkForUpdate()
+            }
+        }
+
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    if (showAppUpdateDialog && appUpdateInfo != null) {
+        val update = appUpdateInfo!!
+
+        AlertDialog(
+            onDismissRequest = {
+                if (!update.forceUpdate) {
+                    showAppUpdateDialog = false
+                }
+            },
+            title = {
+                Text(
+                    text = if (update.forceUpdate) {
+                        "Actualización requerida"
+                    } else {
+                        "Actualización disponible"
+                    }
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Nueva versión: ${update.latestVersionName}")
+
+                    if (update.changelog.isNotBlank()) {
+                        Text(update.changelog)
+                    }
+
+                    Text("Tocá Actualizar para descargar e instalar la nueva APK.")
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        AppUpdateDownloader.downloadAndInstall(context, update.apkUrl)
+
+                        if (!update.forceUpdate) {
+                            showAppUpdateDialog = false
+                        }
+                    }
+                ) {
+                    Text("Actualizar")
+                }
+            },
+            dismissButton = {
+                if (!update.forceUpdate) {
+                    TextButton(
+                        onClick = {
+                            showAppUpdateDialog = false
+                        }
+                    ) {
+                        Text("Más tarde")
+                    }
+                }
+            }
+        )
+    }
+}
+

@@ -2083,7 +2083,7 @@ private fun SeriesSourceGroupRow(
             .focusable()
             .clickable { onOpen() },
         color = if (isFocused) {
-            MaterialTheme.colorScheme.secondary.copy(alpha = 0.30f)
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)
         } else {
             MaterialTheme.colorScheme.surface.copy(alpha = 0.62f)
         },
@@ -2091,7 +2091,7 @@ private fun SeriesSourceGroupRow(
         border = BorderStroke(
             width = if (isFocused) 3.dp else 1.dp,
             color = if (isFocused) {
-                MaterialTheme.colorScheme.secondary.copy(alpha = 0.95f)
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.95f)
             } else {
                 MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)
             }
@@ -2105,11 +2105,11 @@ private fun SeriesSourceGroupRow(
         ) {
             Surface(
                 modifier = Modifier.size(64.dp),
-                color = MaterialTheme.colorScheme.secondary.copy(alpha = if (isFocused) 0.28f else 0.14f),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = if (isFocused) 0.28f else 0.14f),
                 shape = RoundedCornerShape(22.dp),
                 border = BorderStroke(
                     1.dp,
-                    MaterialTheme.colorScheme.secondary.copy(alpha = if (isFocused) 0.55f else 0.20f)
+                    MaterialTheme.colorScheme.primary.copy(alpha = if (isFocused) 0.55f else 0.20f)
                 )
             ) {
                 Box(
@@ -2119,7 +2119,7 @@ private fun SeriesSourceGroupRow(
                     Text(
                         text = "S",
                         style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.secondary,
+                        color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.ExtraBold
                     )
                 }
@@ -2148,7 +2148,7 @@ private fun SeriesSourceGroupRow(
 
             Surface(
                 color = if (isFocused) {
-                    MaterialTheme.colorScheme.secondary
+                    MaterialTheme.colorScheme.primary
                 } else {
                     MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)
                 },
@@ -2158,7 +2158,7 @@ private fun SeriesSourceGroupRow(
                     text = "Abrir",
                     style = MaterialTheme.typography.labelLarge,
                     color = if (isFocused) {
-                        MaterialTheme.colorScheme.onSecondary
+                        MaterialTheme.colorScheme.onPrimary
                     } else {
                         MaterialTheme.colorScheme.onSurface
                     },

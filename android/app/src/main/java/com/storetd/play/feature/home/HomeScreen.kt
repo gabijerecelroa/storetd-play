@@ -187,28 +187,6 @@ fun HomeScreen(
     config: Any? = null
 ) {
     val context = LocalContext.current
-    var appUpdateInfo by remember { mutableStateOf<AppUpdateInfo?>(null) }
-    var showAppUpdateDialog by remember { mutableStateOf(false) }
-    var appUpdateChecked by remember { mutableStateOf(false) }
-
-    fun openAppUpdate(apkUrl: String) {
-        AppUpdateDownloader.downloadAndInstall(context, apkUrl)
-    }
-
-    LaunchedEffect(Unit) {
-        if (appUpdateChecked) return@LaunchedEffect
-
-        appUpdateChecked = true
-
-        val update = withContext(Dispatchers.IO) {
-            AppUpdateApi.check()
-        }
-
-        if (update.success && update.updateAvailable && update.apkUrl.isNotBlank()) {
-            appUpdateInfo = update
-            showAppUpdateDialog = true
-        }
-    }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     val account = LocalAccount.getAccount(context)
@@ -562,61 +540,8 @@ fun HomeScreen(
         }
     }
 
-    if (showAppUpdateDialog && appUpdateInfo != null) {
-        val update = appUpdateInfo!!
 
-        AlertDialog(
-            onDismissRequest = {
-                if (!update.forceUpdate) {
-                    showAppUpdateDialog = false
-                }
-            },
-            title = {
-                Text(
-                    text = if (update.forceUpdate) {
-                        "Actualización requerida"
-                    } else {
-                        "Actualización disponible"
-                    }
-                )
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Nueva versión: ${update.latestVersionName}")
 
-                    if (update.changelog.isNotBlank()) {
-                        Text(update.changelog)
-                    }
-
-                    Text("Tocá Actualizar para descargar e instalar la nueva APK.")
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        openAppUpdate(update.apkUrl)
-
-                        if (!update.forceUpdate) {
-                            showAppUpdateDialog = false
-                        }
-                    }
-                ) {
-                    Text("Actualizar")
-                }
-            },
-            dismissButton = {
-                if (!update.forceUpdate) {
-                    TextButton(
-                        onClick = {
-                            showAppUpdateDialog = false
-                        }
-                    ) {
-                        Text("Más tarde")
-                    }
-                }
-            }
-        )
-    }
 
 
 }
