@@ -682,7 +682,7 @@ fun LiveTvScreen(
             Row(modifier = Modifier.fillMaxSize()) {
                 Column(
                     modifier = Modifier
-                        .width(360.dp)
+                        .width(430.dp)
                         .fillMaxHeight()
                 ) {
                     PremiumSectionHeader(
@@ -727,11 +727,11 @@ fun LiveTvScreen(
                     }
                 }
 
-                Spacer(Modifier.width(24.dp))
+                Spacer(Modifier.width(32.dp))
 
                 LazyColumn(
                     state = contentListState,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier.weight(1f)
                 ) {
                     if (!usingLazyBackendContent) {
@@ -1141,7 +1141,7 @@ private fun LoadingSectionCard(
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             CircularProgressIndicator()
             Text(
@@ -1180,7 +1180,7 @@ private fun PremiumHeroPanel(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 150.dp),
+            .heightIn(min = 184.dp),
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.18f),
         shape = RoundedCornerShape(36.dp),
         border = BorderStroke(
@@ -1390,7 +1390,7 @@ private fun ContentControls(
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 22.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(18.dp),
+            horizontalArrangement = Arrangement.spacedBy(22.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(
@@ -1506,15 +1506,15 @@ private fun CategoryRow(
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.30f),
-        shape = RoundedCornerShape(26.dp),
+        shape = RoundedCornerShape(32.dp),
         border = BorderStroke(
             1.dp,
             MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
         )
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 22.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
                 text = "Categorías",
@@ -1532,8 +1532,8 @@ private fun CategoryRow(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 360.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                    .heightIn(max = 500.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 items(visibleGroups) { group ->
                     var focused by remember(group, selectedGroup) {
@@ -1584,7 +1584,7 @@ private fun CategoryRow(
                     ) {
                         Text(
                             text = group,
-                            style = MaterialTheme.typography.titleSmall,
+                            style = MaterialTheme.typography.titleMedium,
                             color = if (active) {
                                 MaterialTheme.colorScheme.onPrimary
                             } else {
@@ -1592,7 +1592,7 @@ private fun CategoryRow(
                             },
                             fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold,
                             maxLines = 2,
-                            modifier = Modifier.padding(horizontal = 18.dp, vertical = 13.dp)
+                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 17.dp)
                         )
                     }
                 }
@@ -1635,7 +1635,7 @@ private fun TvCategoryChip(
                 }
             }
             .border(
-                width = if (active) 3.dp else 1.dp,
+                width = if (active) 4.dp else 1.dp,
                 color = if (focused) {
                     MaterialTheme.colorScheme.primary
                 } else if (selected) {
@@ -1748,7 +1748,7 @@ private fun LazySearchHeader(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.48f),
-        shape = RoundedCornerShape(26.dp),
+        shape = RoundedCornerShape(32.dp),
         border = BorderStroke(
             1.dp,
             MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
@@ -1756,8 +1756,8 @@ private fun LazySearchHeader(
         shadowElevation = 3.dp
     ) {
         Column(
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 22.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1881,7 +1881,7 @@ private fun MovieCategoryLiteRow(
         },
         shape = RoundedCornerShape(30.dp),
         border = BorderStroke(
-            width = if (active) 3.dp else 1.dp,
+            width = if (active) 4.dp else 1.dp,
             color = if (active) {
                 MaterialTheme.colorScheme.primary.copy(alpha = 0.95f)
             } else {
@@ -1892,7 +1892,7 @@ private fun MovieCategoryLiteRow(
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 22.dp, vertical = 18.dp),
-            horizontalArrangement = Arrangement.spacedBy(18.dp),
+            horizontalArrangement = Arrangement.spacedBy(22.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
@@ -1921,7 +1921,7 @@ private fun MovieCategoryLiteRow(
 
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(7.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
                     text = category.title,
@@ -1982,7 +1982,7 @@ private fun MovieCategoryHeader(
         shadowElevation = 5.dp
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+            modifier = Modifier.padding(horizontal = 26.dp, vertical = 22.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -2100,7 +2100,7 @@ private fun SeriesSourceGroupRow(
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 22.dp, vertical = 18.dp),
-            horizontalArrangement = Arrangement.spacedBy(18.dp),
+            horizontalArrangement = Arrangement.spacedBy(22.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
@@ -2127,7 +2127,7 @@ private fun SeriesSourceGroupRow(
 
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(7.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
                     text = groupName,
@@ -2188,7 +2188,7 @@ private fun SeriesSourceGroupHeader(
         shadowElevation = 5.dp
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+            modifier = Modifier.padding(horizontal = 26.dp, vertical = 22.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -2303,7 +2303,7 @@ private fun SeriesFolderLiteRow(
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 22.dp, vertical = 18.dp),
-            horizontalArrangement = Arrangement.spacedBy(18.dp),
+            horizontalArrangement = Arrangement.spacedBy(22.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
@@ -2330,7 +2330,7 @@ private fun SeriesFolderLiteRow(
 
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(7.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
                     text = folder.title,
@@ -2406,7 +2406,7 @@ private fun OriginalSeriesFolderLiteHeader(
         shadowElevation = 5.dp
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+            modifier = Modifier.padding(horizontal = 26.dp, vertical = 22.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -2704,7 +2704,7 @@ private fun ChannelRow(
     }
 
     val active = focused
-    val shape = RoundedCornerShape(30.dp)
+    val shape = RoundedCornerShape(36.dp)
 
     Card(
         onClick = { handlePlayRequest() },
@@ -2734,7 +2734,7 @@ private fun ChannelRow(
                 }
             }
             .border(
-                width = if (active) 3.dp else 1.dp,
+                width = if (active) 4.dp else 1.dp,
                 color = if (active) {
                     MaterialTheme.colorScheme.primary.copy(alpha = 0.95f)
                 } else {
@@ -2752,22 +2752,22 @@ private fun ChannelRow(
         ),
         shape = shape,
         elevation = CardDefaults.cardElevation(
-            defaultElevation = if (active) 14.dp else 4.dp
+            defaultElevation = if (active) 18.dp else 5.dp
         )
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(18.dp),
+            modifier = Modifier.padding(horizontal = 26.dp, vertical = 22.dp),
+            horizontalArrangement = Arrangement.spacedBy(22.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                modifier = Modifier.size(86.dp),
+                modifier = Modifier.size(102.dp),
                 color = if (active) {
                     MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
                 } else {
                     MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.58f)
                 },
-                shape = RoundedCornerShape(26.dp),
+                shape = RoundedCornerShape(32.dp),
                 border = BorderStroke(
                     1.dp,
                     if (active) {
@@ -2783,7 +2783,7 @@ private fun ChannelRow(
                         contentDescription = channel.name,
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(12.dp)
+                            .padding(14.dp)
                     )
                 } else {
                     Box(
@@ -2802,7 +2802,7 @@ private fun ChannelRow(
 
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(7.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),

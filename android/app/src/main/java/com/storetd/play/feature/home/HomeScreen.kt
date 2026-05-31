@@ -424,7 +424,7 @@ fun HomeScreen(
             .fillMaxSize()
             .premiumStoreTdBackground()
             .navigationBarsPadding()
-            .padding(24.dp)
+            .padding(30.dp)
     ) {
         val isTvWide = maxWidth >= 700.dp
 
@@ -442,20 +442,20 @@ fun HomeScreen(
 
         Column(
             modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
+            verticalArrangement = Arrangement.spacedBy(26.dp)
         ) {
             Column {
                 Image(
                     painter = painterResource(id = R.drawable.ic_storetd_logo),
                     contentDescription = "StoreTD Play",
-                    modifier = Modifier.size(if (isTvWide) 64.dp else 54.dp)
+                    modifier = Modifier.size(if (isTvWide) 78.dp else 58.dp)
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
                     text = "StoreTD Play",
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = MaterialTheme.typography.headlineLarge,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
                 )
@@ -468,7 +468,7 @@ fun HomeScreen(
                     overflow = TextOverflow.Ellipsis
                 )
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
                     text = "Elegí una sección con el control remoto",
@@ -504,10 +504,10 @@ fun HomeScreen(
 
             if (isTvWide) {
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
+                    columns = GridCells.Fixed(2),
                     modifier = Modifier.weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(18.dp)
+                    horizontalArrangement = Arrangement.spacedBy(26.dp),
+                    verticalArrangement = Arrangement.spacedBy(26.dp)
                 ) {
                     items(actions) { action ->
                         TvHomeCard(
@@ -520,7 +520,7 @@ fun HomeScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                    verticalArrangement = Arrangement.spacedBy(18.dp)
                 ) {
                     items(actions.size) { index ->
                         TvHomeCard(
@@ -559,7 +559,7 @@ private fun HomeGlobalRefreshCard(
         modifier = modifier
             .clickable(enabled = !isRefreshing) { onRefresh() },
         color = MaterialTheme.colorScheme.primary.copy(alpha = if (isRefreshing) 0.72f else 0.95f),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(30.dp),
         border = BorderStroke(
             1.dp,
             MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.35f)
@@ -567,7 +567,7 @@ private fun HomeGlobalRefreshCard(
         shadowElevation = 8.dp
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 22.dp, vertical = 16.dp),
+            modifier = Modifier.padding(horizontal = 26.dp, vertical = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -590,7 +590,7 @@ private fun HomeGlobalRefreshCard(
                 )
 
                 Text(
-                    text = message ?: "Recarga TV en vivo, películas y series desde el Home.",
+                    text = message ?: "Sincroniza el catálogo premium cuando quieras.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.86f)
                 )
@@ -607,7 +607,7 @@ private fun ContinueWatchingRail(
     onOpenContinueItem: (SavedChannel) -> Unit
 ) {
     Column(
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -629,7 +629,7 @@ private fun ContinueWatchingRail(
         }
 
         LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             items(
@@ -675,11 +675,11 @@ private fun ContinueWatchingCard(
 
     Surface(
         modifier = Modifier
-            .width(238.dp)
-            .height(82.dp)
+            .width(286.dp)
+            .height(104.dp)
             .clickable { onClick() },
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(24.dp),
         border = BorderStroke(
             1.dp,
             MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f)
@@ -733,7 +733,7 @@ private fun TvHomeCard(
 ) {
     var focused by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
-    val shape = RoundedCornerShape(24.dp)
+    val shape = RoundedCornerShape(34.dp)
 
     if (requestInitialFocus) {
         LaunchedEffect(Unit) {
@@ -743,7 +743,7 @@ private fun TvHomeCard(
 
     Surface(
         modifier = modifier
-            .height(154.dp)
+            .height(196.dp)
             .focusRequester(focusRequester)
             .onFocusChanged { focused = it.isFocused || it.hasFocus }
             .onPreviewKeyEvent { event ->
