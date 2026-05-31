@@ -1,3 +1,22 @@
+
+(() => {
+  try {
+    const fsEnv = require("fs");
+    const pathEnv = require("path");
+    const envPath = pathEnv.join(__dirname, "..", ".env");
+
+    if (fsEnv.existsSync(envPath)) {
+      for (const line of fsEnv.readFileSync(envPath, "utf8").split(/\r?\n/)) {
+        const m = line.match(/^\s*([A-Za-z0-9_]+)\s*=\s*(.*)\s*$/);
+        if (!m) continue;
+        process.env[m[1]] = m[2].trim().replace(/^['"]|['"]$/g, "");
+      }
+    }
+  } catch (error) {
+    console.error("No se pudo cargar .env:", error.message);
+  }
+})();
+
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
@@ -26,6 +45,12 @@ const port = process.env.PORT || 3000;
 const adminKey = process.env.ADMIN_KEY || "admin1234";
 
 app.use(cors());
+
+app.use((req, res, next) => {
+  console.log("[REQ]", new Date().toISOString(), req.ip, req.method, req.originalUrl, req.headers["user-agent"] || "");
+  next();
+});
+
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "..", "public")));
 
@@ -418,6 +443,8 @@ function dbDeviceToApi(row) {
 }
 
 app.get("/", (req, res) => {
+  if (req.query.health !== "1") return res.redirect("/admin");
+
   res.json({
     name: "StoreTD Play Backend",
     status: "ok",
@@ -805,6 +832,46 @@ app.get("/reseller/api/clients", requireReseller, async (req, res) => {
   }
 });
 
+
+function enqueueXtreamSyncForClient(activationCode) {
+  const code = normalizeCode(activationCode);
+
+  if (!code) return;
+
+  try {
+    const { spawn } = require("child_process");
+    const fs = require("fs");
+    const path = require("path");
+
+    const backendRoot = path.join(__dirname, "..");
+    const logsDir = path.join(backendRoot, "logs");
+    fs.mkdirSync(logsDir, { recursive: true });
+
+    const logFile = path.join(logsDir, `sync_xtream_${code}.log`);
+    const out = fs.openSync(logFile, "a");
+
+    fs.writeSync(
+      out,
+      `\n============================================\nAUTO SYNC NUEVO CLIENTE: ${code}\nFecha: ${new Date().toISOString()}\n============================================\n`
+    );
+
+    const script = path.join(backendRoot, "scripts", "sync_xtream_movies_series.js");
+
+    const child = spawn(process.execPath, [script, code], {
+      cwd: backendRoot,
+      detached: true,
+      stdio: ["ignore", out, out]
+    });
+
+    child.unref();
+
+    console.log("Auto sync iniciado para cliente:", code);
+  } catch (error) {
+    console.error("No se pudo iniciar auto sync para cliente:", code, error);
+  }
+}
+
+
 app.post("/reseller/api/clients", requireReseller, async (req, res) => {
   if (!requireDb(res)) return;
 
@@ -893,6 +960,8 @@ app.post("/reseller/api/clients", requireReseller, async (req, res) => {
       activation_code: activationCode,
       note: `${months} mes(es)`
     });
+
+    enqueueXtreamSyncForClient(activationCode);
 
     res.json({
       success: true,
@@ -1644,6 +1713,15 @@ app.post("/admin/api/clients", requireAdmin, async (req, res) => {
   try {
     const client = apiClientToDb(req.body || {});
 
+    if (!client.playlist_url) {
+      client.playlist_url = resellerDefaultPlaylistUrl();
+    }
+
+    if (!client.epg_url) {
+      client.epg_url = resellerDefaultEpgUrl();
+    }
+
+
     if (!client.customer_name) {
       return res.status(400).json({
         success: false,
@@ -1674,6 +1752,8 @@ app.post("/admin/api/clients", requireAdmin, async (req, res) => {
 
       throw error;
     }
+
+    enqueueXtreamSyncForClient(data.activation_code);
 
     res.json({
       success: true,
@@ -2384,6 +2464,144 @@ async function downloadPlaylistTextWithLimit(url, maxBytes) {
   }
 }
 
+
+function getXtreamLiveApiConfig() {
+  const rawUrl = String(process.env.XTREAM_LIVE_API_URL || "").trim();
+
+  if (!rawUrl) return null;
+
+  try {
+    const parsed = new URL(rawUrl);
+    const username = parsed.searchParams.get("username") || "";
+    const password = parsed.searchParams.get("password") || "";
+
+    if (!username || !password) return null;
+
+    return {
+      rawUrl,
+      baseUrl: `${parsed.protocol}//${parsed.host}`,
+      username,
+      password
+    };
+  } catch (error) {
+    console.error("XTREAM_LIVE_API_URL inválida:", error.message);
+    return null;
+  }
+}
+
+function liveSourceMode() {
+  return String(process.env.CONTENT_LIVE_SOURCE_MODE || "m3u").trim().toLowerCase();
+}
+
+function shouldUseXtreamLiveSource(type) {
+  return liveSourceMode() === "xtream" && String(type || "live").trim().toLowerCase() === "live";
+}
+
+function xmlAttrEscape(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function m3uLineEscape(value) {
+  return String(value || "").replace(/\r/g, " ").replace(/\n/g, " ").trim();
+}
+
+async function fetchXtreamJsonByAction(config, action) {
+  const url = new URL(config.rawUrl);
+  url.searchParams.set("action", action);
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      "User-Agent": "StoreTD-Play-Backend/1.0"
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Xtream ${action} HTTP ${response.status}`);
+  }
+
+  return response.json();
+}
+
+function buildXtreamLiveStreamUrl(config, streamId) {
+  return `${config.baseUrl}/live/${encodeURIComponent(config.username)}/${encodeURIComponent(config.password)}/${encodeURIComponent(String(streamId))}.m3u8`;
+}
+
+async function buildXtreamLiveM3u() {
+  const config = getXtreamLiveApiConfig();
+
+  if (!config) {
+    throw new Error("XTREAM_LIVE_API_URL no configurada.");
+  }
+
+  const [categoriesRaw, streamsRaw] = await Promise.all([
+    fetchXtreamJsonByAction(config, "get_live_categories").catch(() => []),
+    fetchXtreamJsonByAction(config, "get_live_streams")
+  ]);
+
+  const categories = Array.isArray(categoriesRaw) ? categoriesRaw : [];
+  const streams = Array.isArray(streamsRaw) ? streamsRaw : [];
+
+  const categoryMap = new Map();
+
+  for (const category of categories) {
+    const id = String(category.category_id || category.id || "").trim();
+    const name = String(category.category_name || category.name || "").trim();
+
+    if (id && name) {
+      categoryMap.set(id, name);
+    }
+  }
+
+  const lines = ["#EXTM3U"];
+
+  for (const stream of streams) {
+    const streamId = stream.stream_id || stream.id;
+    if (!streamId) continue;
+
+    const name = m3uLineEscape(stream.name || stream.title || `Canal ${streamId}`);
+    const logo = m3uLineEscape(stream.stream_icon || stream.logo || "");
+    const categoryId = String(stream.category_id || "").trim();
+    const group = m3uLineEscape(categoryMap.get(categoryId) || stream.category_name || "TV en vivo");
+    const tvgId = m3uLineEscape(stream.epg_channel_id || stream.tvg_id || "");
+
+    const streamUrl = buildXtreamLiveStreamUrl(config, streamId);
+
+    lines.push(
+      `#EXTINF:-1 tvg-type="live" tvg-id="${xmlAttrEscape(tvgId)}" tvg-name="${xmlAttrEscape(name)}" tvg-logo="${xmlAttrEscape(logo)}" group-title="${xmlAttrEscape(group)}",${name}`
+    );
+    lines.push(streamUrl);
+  }
+
+  return lines.join("\n") + "\n";
+}
+
+async function sendXtreamLiveM3uForProxy(req, res) {
+  const cacheKey = "xtream-live|" + String(process.env.XTREAM_LIVE_API_URL || "").trim();
+  const cached = playlistProxyCache.get(cacheKey);
+  const now = Date.now();
+  const ttlMs = Number(process.env.XTREAM_LIVE_CACHE_TTL_MS || 300000);
+
+  if (cached && now - cached.createdAt < ttlMs) {
+    res.setHeader("Content-Type", "application/vnd.apple.mpegurl; charset=utf-8");
+    return res.send(cached.m3u);
+  }
+
+  const m3u = await buildXtreamLiveM3u();
+
+  playlistProxyCache.set(cacheKey, {
+    createdAt: now,
+    m3u
+  });
+
+  res.setHeader("Content-Type", "application/vnd.apple.mpegurl; charset=utf-8");
+  return res.send(m3u);
+}
+
+
 app.get("/playlist/proxy", async (req, res) => {
   try {
     const activationCode = String(req.query.code || "").trim();
@@ -2407,6 +2625,15 @@ app.get("/playlist/proxy", async (req, res) => {
 
     if (String(client.status || "").toLowerCase() !== "activa") {
       return res.status(403).send("#EXTM3U\n# Error: cliente no activo");
+    }
+
+    if (shouldUseXtreamLiveSource(type)) {
+      try {
+        return await sendXtreamLiveM3uForProxy(req, res);
+      } catch (error) {
+        console.error("Xtream live proxy error:", error);
+        return res.status(502).send("#EXTM3U\n# Error: no se pudo cargar TV en vivo desde Xtream\n");
+      }
     }
 
     const sourceUrl = String(client.playlistUrl || "").trim();
@@ -4864,6 +5091,137 @@ app.post("/admin/api/m3u/normalize-tv-groups", requireAdmin, async (req, res) =>
 });
 
 
+
+function shouldUseXtreamLiveRefresh(section) {
+  const value = String(section || "").trim().toLowerCase();
+
+  return (
+    String(process.env.CONTENT_LIVE_SOURCE_MODE || "m3u").trim().toLowerCase() === "xtream" &&
+    (value === "live" || value === "all")
+  );
+}
+
+function runScriptForClient(scriptName, activationCode) {
+  const code = normalizeCode(activationCode);
+
+  return new Promise((resolve, reject) => {
+    try {
+      const { spawn } = require("child_process");
+      const path = require("path");
+
+      const backendRoot = path.join(__dirname, "..");
+      const scriptPath = path.join(backendRoot, "scripts", scriptName);
+
+      const child = spawn(process.execPath, [scriptPath, code], {
+        cwd: backendRoot,
+        env: process.env,
+        stdio: ["ignore", "pipe", "pipe"]
+      });
+
+      let stdout = "";
+      let stderr = "";
+
+      child.stdout.on("data", (data) => {
+        stdout += data.toString();
+      });
+
+      child.stderr.on("data", (data) => {
+        stderr += data.toString();
+      });
+
+      child.on("error", reject);
+
+      child.on("close", (exitCode) => {
+        if (exitCode === 0) {
+          resolve({ stdout, stderr });
+        } else {
+          reject(new Error(`Script ${scriptName} falló con código ${exitCode}: ${stderr || stdout}`));
+        }
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+async function refreshXtreamLiveCacheForClient(activationCode) {
+  const code = normalizeCode(activationCode);
+
+  await runScriptForClient("sync_xtream_live.js", code);
+
+  let liveCount = 0;
+  let updatedAt = new Date().toISOString();
+
+  try {
+    const { data } = await supabase
+      .from("playlist_cache")
+      .select("payload, updated_at")
+      .eq("activation_code", code)
+      .eq("section", "live")
+      .maybeSingle();
+
+    if (data?.payload) {
+      liveCount = Number(data.payload.itemCount || 0);
+
+      if (!liveCount && Array.isArray(data.payload.items)) {
+        liveCount = data.payload.items.length;
+      }
+    }
+
+    if (data?.updated_at) {
+      updatedAt = data.updated_at;
+    }
+  } catch (error) {
+    console.error("No se pudo leer conteo live xtream:", error);
+  }
+
+  return {
+    success: true,
+    activationCode: code,
+    section: "live",
+    sourceMode: "xtream",
+    counts: {
+      live: liveCount
+    },
+    updatedAt
+  };
+}
+
+
+
+async function refreshContentProtectingXtreamLive(activationCode, section) {
+  const safeSection = String(section || "all").trim().toLowerCase();
+
+  if (shouldUseXtreamLiveRefresh(safeSection)) {
+    const liveResult = await refreshXtreamLiveCacheForClient(activationCode);
+
+    if (safeSection === "live") {
+      return liveResult;
+    }
+
+    const moviesResult = await refreshContentCacheForClient(activationCode, { section: "movies" });
+    const seriesResult = await refreshContentCacheForClient(activationCode, { section: "series" });
+
+    return {
+      success: Boolean(liveResult.success && moviesResult.success && seriesResult.success),
+      activationCode: normalizeCode(activationCode),
+      section: "all",
+      sourceMode: "mixed-xtream-live",
+      counts: {
+        live: liveResult?.counts?.live || 0,
+        movies: moviesResult?.counts?.movies || moviesResult?.counts?.movieCategories || 0,
+        movieCategories: moviesResult?.counts?.movieCategories || 0,
+        series: seriesResult?.counts?.series || 0,
+        seriesFolders: seriesResult?.counts?.seriesFolders || 0
+      },
+      updatedAt: new Date().toISOString()
+    };
+  }
+
+  return await refreshContentCacheForClient(activationCode, { section: safeSection });
+}
+
+
 app.post("/api/content/refresh-app", async (req, res) => {
   if (!requireDb(res)) return;
 
@@ -4885,8 +5243,32 @@ app.post("/api/content/refresh-app", async (req, res) => {
       req.body?.async === true ||
       req.body?.async === "1";
 
+    if (shouldUseXtreamLiveRefresh(section)) {
+      if (runAsync) {
+        refreshXtreamLiveCacheForClient(activationCode)
+          .then((result) => {
+            console.log("Async Xtream live refresh finished:", activationCode, result);
+          })
+          .catch((error) => {
+            console.error("Async Xtream live refresh error:", activationCode, error);
+          });
+
+        return res.json({
+          success: true,
+          accepted: true,
+          message: "Actualización de TV en vivo Xtream iniciada en segundo plano.",
+          activationCode,
+          section: "live",
+          sourceMode: "xtream"
+        });
+      }
+
+      const result = await refreshXtreamLiveCacheForClient(activationCode);
+      return res.status(result.success ? 200 : 400).json(result);
+    }
+
     if (runAsync) {
-      refreshContentCacheForClient(activationCode, { section })
+      refreshContentProtectingXtreamLive(activationCode, section)
         .then((result) => {
           console.log("Async content refresh finished:", activationCode, result);
         })
@@ -4902,7 +5284,7 @@ app.post("/api/content/refresh-app", async (req, res) => {
       });
     }
 
-    const result = await refreshContentCacheForClient(activationCode, { section });
+    const result = await refreshContentProtectingXtreamLive(activationCode, section);
     res.status(result.success ? 200 : 400).json(result);
   } catch (error) {
     console.error("App content refresh error:", error);
@@ -4930,7 +5312,12 @@ app.post("/api/content/refresh", requireAdmin, async (req, res) => {
       });
     }
 
-    const result = await refreshContentCacheForClient(activationCode, { section });
+    if (shouldUseXtreamLiveRefresh(section)) {
+      const result = await refreshXtreamLiveCacheForClient(activationCode);
+      return res.status(result.success ? 200 : 400).json(result);
+    }
+
+    const result = await refreshContentProtectingXtreamLive(activationCode, section);
     res.status(result.success ? 200 : 400).json(result);
   } catch (error) {
     console.error("Content refresh error:", error);
@@ -4941,6 +5328,449 @@ app.post("/api/content/refresh", requireAdmin, async (req, res) => {
     });
   }
 });
+
+
+
+// HYBRID_XTREAM_FOLDER_ROUTES_START
+function hybridModeEnabled() {
+  return String(process.env.CONTENT_SOURCE_MODE || "").trim().toLowerCase() === "hybrid";
+}
+
+function hybridSlug(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "categoria";
+}
+
+async function hybridGetCacheSection(activationCode, section) {
+  const { data, error } = await supabase
+    .from("playlist_cache")
+    .select("payload, item_count, updated_at, playlist_url")
+    .eq("activation_code", activationCode)
+    .eq("section", section)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data || null;
+}
+
+function hybridMaskedPlaylist(url) {
+  if (!url) return "";
+  if (String(url).includes("gist.githubusercontent.com")) return "https://gist.githubusercontent.com/***";
+  return String(url).replace(/username=[^&]+/i, "username=***").replace(/password=[^&]+/i, "password=***");
+}
+
+function hybridBuildGroups(items) {
+  const set = new Set(["Todos"]);
+  for (const item of items || []) {
+    if (item.group) set.add(item.group);
+  }
+  return [...set];
+}
+
+function hybridCategoryListFromItems(items) {
+  const map = new Map();
+
+  for (const item of items || []) {
+    const title = item.group || "Sin categoría";
+    const key = hybridSlug(title);
+
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        title,
+        group: title,
+        itemCount: 0
+      });
+    }
+
+    map.get(key).itemCount++;
+  }
+
+  return [...map.values()].sort((a, b) => String(a.title).localeCompare(String(b.title)));
+}
+
+app.get("/api/content/movie-categories-lite", async (req, res, next) => {
+  if (!hybridModeEnabled()) return next();
+  if (!requireDb(res)) return;
+
+  try {
+    const activationCode = normalizeCode(req.query.code || req.query.activationCode);
+    if (!activationCode) {
+      return res.status(400).json({ success: false, message: "Falta code." });
+    }
+
+    const categoriesRow = await hybridGetCacheSection(activationCode, "movie-categories");
+    const moviesRow = await hybridGetCacheSection(activationCode, "movies");
+
+    const moviesPayload = moviesRow?.payload || {};
+    const moviesItems = Array.isArray(moviesPayload.items) ? moviesPayload.items : [];
+
+    let categories = [];
+
+    const rawCategories = categoriesRow?.payload?.categories;
+    if (Array.isArray(rawCategories) && rawCategories.length) {
+      categories = rawCategories.map((c) => ({
+        key: c.key || hybridSlug(c.title || c.name || c.group),
+        title: c.title || c.name || c.group || "Sin categoría",
+        itemCount: Number(c.itemCount || c.count || 0)
+      }));
+    } else {
+      categories = hybridCategoryListFromItems(moviesItems);
+    }
+
+    return res.json({
+      success: true,
+      fromCache: true,
+      hybrid: true,
+      section: "movie-categories-lite",
+      activationCode,
+      playlistUrlMasked: hybridMaskedPlaylist(moviesRow?.playlist_url || categoriesRow?.playlist_url),
+      updatedAt: moviesPayload.updatedAt || moviesRow?.updated_at || categoriesRow?.updated_at || "",
+      categoryCount: categories.length,
+      itemCount: moviesItems.length || Number(categoriesRow?.item_count || 0),
+      categories
+    });
+  } catch (error) {
+    console.error("Hybrid movie-categories-lite error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "No se pudieron cargar categorías híbridas de películas.",
+      error: error.message
+    });
+  }
+});
+
+app.get("/api/content/movie-category", async (req, res, next) => {
+  if (!hybridModeEnabled()) return next();
+  if (!requireDb(res)) return;
+
+  try {
+    const activationCode = normalizeCode(req.query.code || req.query.activationCode);
+    const key = String(req.query.key || "").trim();
+
+    if (!activationCode || !key) {
+      return res.status(400).json({ success: false, message: "Falta code o key." });
+    }
+
+    const moviesRow = await hybridGetCacheSection(activationCode, "movies");
+    const payload = moviesRow?.payload || {};
+    const allItems = Array.isArray(payload.items) ? payload.items : [];
+
+    const items = allItems.filter((item) => hybridSlug(item.group || "Sin categoría") === key);
+    const title = items[0]?.group || key;
+
+    return res.json({
+      success: true,
+      fromCache: true,
+      hybrid: true,
+      section: "movie-category",
+      activationCode,
+      key,
+      title,
+      itemCount: items.length,
+      items,
+      groups: hybridBuildGroups(items),
+      updatedAt: payload.updatedAt || moviesRow?.updated_at || ""
+    });
+  } catch (error) {
+    console.error("Hybrid movie-category error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "No se pudo cargar categoría híbrida de películas.",
+      error: error.message
+    });
+  }
+});
+
+
+function hybridXtreamBase() {
+  return String(process.env.XTREAM_BASE_URL || process.env.XTREAM_BASE || "")
+    .trim()
+    .replace(/\/+$/, "");
+}
+
+function hybridXtreamUser() {
+  return String(process.env.XTREAM_USERNAME || process.env.XTREAM_USER || "").trim();
+}
+
+function hybridXtreamPass() {
+  return String(process.env.XTREAM_PASSWORD || process.env.XTREAM_PASS || "").trim();
+}
+
+async function hybridFetchXtream(action, extra = {}) {
+  const base = hybridXtreamBase();
+  const username = hybridXtreamUser();
+  const password = hybridXtreamPass();
+
+  if (!base || !username || !password) {
+    throw new Error("Faltan XTREAM_BASE_URL, XTREAM_USERNAME o XTREAM_PASSWORD.");
+  }
+
+  const params = new URLSearchParams({
+    username,
+    password,
+    action
+  });
+
+  for (const [key, value] of Object.entries(extra || {})) {
+    if (value !== undefined && value !== null && String(value).trim() !== "") {
+      params.set(key, String(value));
+    }
+  }
+
+  const url = `${base}/player_api.php?${params.toString()}`;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 120000);
+
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "StoreTD-Play-Backend/2.0",
+        "Accept": "application/json,text/plain,*/*"
+      }
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw new Error(`Xtream HTTP ${response.status}: ${text.slice(0, 200)}`);
+    }
+
+    const text = await response.text();
+    return JSON.parse(text);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function hybridEpisodeUrl(episode) {
+  const base = hybridXtreamBase();
+  const username = encodeURIComponent(hybridXtreamUser());
+  const password = encodeURIComponent(hybridXtreamPass());
+
+  const id = episode.id || episode.stream_id || episode.episode_id;
+  const ext = String(
+    episode.container_extension ||
+    episode.containerExtension ||
+    episode.ext ||
+    "mp4"
+  ).replace(/^\./, "");
+
+  return `${base}/series/${username}/${password}/${id}.${ext}`;
+}
+
+function hybridBuildEpisodeItems(seriesInfo, seriesId, fallbackTitle, fallbackLogo) {
+  const episodesObj = seriesInfo?.episodes || {};
+  const seriesTitle =
+    seriesInfo?.info?.name ||
+    seriesInfo?.info?.title ||
+    fallbackTitle ||
+    `Serie ${seriesId}`;
+
+  const seriesLogo =
+    seriesInfo?.info?.cover ||
+    seriesInfo?.info?.movie_image ||
+    fallbackLogo ||
+    null;
+
+  const items = [];
+
+  for (const [seasonKey, episodeList] of Object.entries(episodesObj)) {
+    if (!Array.isArray(episodeList)) continue;
+
+    for (const ep of episodeList) {
+      const seasonNumber = Number(ep.season || seasonKey || 0);
+      const episodeNumber = Number(ep.episode_num || ep.episode || ep.number || 0);
+
+      const sText = seasonNumber ? String(seasonNumber).padStart(2, "0") : "00";
+      const eText = episodeNumber ? String(episodeNumber).padStart(2, "0") : "00";
+
+      const title =
+        ep.title ||
+        ep.name ||
+        ep.info?.name ||
+        ep.info?.title ||
+        `Capítulo ${episodeNumber || items.length + 1}`;
+
+      const episodeId = ep.id || ep.stream_id || ep.episode_id;
+      if (!episodeId) continue;
+
+      items.push({
+        name: `${seriesTitle} S${sText}E${eText}`,
+        title: `${seriesTitle} S${sText}E${eText}`,
+        displayName: title,
+        group: seriesTitle,
+        category: seriesTitle,
+        tvgId: String(episodeId),
+        logoUrl: ep.info?.movie_image || ep.info?.cover || ep.movie_image || seriesLogo,
+        streamUrl: hybridEpisodeUrl(ep),
+        streamId: episodeId,
+        episodeId,
+        seriesId,
+        seriesName: seriesTitle,
+        season: seasonNumber,
+        episode: episodeNumber,
+        episodeTitle: title,
+        plot: ep.info?.plot || ep.plot || "",
+        duration: ep.info?.duration || ep.duration || "",
+        added: ep.added || "",
+        type: "series",
+        source: "xtream"
+      });
+    }
+  }
+
+  items.sort((a, b) => {
+    return Number(a.season || 0) - Number(b.season || 0)
+      || Number(a.episode || 0) - Number(b.episode || 0)
+      || String(a.name).localeCompare(String(b.name));
+  });
+
+  return items;
+}
+
+app.get("/api/content/series-folders-lite", async (req, res, next) => {
+  if (!hybridModeEnabled()) return next();
+  if (!requireDb(res)) return;
+
+  try {
+    const activationCode = normalizeCode(req.query.code || req.query.activationCode);
+
+    if (!activationCode) {
+      return res.status(400).json({ success: false, message: "Falta code." });
+    }
+
+    const seriesRow = await hybridGetCacheSection(activationCode, "series");
+    const payload = seriesRow?.payload || {};
+    const seriesItems = Array.isArray(payload.items) ? payload.items : [];
+
+    const folders = seriesItems
+      .filter((item) => item.seriesId || item.tvgId)
+      .map((item) => {
+        const seriesId = item.seriesId || item.tvgId;
+        return {
+          key: `series-${seriesId}`,
+          title: item.name || `Serie ${seriesId}`,
+          name: item.name || `Serie ${seriesId}`,
+          group: item.group || "Series",
+          category: item.group || "Series",
+          logoUrl: item.logoUrl || null,
+          seriesId,
+          itemCount: Number(item.itemCount || item.episodeCount || item.episodes || 1),
+          type: "series-folder",
+          source: "xtream"
+        };
+      })
+      .sort((a, b) => {
+        return String(a.group).localeCompare(String(b.group))
+          || String(a.title).localeCompare(String(b.title));
+      });
+
+    return res.json({
+      success: true,
+      fromCache: true,
+      hybrid: true,
+      section: "series-folders-lite",
+      mode: "series-as-folders",
+      activationCode,
+      updatedAt: payload.updatedAt || seriesRow?.updated_at || "",
+      folderCount: folders.length,
+      itemCount: folders.length,
+      folders
+    });
+  } catch (error) {
+    console.error("Hybrid series-folders-lite episodes mode error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "No se pudieron cargar carpetas híbridas de series.",
+      error: error.message
+    });
+  }
+});
+
+app.get("/api/content/series-folder", async (req, res, next) => {
+  if (!hybridModeEnabled()) return next();
+  if (!requireDb(res)) return;
+
+  try {
+    const activationCode = normalizeCode(req.query.code || req.query.activationCode);
+    const key = String(req.query.key || "").trim();
+
+    if (!activationCode || !key) {
+      return res.status(400).json({ success: false, message: "Falta code o key." });
+    }
+
+    const seriesRow = await hybridGetCacheSection(activationCode, "series");
+    const payload = seriesRow?.payload || {};
+    const allSeries = Array.isArray(payload.items) ? payload.items : [];
+
+    let seriesId = "";
+    let selectedSeries = null;
+
+    if (key.startsWith("series-")) {
+      seriesId = key.replace(/^series-/, "").trim();
+      selectedSeries = allSeries.find((item) => String(item.seriesId || item.tvgId) === String(seriesId));
+    } else {
+      selectedSeries = allSeries.find((item) => hybridSlug(item.name || "") === key);
+      seriesId = selectedSeries?.seriesId || selectedSeries?.tvgId || "";
+    }
+
+    if (!seriesId) {
+      return res.status(404).json({
+        success: false,
+        message: "Serie no encontrada."
+      });
+    }
+
+    const info = await hybridFetchXtream("get_series_info", { series_id: seriesId });
+
+    const items = hybridBuildEpisodeItems(
+      info,
+      seriesId,
+      selectedSeries?.name || "",
+      selectedSeries?.logoUrl || null
+    );
+
+    const title =
+      info?.info?.name ||
+      info?.info?.title ||
+      selectedSeries?.name ||
+      `Serie ${seriesId}`;
+
+    return res.json({
+      success: true,
+      fromCache: false,
+      hybrid: true,
+      section: "series-folder",
+      mode: "episodes",
+      activationCode,
+      key,
+      seriesId,
+      title,
+      itemCount: items.length,
+      items,
+      groups: ["Todos", title],
+      updatedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error("Hybrid series-folder episodes error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "No se pudieron cargar capítulos de la serie.",
+      error: error.message
+    });
+  }
+});
+
+
+// HYBRID_XTREAM_FOLDER_ROUTES_END
 
 
 app.get("/api/content/series-folders-lite", async (req, res) => {
