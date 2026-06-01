@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
+import android.os.Message
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
@@ -38,18 +39,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.delay
 
-private fun hostOf(url: String): String {
-    return runCatching {
-        Uri.parse(url).host.orEmpty().lowercase().removePrefix("www.")
-    }.getOrDefault("")
+private fun isHttpUrl(url: String): Boolean {
+    val clean = url.lowercase()
+    return clean.startsWith("http://") || clean.startsWith("https://")
 }
 
-private fun isDirectVideoUrl(url: String): Boolean {
-    val clean = url.lowercase()
-    return clean.contains(".m3u8") ||
-        clean.contains(".mp4") ||
-        clean.contains(".webm") ||
-        clean.contains(".mkv")
+private fun safeHost(url: String): String {
+    return runCatching {
+        Uri.parse(url).host.orEmpty().removePrefix("www.")
+    }.getOrDefault("")
 }
 
 @SuppressLint("SetJavaScriptEnabled")
@@ -64,12 +62,10 @@ fun WebViewPlayerScreen(
     var message by remember { mutableStateOf("Cargando servidor externo...") }
     var customView by remember { mutableStateOf<View?>(null) }
 
-    val originalHost = remember(url) { hostOf(url) }
-
     LaunchedEffect(url) {
-        delay(15000)
+        delay(18000)
         if (isLoading) {
-            message = "Si queda en negro, probá otro servidor."
+            message = "El servidor está tardando. Tocá play si aparece, o probá Recargar."
         }
     }
 
@@ -108,14 +104,15 @@ fun WebViewPlayerScreen(
                     settings.databaseEnabled = true
                     settings.mediaPlaybackRequiresUserGesture = false
                     settings.loadsImagesAutomatically = true
+                    settings.blockNetworkImage = false
                     settings.useWideViewPort = true
                     settings.loadWithOverviewMode = true
                     settings.allowFileAccess = false
-                    settings.allowContentAccess = false
+                    settings.allowContentAccess = true
 
-                    // Evita que publicidad/popup abra ventanas nuevas encima del player.
-                    settings.setSupportMultipleWindows(false)
-                    settings.javaScriptCanOpenWindowsAutomatically = false
+                    // V3: permitir ventanas porque muchos servidores externos cargan el player real así.
+                    settings.setSupportMultipleWindows(true)
+                    settings.javaScriptCanOpenWindowsAutomatically = true
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                         settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
@@ -145,22 +142,65 @@ fun WebViewPlayerScreen(
                             view: WebView?,
                             isDialog: Boolean,
                             isUserGesture: Boolean,
-                            resultMsg: android.os.Message?
+                            resultMsg: Message?
                         ): Boolean {
-                            // Bloquea popups. No bloquea recursos internos del reproductor.
-                            return false
+                            val parent = view ?: return false
+
+                            val popupWebView = WebView(parent.context).apply {
+                                settings.javaScriptEnabled = true
+                                settings.domStorageEnabled = true
+                                settings.mediaPlaybackRequiresUserGesture = false
+                                settings.setSupportMultipleWindows(false)
+                                settings.javaScriptCanOpenWindowsAutomatically = false
+                                settings.userAgentString = parent.settings.userAgentString
+
+                                webViewClient = object : WebViewClient() {
+                                    override fun shouldOverrideUrlLoading(
+                                        childView: WebView?,
+                                        request: WebResourceRequest?
+                                    ): Boolean {
+                                        val targetUrl = request?.url?.toString().orEmpty()
+
+                                        if (isHttpUrl(targetUrl)) {
+                                            parent.loadUrl(targetUrl)
+                                        }
+
+                                        return true
+                                    }
+
+                                    override fun onPageStarted(
+                                        childView: WebView?,
+                                        childUrl: String?,
+                                        favicon: Bitmap?
+                                    ) {
+                                        if (!childUrl.isNullOrBlank() && isHttpUrl(childUrl)) {
+                                            parent.loadUrl(childUrl)
+                                        }
+                                    }
+                                }
+                            }
+
+                            val transport = resultMsg?.obj as? WebView.WebViewTransport ?: return false
+                            transport.webView = popupWebView
+                            resultMsg.sendToTarget()
+                            return true
                         }
                     }
 
                     webViewClient = object : WebViewClient() {
-                        override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                        override fun onPageStarted(view: WebView?, pageUrl: String?, favicon: Bitmap?) {
                             isLoading = true
-                            message = "Cargando servidor externo..."
+                            val host = safeHost(pageUrl.orEmpty())
+                            message = if (host.isNotBlank()) {
+                                "Cargando $host..."
+                            } else {
+                                "Cargando servidor externo..."
+                            }
                         }
 
-                        override fun onPageFinished(view: WebView?, url: String?) {
+                        override fun onPageFinished(view: WebView?, pageUrl: String?) {
                             isLoading = false
-                            message = "Tocá play si el servidor lo muestra. Si queda en negro, probá otro servidor."
+                            message = "Tocá play si aparece. Si queda en negro, probá Recargar u otro servidor."
                         }
 
                         override fun onReceivedError(
@@ -179,18 +219,14 @@ fun WebViewPlayerScreen(
                             request: WebResourceRequest?
                         ): Boolean {
                             val targetUrl = request?.url?.toString().orEmpty()
-                            val targetHost = hostOf(targetUrl)
 
-                            if (targetUrl.isBlank()) return true
+                            // Permitimos todas las navegaciones http/https porque estos embeds redirigen entre dominios.
+                            if (isHttpUrl(targetUrl)) {
+                                return false
+                            }
 
-                            // Permite navegación dentro del servidor elegido.
-                            if (targetHost == originalHost) return false
-
-                            // Permite si el servidor redirige a un archivo directo.
-                            if (isDirectVideoUrl(targetUrl)) return false
-
-                            // Bloquea navegación principal a dominios externos, típico popup/publicidad.
-                            return request?.isForMainFrame == true
+                            // Bloqueamos intent://, market://, tel:, etc.
+                            return true
                         }
                     }
 
