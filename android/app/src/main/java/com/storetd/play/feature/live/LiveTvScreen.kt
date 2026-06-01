@@ -600,7 +600,7 @@ fun LiveTvScreen(
                             ContentMode.LiveTv -> null
                         },
                         subtitleOverride = when (contentMode) {
-                            ContentMode.LiveTv -> "${state.visibleChannels.size} canales disponibles"
+                            ContentMode.LiveTv -> "${state.totalVisibleCount.takeIf { it > 0 } ?: state.visibleChannels.size} canales disponibles"
                             ContentMode.Movies -> if (selectedMovieCategoryKey == null) "${lazyMovieCategories.size} carpetas de películas" else "${lazyMovieItems.size} películas disponibles"
                             ContentMode.Series -> when {
                                 selectedSeriesKey != null -> "${lazySeriesEpisodes.size} capítulos disponibles"
@@ -701,7 +701,7 @@ fun LiveTvScreen(
                             ContentMode.LiveTv -> null
                         },
                         subtitleOverride = when (contentMode) {
-                            ContentMode.LiveTv -> "${state.visibleChannels.size} canales disponibles"
+                            ContentMode.LiveTv -> "${state.totalVisibleCount.takeIf { it > 0 } ?: state.visibleChannels.size} canales disponibles"
                             ContentMode.Movies -> if (selectedMovieCategoryKey == null) "${lazyMovieCategories.size} carpetas de películas" else "${lazyMovieItems.size} películas disponibles"
                             ContentMode.Series -> when {
                                 selectedSeriesKey != null -> "${lazySeriesEpisodes.size} capítulos disponibles"

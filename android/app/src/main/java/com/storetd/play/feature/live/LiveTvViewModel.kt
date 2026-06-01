@@ -133,6 +133,26 @@ class LiveTvViewModel(
         val cleanUrl = url.trim()
         val mode = _uiState.value.contentMode
         val key = cacheKey(cleanUrl, mode)
+        val account = LocalAccount.getAccount(appContext)
+        val isMagmaLiteLiveAccount = mode == ContentMode.LiveTv &&
+            (
+                account.activationCode.trim() == "253698" ||
+                    cleanUrl.contains("magma", ignoreCase = true)
+            )
+
+        if (isMagmaLiteLiveAccount) {
+            screenStateCache.remove(key)
+            PlaylistMemoryCache.clear(cleanUrl)
+            PlaylistDiskCache.clear(appContext, cleanUrl)
+            PlaylistDiskCache.clear(appContext, sectionCacheKey(cleanUrl, mode))
+
+            loadOptimizedLiveFromBackend(
+                context = appContext,
+                urlValue = cleanUrl,
+                forceBackendRefresh = false
+            )
+            return
+        }
 
         screenStateCache[key]?.let { cachedState ->
             if (cachedState.channels.isNotEmpty()) {
@@ -248,13 +268,17 @@ class LiveTvViewModel(
     ) {
         val appContext = context.applicationContext
         val url = urlValue.trim()
+        val accountSnapshot = LocalAccount.getAccount(appContext)
+        val isMagmaLiteLiveAccount =
+            accountSnapshot.activationCode.trim() == "253698" ||
+                url.contains("magma", ignoreCase = true)
 
         if (loadInProgress) return
 
         loadInProgress = true
 
         val currentBeforeLoad = _uiState.value
-        val hasVisibleCache = currentBeforeLoad.channels.isNotEmpty()
+        val hasVisibleCache = currentBeforeLoad.channels.isNotEmpty() && !isMagmaLiteLiveAccount
 
         _uiState.value = currentBeforeLoad.copy(
             playlistUrl = url,
@@ -269,13 +293,13 @@ class LiveTvViewModel(
 
         viewModelScope.launch(Dispatchers.IO) {
             runCatching {
-                val account = LocalAccount.getAccount(appContext)
+                val account = accountSnapshot
                 val activationCode = account.activationCode.trim()
 
                 if (activationCode.isBlank()) {
                     emptyList()
                 } else {
-                    if (forceBackendRefresh) {
+                    if (forceBackendRefresh && !isMagmaLiteLiveAccount) {
                         runCatching {
                             OptimizedContentApi.refreshContent(
                                 activationCode = activationCode,
@@ -299,11 +323,13 @@ class LiveTvViewModel(
                         message = "TV en vivo sincronizada."
                     )
 
-                    PlaylistDiskCache.save(
-                        context = appContext,
-                        url = sectionCacheKey(url, ContentMode.LiveTv),
-                        channels = channels
-                    )
+                    if (!isMagmaLiteLiveAccount) {
+                        PlaylistDiskCache.save(
+                            context = appContext,
+                            url = sectionCacheKey(url, ContentMode.LiveTv),
+                            channels = channels
+                        )
+                    }
 
                     _uiState.value = _uiState.value.copy(
                         playlistUrl = url,
