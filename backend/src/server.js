@@ -54,6 +54,288 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "..", "public")));
 
+// MAGMA_LIVE_LITE_START
+function magmaLiteBaseUrl() {
+  return String(process.env.MAGMA_BASE_URL || "http://tv.m3uts.xyz").replace(/\/+$/, "");
+}
+
+function magmaLiteUser() {
+  return String(process.env.MAGMA_USER || "m").trim();
+}
+
+function magmaLitePass() {
+  return String(process.env.MAGMA_PASS || "m").trim();
+}
+
+function magmaLiteDeviceId() {
+  return String(process.env.MAGMA_DEVICE_ID || "c0041021c5c95679").trim();
+}
+
+function magmaLitePublicBaseUrl(req) {
+  return String(
+    process.env.MAGMA_PUBLIC_BASE_URL ||
+    `${req.protocol}://${req.get("host")}`
+  ).replace(/\/+$/, "");
+}
+
+function magmaLiteHeaders() {
+  const hash = String(process.env.MAGMA_HASH || "").trim();
+
+  const headers = {
+    "X-App": "di",
+    "X-Version": "10/1.0.9",
+    "X-Did": magmaLiteDeviceId(),
+    "User-Agent": "Magma Player/10"
+  };
+
+  if (hash) {
+    headers["X-Hash"] = hash;
+  }
+
+  return headers;
+}
+
+function magmaLiteAllowedCodes() {
+  return String(process.env.MAGMA_LIVE_CODES || "")
+    .split(",")
+    .map((item) => normalizeCode(item))
+    .filter(Boolean);
+}
+
+function magmaLiteIsEnabledForCode(code, client) {
+  const activationCode = normalizeCode(code);
+  const allowed = magmaLiteAllowedCodes();
+
+  if (allowed.includes("*")) return true;
+  if (allowed.includes(activationCode)) return true;
+
+  const playlistUrl = String(client?.playlist_url || "").trim().toLowerCase();
+  return playlistUrl.startsWith("magma://");
+}
+
+async function magmaLiteGetClient(code) {
+  const activationCode = normalizeCode(code);
+
+  if (!activationCode) {
+    return { ok: false, status: 400, message: "Falta código de activación." };
+  }
+
+  const { data, error } = await supabase
+    .from("clients")
+    .select("activation_code,status,expires_at,playlist_url")
+    .eq("activation_code", activationCode)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  if (!data) {
+    return { ok: false, status: 404, message: "Cliente no encontrado." };
+  }
+
+  if (String(data.status || "").toLowerCase() !== "activa") {
+    return { ok: false, status: 403, message: "Cuenta no activa." };
+  }
+
+  if (isExpired(data.expires_at)) {
+    return { ok: false, status: 403, message: "Cuenta vencida." };
+  }
+
+  return {
+    ok: true,
+    activationCode,
+    client: data
+  };
+}
+
+async function magmaLiteFetchJson(action) {
+  const url =
+    `${magmaLiteBaseUrl()}/player_api.php` +
+    `?username=${encodeURIComponent(magmaLiteUser())}` +
+    `&password=${encodeURIComponent(magmaLitePass())}` +
+    `&action=${encodeURIComponent(action)}`;
+
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "StoreTD Play Backend"
+    }
+  });
+
+  const text = await response.text();
+
+  if (!response.ok) {
+    throw new Error(`Magma catálogo HTTP ${response.status}: ${text.slice(0, 160)}`);
+  }
+
+  return JSON.parse(text);
+}
+
+async function magmaLiteGenerateLiveUrl(streamId) {
+  const id = String(streamId || "").replace(/[^0-9]/g, "");
+
+  if (!id) {
+    throw new Error("streamId inválido.");
+  }
+
+  const body = new URLSearchParams({
+    id,
+    cast: "false",
+    device: magmaLiteDeviceId(),
+    code: ""
+  });
+
+  const response = await fetch(`${magmaLiteBaseUrl()}/stream/gen/${id}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Dalvik/2.1.0 (Linux; U; Android 15; StoreTD Play)"
+    },
+    body
+  });
+
+  const text = String(await response.text() || "").trim();
+
+  if (!response.ok) {
+    throw new Error(`Magma stream/gen HTTP ${response.status}: ${text.slice(0, 160)}`);
+  }
+
+  if (!/^https?:\/\/.+\.m3u8/i.test(text)) {
+    throw new Error(`Respuesta Magma inválida: ${text.slice(0, 160)}`);
+  }
+
+  return text;
+}
+
+// Catálogo dinámico TV Magma.
+// No guarda canales en playlist_cache.
+// Solo responde para códigos habilitados en MAGMA_LIVE_CODES.
+app.get("/api/content/live", async (req, res, next) => {
+  if (!isDatabaseConfigured()) return next();
+
+  try {
+    const code = normalizeCode(req.query.code || req.query.activationCode);
+    const valid = await magmaLiteGetClient(code);
+
+    if (!valid.ok) {
+      return next();
+    }
+
+    if (!magmaLiteIsEnabledForCode(valid.activationCode, valid.client)) {
+      return next();
+    }
+
+    const [categories, streams] = await Promise.all([
+      magmaLiteFetchJson("get_live_categories"),
+      magmaLiteFetchJson("get_live_streams")
+    ]);
+
+    const categoryMap = new Map(
+      (Array.isArray(categories) ? categories : []).map((cat) => [
+        String(cat.category_id),
+        String(cat.category_name || "Sin categoría")
+      ])
+    );
+
+    const publicBase = magmaLitePublicBaseUrl(req);
+
+    const items = (Array.isArray(streams) ? streams : [])
+      .map((item) => {
+        const streamId = item.stream_id || item.license;
+        const group = categoryMap.get(String(item.category_id)) || "Sin categoría";
+
+        return {
+          name: String(item.name || "Canal").trim(),
+          group,
+          tvgId: String(item.epg_channel_id || ""),
+          logoUrl: String(item.stream_icon || item.thumbnail || ""),
+          streamUrl: `${publicBase}/magma-lite/live/${streamId}.m3u8?code=${encodeURIComponent(valid.activationCode)}`,
+          type: "live",
+          source: "magma-lite",
+          streamId
+        };
+      })
+      .filter((item) => item.name && item.streamUrl && item.streamId);
+
+    const groups = [
+      "Todos",
+      ...Array.from(new Set(items.map((item) => item.group))).sort()
+    ];
+
+    res.setHeader("Cache-Control", "no-store");
+
+    return res.json({
+      success: true,
+      fromCache: false,
+      noServerCache: true,
+      source: "magma-live-dynamic",
+      section: "live",
+      activationCode: valid.activationCode,
+      itemCount: items.length,
+      groups,
+      items
+    });
+  } catch (error) {
+    console.error("Magma live catalog error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "No se pudo leer TV en vivo Magma.",
+      error: error.message
+    });
+  }
+});
+
+// Playlist liviana.
+// El VPS genera el link actualizado y devuelve el .m3u8.
+// Los segmentos .ts quedan directos al proveedor, no pasan por el VPS.
+app.get("/magma-lite/live/:streamId.m3u8", async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const code = normalizeCode(req.query.code);
+    const valid = await magmaLiteGetClient(code);
+
+    if (!valid.ok) {
+      return res.status(valid.status).json({
+        success: false,
+        message: valid.message
+      });
+    }
+
+    if (!magmaLiteIsEnabledForCode(valid.activationCode, valid.client)) {
+      return res.status(403).json({
+        success: false,
+        message: "Magma Live no habilitado para este cliente."
+      });
+    }
+
+    const streamId = String(req.params.streamId || "").replace(/[^0-9]/g, "");
+    const secureUrl = await magmaLiteGenerateLiveUrl(streamId);
+
+    const response = await fetch(secureUrl, {
+      headers: magmaLiteHeaders()
+    });
+
+    const text = await response.text();
+
+    if (!response.ok) {
+      return res.status(response.status).send(text);
+    }
+
+    res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
+    res.setHeader("Cache-Control", "no-store");
+    res.send(text);
+  } catch (error) {
+    console.error("Magma lite playlist error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudo generar playlist Magma.",
+      error: error.message
+    });
+  }
+});
+// MAGMA_LIVE_LITE_END
+
+
+
 function requireDb(res) {
   if (!isDatabaseConfigured()) {
     res.status(500).json({
@@ -78,6 +360,42 @@ function isExpired(expiresAt) {
 function nowIso() {
   return new Date().toISOString();
 }
+
+const fs = require("fs");
+
+const magmaCatalogVersionFile = path.join(__dirname, "..", "data", "magma-live-catalog-version.json");
+
+function readMagmaLiveCatalogVersion() {
+  try {
+    const raw = fs.readFileSync(magmaCatalogVersionFile, "utf8");
+    const parsed = JSON.parse(raw);
+    return {
+      version: Number(parsed.version || 0),
+      updatedAt: parsed.updatedAt || null,
+      reason: parsed.reason || ""
+    };
+  } catch {
+    return {
+      version: 0,
+      updatedAt: null,
+      reason: ""
+    };
+  }
+}
+
+function writeMagmaLiveCatalogVersion(reason = "manual") {
+  fs.mkdirSync(path.dirname(magmaCatalogVersionFile), { recursive: true });
+
+  const payload = {
+    version: Date.now(),
+    updatedAt: new Date().toISOString(),
+    reason
+  };
+
+  fs.writeFileSync(magmaCatalogVersionFile, JSON.stringify(payload, null, 2));
+  return payload;
+}
+
 
 function requireAdmin(req, res, next) {
   const key =
@@ -1284,6 +1602,94 @@ app.get(["/smartone.m3u", "/smartone-final.m3u", "/smartone-v2.m3u"], async (req
   }
 });
 
+
+
+
+app.get("/api/magma-live/catalog-version", async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const code = normalizeCode(req.query.code);
+
+    if (!code) {
+      return res.status(400).json({
+        success: false,
+        message: "Falta código."
+      });
+    }
+
+    const { data: client, error } = await supabase
+      .from("clients")
+      .select("*")
+      .eq("activation_code", code)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (!client) {
+      return res.status(404).json({
+        success: false,
+        message: "Código no encontrado."
+      });
+    }
+
+    if (isExpired(client.expires_at)) {
+      return res.status(403).json({
+        success: false,
+        message: "Código vencido."
+      });
+    }
+
+    if (!magmaLiteIsEnabledForCode(code, client)) {
+      return res.json({
+        success: true,
+        enabled: false,
+        version: 0,
+        updatedAt: null,
+        reason: ""
+      });
+    }
+
+    const current = readMagmaLiveCatalogVersion();
+
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    res.json({
+      success: true,
+      enabled: true,
+      version: current.version,
+      updatedAt: current.updatedAt,
+      reason: current.reason
+    });
+  } catch (error) {
+    console.error("Magma live catalog-version error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudo consultar versión de catálogo.",
+      error: error.message
+    });
+  }
+});
+
+app.post("/api/admin/magma-live/refresh-catalog-version", requireAdmin, (req, res) => {
+  try {
+    const reason = String(req.body?.reason || req.query.reason || "manual").trim() || "manual";
+    const payload = writeMagmaLiveCatalogVersion(reason);
+
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    res.json({
+      success: true,
+      message: "Catálogo Magma Live marcado para actualización.",
+      ...payload
+    });
+  } catch (error) {
+    console.error("Magma live refresh-catalog-version error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudo marcar actualización manual.",
+      error: error.message
+    });
+  }
+});
 
 
 app.get("/api/app-update", (req, res) => {

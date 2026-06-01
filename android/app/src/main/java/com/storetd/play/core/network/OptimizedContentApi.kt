@@ -326,6 +326,33 @@ object OptimizedContentApi {
         return items
     }
 
+    fun loadMagmaLiveCatalogVersion(activationCode: String): Long {
+        val base = BuildConfig.API_BASE_URL
+            .trim()
+            .trimEnd('/')
+
+        val code = activationCode.trim()
+
+        if (base.isBlank() || code.isBlank()) return 0L
+
+        val encodedCode = URLEncoder.encode(code, "UTF-8")
+        val requestUrl = "$base/api/magma-live/catalog-version?code=$encodedCode"
+
+        return runCatching {
+            val raw = readUrl(requestUrl)
+            val json = JSONObject(raw)
+
+            if (!json.optBoolean("success", false)) {
+                0L
+            } else if (!json.optBoolean("enabled", false)) {
+                0L
+            } else {
+                json.optLong("version", 0L)
+            }
+        }.getOrDefault(0L)
+    }
+
+
     fun loadSection(
         activationCode: String,
         section: String,

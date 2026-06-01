@@ -152,13 +152,10 @@ class LiveTvViewModel(
                         errorMessage = null
                     )
 
-                    if (shouldRefreshMagmaLiveCatalog(appContext)) {
-                        loadOptimizedLiveFromBackend(
-                            context = appContext,
-                            urlValue = cleanUrl,
-                            forceBackendRefresh = true
-                        )
-                    }
+                    maybeRefreshMagmaLiveCatalog(
+                        context = appContext,
+                        urlValue = cleanUrl
+                    )
                     return
                 }
             }
@@ -181,13 +178,10 @@ class LiveTvViewModel(
                 _uiState.value = cachedState
                 saveScreenState(cachedState)
 
-                if (shouldRefreshMagmaLiveCatalog(appContext)) {
-                    loadOptimizedLiveFromBackend(
-                        context = appContext,
-                        urlValue = cleanUrl,
-                        forceBackendRefresh = true
-                    )
-                }
+                maybeRefreshMagmaLiveCatalog(
+                    context = appContext,
+                    urlValue = cleanUrl
+                )
                 return
             }
 
@@ -838,6 +832,12 @@ class LiveTvViewModel(
                 .edit()
                 .putLong(MAGMA_LIVE_LAST_REFRESH_AT, System.currentTimeMillis())
                 .apply()
+        }
+
+        private fun getMagmaLiveCatalogLastRefreshAt(context: Context): Long {
+            return context.applicationContext
+                .getSharedPreferences(MAGMA_LIVE_PREFS, Context.MODE_PRIVATE)
+                .getLong(MAGMA_LIVE_LAST_REFRESH_AT, 0L)
         }
 
         private fun shouldRefreshMagmaLiveCatalog(context: Context): Boolean {
