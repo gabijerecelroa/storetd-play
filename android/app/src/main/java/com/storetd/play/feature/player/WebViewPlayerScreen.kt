@@ -34,7 +34,8 @@ import androidx.media3.ui.PlayerView
 
 val adServers = listOf("medixiru", "popads", "onclick", "doubleclick", "adsterra", "syndication", "profitablerate", "bet365", "highcpm", "adskeeper", "realsrv", "trafficstars")
 
-@SuppressLint("SetJavaScriptEnabled")
+// 👉 AQUI ESTA LA MAGIA: Le decimos al compilador que sabemos lo que hacemos con la API de ExoPlayer
+@SuppressLint("SetJavaScriptEnabled", "UnsafeOptInUsageError")
 @Composable
 fun WebViewPlayerScreen(
     title: String,
@@ -162,7 +163,7 @@ fun WebViewPlayerScreen(
                                 val reqUrl = request?.url?.toString() ?: return null
                                 val lowerUrl = reqUrl.lowercase()
 
-                                // FILTRO DE BASURA: Evitamos atrapar videos de publicidad
+                                // FILTRO DE BASURA
                                 if ((lowerUrl.endsWith(".m3u8") || lowerUrl.contains(".m3u8?") || 
                                      lowerUrl.endsWith(".mp4") || lowerUrl.contains(".mp4?")) && 
                                      !lowerUrl.contains("blank") && !lowerUrl.contains("ad") && 
