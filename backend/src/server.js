@@ -333,6 +333,16 @@ app.get("/magma-lite/live/:streamId.m3u8", async (req, res) => {
   }
 });
 
+
+async function magmaLiteFetchJsonOptional(action, fallback = []) {
+  try {
+    return await magmaLiteFetchJson(action);
+  } catch (error) {
+    console.warn(`Magma optional catalog failed for ${action}:`, error.message);
+    return fallback;
+  }
+}
+
 // MAGMA_MOVIES_LITE_START
 function magmaLiteImageUrl(value, size = "w500") {
   const text = String(value || "").trim();
@@ -380,8 +390,8 @@ app.get("/api/content/movie-categories-lite", async (req, res, next) => {
     }
 
     const [categories, streams] = await Promise.all([
-      magmaLiteFetchJson("get_vod_categories"),
-      magmaLiteFetchJson("get_vod_streams")
+      magmaLiteFetchJsonOptional("get_vod_categories", []),
+      magmaLiteFetchJsonOptional("get_vod_streams", [])
     ]);
 
     const streamsArray = Array.isArray(streams) ? streams : [];
@@ -399,7 +409,14 @@ app.get("/api/content/movie-categories-lite", async (req, res, next) => {
       }
     }
 
-    const items = (Array.isArray(categories) ? categories : [])
+    const categoryRows = (Array.isArray(categories) && categories.length > 0)
+      ? categories
+      : Array.from(counts.keys()).map((key) => ({
+          category_id: key,
+          category_name: key === "401" ? "Top" : `Categoría ${key}`
+        }));
+
+    const items = categoryRows
       .map((cat) => {
         const key = String(cat.category_id || "").trim();
         const title = String(cat.category_name || "Películas").trim() || "Películas";
@@ -454,8 +471,8 @@ app.get("/api/content/movie-category", async (req, res, next) => {
     }
 
     const [categories, streams] = await Promise.all([
-      magmaLiteFetchJson("get_vod_categories"),
-      magmaLiteFetchJson("get_vod_streams")
+      magmaLiteFetchJsonOptional("get_vod_categories", []),
+      magmaLiteFetchJsonOptional("get_vod_streams", [])
     ]);
 
     const categoryMap = new Map(
@@ -545,21 +562,55 @@ app.get("/api/magma-lite/movie-sources", async (req, res) => {
     }
 
     const publicBase = magmaLitePublicBaseUrl(req);
+    const streamUrl = `${publicBase}/magma-lite/movie/${streamId}.m3u8?code=${encodeURIComponent(valid.activationCode)}`;
+
+    let sourceAvailable = false;
+
+    try {
+      const secureUrl = await magmaLiteGenerateLiveUrl(streamId);
+      const response = await fetch(secureUrl, {
+        headers: magmaLiteHeaders()
+      });
+
+      const playlistText = await response.text();
+
+      sourceAvailable =
+        response.ok &&
+        playlistText.includes("#EXTM3U") &&
+        !playlistText.includes("magma_expired") &&
+        /^https?:\/\//m.test(playlistText);
+    } catch (error) {
+      console.warn("Magma movie source precheck failed:", streamId, error.message);
+    }
 
     res.setHeader("Cache-Control", "no-store");
+
+    if (!sourceAvailable) {
+      return res.json({
+        success: true,
+        source: "magma-lite",
+        available: false,
+        streamId,
+        itemCount: 0,
+        message: "Esta película no está disponible en este momento.",
+        items: []
+      });
+    }
+
     return res.json({
       success: true,
       source: "magma-lite",
+      available: true,
       streamId,
       itemCount: 1,
       items: [
         {
           id: streamId,
           title: "Fuente principal",
-          subtitle: "Magma",
+          subtitle: "Servidor principal",
           quality: "Auto",
           language: "Latino",
-          streamUrl: `${publicBase}/magma-lite/movie/${streamId}.m3u8?code=${encodeURIComponent(valid.activationCode)}`
+          streamUrl
         }
       ]
     });

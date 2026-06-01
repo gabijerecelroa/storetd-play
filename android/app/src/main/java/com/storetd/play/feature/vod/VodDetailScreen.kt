@@ -113,19 +113,12 @@ fun VodDetailScreen(
                 )
             }
 
-            movieSources = if (loadedSources.isNotEmpty()) {
-                loadedSources
+            if (loadedSources.isNotEmpty()) {
+                movieSources = loadedSources
+                sourceMessage = null
             } else {
-                listOf(
-                    OptimizedContentApi.MovieSourceLite(
-                        id = streamId,
-                        title = "Fuente principal",
-                        subtitle = "Magma",
-                        quality = "Auto",
-                        language = "Latino",
-                        streamUrl = streamUrl
-                    )
-                )
+                movieSources = emptyList()
+                sourceMessage = "Esta película no está disponible en este momento. Probá otra opción."
             }
 
             isLoadingSources = false
