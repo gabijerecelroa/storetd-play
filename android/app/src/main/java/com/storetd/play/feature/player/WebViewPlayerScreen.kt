@@ -32,7 +32,7 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.ui.PlayerView
 
-val adServers = listOf("medixiru", "popads", "onclick", "doubleclick", "adsterra", "syndication", "profitablerate", "bet365", "highcpm", "adskeeper", "realsrv", "trafficstars")
+val adServers = listOf("medixiru", "popads", "onclick", "doubleclick", "adsterra", "syndication", "profitablerate", "bet365", "highcpm", "adskeeper", "realsrv", "trafficstars", "1xbet", "betway")
 
 @SuppressLint("SetJavaScriptEnabled", "UnsafeOptInUsageError")
 @Composable
@@ -46,6 +46,7 @@ fun WebViewPlayerScreen(
     var isLoading by remember { mutableStateOf(true) }
     var message by remember { mutableStateOf("Buscando enlace directo del video...") }
     var playerError by remember { mutableStateOf<String?>(null) }
+    var isMainPageLoaded by remember { mutableStateOf(false) } // EL CANDADO MAESTRO
     val context = LocalContext.current
 
     BackHandler {
@@ -102,17 +103,18 @@ fun WebViewPlayerScreen(
                 modifier = Modifier.fillMaxSize()
             )
             
-            // DATALOGGER (Ocultar luego para producción)
+            // DATALOGGER OCULTO (Solo visible si hay error, ideal para el usuario final)
             Column(modifier = Modifier.align(Alignment.TopStart).padding(16.dp)) {
                 Button(onClick = onBack) { Text("Volver") }
-                Text("Enlace atrapado:", color = Color.Green, fontSize = 10.sp)
-                Text(directVideoUrl ?: "", color = Color.White, fontSize = 10.sp)
-                if (playerError != null) Text(playerError ?: "", color = Color.Red, fontSize = 11.sp)
+                if (playerError != null) {
+                    Text("Error al reproducir, probá otra fuente.", color = Color.Red, fontSize = 13.sp)
+                    Text(playerError ?: "", color = Color.White, fontSize = 11.sp)
+                }
             }
         }
 
     } else {
-        // FASE 1: EL SNIFFER CON AUTO-CLICKER
+        // FASE 1: EL SNIFFER CON CANDADO MAESTRO Y AUTO-CLICKER
         Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
@@ -130,7 +132,7 @@ fun WebViewPlayerScreen(
                         settings.apply {
                             javaScriptEnabled = true
                             domStorageEnabled = true
-                            mediaPlaybackRequiresUserGesture = false // Permitir autoplay
+                            mediaPlaybackRequiresUserGesture = false 
                             useWideViewPort = true
                             loadWithOverviewMode = true
                             setSupportMultipleWindows(true)
@@ -140,26 +142,29 @@ fun WebViewPlayerScreen(
 
                         webChromeClient = object : WebChromeClient() {
                             override fun onCreateWindow(view: WebView?, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message?): Boolean {
-                                return false // Aniquilar popups
+                                return false // Aniquilar popups de ventanas nuevas
                             }
                         }
 
                         webViewClient = object : WebViewClient() {
+                            override fun onPageStarted(view: WebView?, pageUrl: String?, favicon: Bitmap?) {
+                                isMainPageLoaded = false
+                                isLoading = true
+                                message = "Iniciando conexión segura..."
+                            }
+
                             override fun onPageFinished(view: WebView?, pageUrl: String?) {
+                                isMainPageLoaded = true // SE CIERRA EL CANDADO MAESTRO
                                 isLoading = false
-                                message = "Página lista. Forzando extracción del video..."
+                                message = "Extrayendo video. Esperá unos segundos..."
                                 
-                                // INYECCIÓN JAVASCRIPT: El Auto-Clicker
-                                // Simula clics en el centro de la pantalla y fuerza el Play del video
                                 val autoClickScript = """
                                     (function() {
                                         setInterval(function() {
-                                            // Forzar play a cualquier etiqueta de video
                                             var videos = document.getElementsByTagName('video');
                                             for(var i=0; i<videos.length; i++) {
                                                 videos[i].play();
                                             }
-                                            // Simular clic en el centro para quitar tapas
                                             var x = window.innerWidth / 2;
                                             var y = window.innerHeight / 2;
                                             var ev = new MouseEvent('click', {
@@ -171,7 +176,7 @@ fun WebViewPlayerScreen(
                                             });
                                             var el = document.elementFromPoint(x, y);
                                             if(el) el.dispatchEvent(ev);
-                                        }, 500); // 2 clics por segundo
+                                        }, 500); 
                                     })();
                                 """.trimIndent()
                                 view?.evaluateJavascript(autoClickScript, null)
@@ -181,12 +186,14 @@ fun WebViewPlayerScreen(
                                 val reqUrl = request?.url?.toString() ?: return null
                                 val lowerUrl = reqUrl.lowercase()
 
-                                // EL CAZADOR: Ahora también busca .m3u por si acaso
+                                // EL CAZADOR DE ENLACES
                                 if ((lowerUrl.endsWith(".m3u8") || lowerUrl.contains(".m3u8?") || 
                                      lowerUrl.endsWith(".m3u") || lowerUrl.contains(".m3u?") ||
                                      lowerUrl.endsWith(".mp4") || lowerUrl.contains(".mp4?")) && 
                                      !lowerUrl.contains("blank") && !lowerUrl.contains("ad") && 
-                                     !lowerUrl.contains("pixel") && !lowerUrl.contains("track")) {
+                                     !lowerUrl.contains("pixel") && !lowerUrl.contains("track") &&
+                                     !lowerUrl.contains("banner") && !lowerUrl.contains("logo") &&
+                                     !lowerUrl.contains("vast")) {
                                     
                                     android.os.Handler(android.os.Looper.getMainLooper()).post {
                                         if (directVideoUrl == null) {
@@ -204,7 +211,16 @@ fun WebViewPlayerScreen(
 
                             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                                 val target = request?.url?.toString() ?: return false
+                                
                                 if (!target.startsWith("http")) return true
+                                
+                                // EL CANDADO MAESTRO: 
+                                // Si la página ya terminó de cargar, bloqueamos que el auto-click nos saque del sitio
+                                if (isMainPageLoaded && request?.isForMainFrame == true) {
+                                    message = "Publicidad detectada y neutralizada."
+                                    return true // SECUESTRO BLOQUEADO
+                                }
+                                
                                 return false 
                             }
                         }
@@ -214,7 +230,6 @@ fun WebViewPlayerScreen(
                 update = { webView -> if (webView.url != url) webView.loadUrl(url) }
             )
 
-            // Controles Fase 1
             Column(
                 modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -223,6 +238,7 @@ fun WebViewPlayerScreen(
                     Button(onClick = onBack) { Text("Volver") }
                     Button(onClick = {
                         isLoading = true
+                        isMainPageLoaded = false
                         message = "Recargando servidor..."
                         webViewRef?.reload()
                     }) { Text("Recargar") }
