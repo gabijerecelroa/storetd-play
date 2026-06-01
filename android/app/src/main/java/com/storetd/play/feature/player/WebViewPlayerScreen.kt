@@ -20,14 +20,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import java.io.ByteArrayInputStream
 import kotlinx.coroutines.delay
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.ui.PlayerView
 
-val adServers = listOf("medixiru", "popads", "onclick", "doubleclick", "adsterra", "syndication", "profitablerate", "bet365", "highcpm", "adskeeper")
+val adServers = listOf("medixiru", "popads", "onclick", "doubleclick", "adsterra", "syndication", "profitablerate", "bet365", "highcpm", "adskeeper", "realsrv", "trafficstars")
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -36,11 +41,11 @@ fun WebViewPlayerScreen(
     url: String,
     onBack: () -> Unit
 ) {
-    // ESTADO MÁGICO: Si atrapamos el enlace, lo guardamos aquí
     var directVideoUrl by remember { mutableStateOf<String?>(null) }
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var message by remember { mutableStateOf("Buscando enlace directo del video...") }
+    var playerError by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
 
     BackHandler {
@@ -53,16 +58,33 @@ fun WebViewPlayerScreen(
 
     if (directVideoUrl != null) {
         // ==========================================
-        // FASE 2: ¡ATRAPADO! REPRODUCCIÓN NATIVA (EXOPLAYER)
+        // FASE 2: EXOPLAYER CON INYECCION DE HEADERS
         // ==========================================
-        val exoPlayer = remember { androidx.media3.exoplayer.ExoPlayer.Builder(context).build() }
+        val exoPlayer = remember {
+            val dataSourceFactory = DefaultHttpDataSource.Factory()
+                .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                .setDefaultRequestProperties(mapOf("Referer" to url)) // EL TRUCO VITAL: El pase VIP
+                .setAllowCrossProtocolRedirects(true)
+
+            ExoPlayer.Builder(context)
+                .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
+                .build()
+        }
         
         DisposableEffect(directVideoUrl) {
+            val listener = object : Player.Listener {
+                override fun onPlayerError(error: PlaybackException) {
+                    playerError = "Error interno: ${error.errorCodeName} - ${error.message}"
+                }
+            }
+            exoPlayer.addListener(listener)
+
             val mediaItem = MediaItem.fromUri(directVideoUrl!!)
             exoPlayer.setMediaItem(mediaItem)
             exoPlayer.prepare()
             exoPlayer.playWhenReady = true
             onDispose {
+                exoPlayer.removeListener(listener)
                 exoPlayer.release()
             }
         }
@@ -82,14 +104,22 @@ fun WebViewPlayerScreen(
                 modifier = Modifier.fillMaxSize()
             )
             
-            Button(onClick = onBack, modifier = Modifier.align(Alignment.TopStart).padding(16.dp)) {
-                Text("Cerrar Reproductor")
+            // DATALOGGER EN PANTALLA (Para nuestros diagnósticos)
+            Column(modifier = Modifier.align(Alignment.TopStart).padding(16.dp)) {
+                Button(onClick = onBack) {
+                    Text("Volver")
+                }
+                Text("Enlace atrapado:", color = Color.Green, fontSize = 11.sp)
+                Text(directVideoUrl ?: "", color = Color.White, fontSize = 11.sp)
+                if (playerError != null) {
+                    Text(playerError ?: "", color = Color.Red, fontSize = 11.sp)
+                }
             }
         }
 
     } else {
         // ==========================================
-        // FASE 1: EL SNIFFER (Cazador de Enlaces)
+        // FASE 1: EL SNIFFER
         // ==========================================
         Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
             AndroidView(
@@ -113,39 +143,38 @@ fun WebViewPlayerScreen(
                             loadWithOverviewMode = true
                             setSupportMultipleWindows(true)
                             javaScriptCanOpenWindowsAutomatically = true
-                            // Engañamos al servidor haciéndole creer que somos Chrome en Windows para que nos dé el mejor video
                             userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                         }
 
                         webChromeClient = object : WebChromeClient() {
                             override fun onCreateWindow(view: WebView?, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message?): Boolean {
-                                return false // Matamos popups visuales
+                                return false 
                             }
                         }
 
                         webViewClient = object : WebViewClient() {
                             override fun onPageFinished(view: WebView?, pageUrl: String?) {
                                 isLoading = false
-                                message = "Toca 'Play' en el video para extraer el enlace..."
+                                message = "Toca 'Play' en el video..."
                             }
 
                             override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
                                 val reqUrl = request?.url?.toString() ?: return null
                                 val lowerUrl = reqUrl.lowercase()
 
-                                // 🎯 ARTILLERÍA PESADA: EL SNIFFER
-                                // Si la página pide un m3u8 o mp4, ¡lo atrapamos al vuelo!
+                                // FILTRO DE BASURA: Evitamos atrapar videos de publicidad
                                 if ((lowerUrl.endsWith(".m3u8") || lowerUrl.contains(".m3u8?") || 
                                      lowerUrl.endsWith(".mp4") || lowerUrl.contains(".mp4?")) && 
-                                     !lowerUrl.contains("blank") && !lowerUrl.contains("ad")) {
+                                     !lowerUrl.contains("blank") && !lowerUrl.contains("ad") && 
+                                     !lowerUrl.contains("pixel") && !lowerUrl.contains("track")) {
                                     
-                                    // Pasamos el enlace al hilo principal para activar ExoPlayer
                                     android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                        directVideoUrl = reqUrl
+                                        if (directVideoUrl == null) {
+                                            directVideoUrl = reqUrl
+                                        }
                                     }
                                 }
 
-                                // AD-BLOCKER para mantener limpio el cazador
                                 if (adServers.any { lowerUrl.contains(it) }) {
                                     return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream("".toByteArray()))
                                 }
@@ -165,7 +194,6 @@ fun WebViewPlayerScreen(
                 update = { webView -> if (webView.url != url) webView.loadUrl(url) }
             )
 
-            // Controles visuales de la Fase 1
             Column(
                 modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
