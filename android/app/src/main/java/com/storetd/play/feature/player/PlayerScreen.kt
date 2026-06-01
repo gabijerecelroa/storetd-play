@@ -108,6 +108,15 @@ private enum class VideoResizeMode(
 
 private const val STREAM_UNAVAILABLE_TIMEOUT_MS = 60_000L
 
+private fun isMagmaLiveStreamUrl(url: String): Boolean {
+    val clean = url.lowercase(Locale.getDefault())
+    return clean.contains("/magma-lite/live/") ||
+        clean.contains("tvcluboficial.com") ||
+        clean.contains("m3uts.xyz")
+}
+
+
+
 @OptIn(UnstableApi::class)
 @Composable
 fun PlayerScreen(
@@ -159,7 +168,7 @@ fun PlayerScreen(
     }
 
     val isVodContent = remember(currentChannel.name, currentChannel.group, currentChannel.streamUrl) {
-        isVodChannel(currentChannel)
+        !isMagmaLiveStreamUrl(currentChannel.streamUrl) && isVodChannel(currentChannel)
     }
 
     var hasRestoredVodProgress by remember(currentChannel.streamUrl) { mutableStateOf(false) }
