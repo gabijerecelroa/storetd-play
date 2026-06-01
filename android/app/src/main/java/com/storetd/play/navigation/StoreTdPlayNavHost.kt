@@ -346,9 +346,27 @@ fun checkAccountStatus() {
                 streamUrl = url,
                 groupName = group,
                 logoUrl = logo.takeIf { it != "-" },
-                onPlay = {
+                onPlay = { selectedStreamUrl ->
+                    val cleanLogo = logo.takeIf { it.isNotBlank() && it != "-" }
+
+                    val selectedSaved = SavedChannel(
+                        id = "${name.lowercase()}|$selectedStreamUrl".hashCode().toString(),
+                        name = name,
+                        streamUrl = selectedStreamUrl,
+                        logoUrl = cleanLogo,
+                        group = group,
+                        tvgId = null
+                    )
+
+                    PlayerSession.setQueue(
+                        channels = listOf(selectedSaved),
+                        currentStreamUrl = selectedStreamUrl
+                    )
+
+                    LocalLibrary.addHistory(context, selectedSaved)
+
                     val encName = android.net.Uri.encode(name)
-                    val encUrl = android.net.Uri.encode(url)
+                    val encUrl = android.net.Uri.encode(selectedStreamUrl)
                     val encGroup = android.net.Uri.encode(group)
                     val encLogo = if (logo.isBlank() || logo == "-") "-" else android.net.Uri.encode(logo)
                     navController.navigate("${Routes.Player}/$encName/$encUrl/$encGroup/$encLogo")

@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -24,16 +25,45 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.storetd.play.core.api.TmdbRepository
 import com.storetd.play.core.api.TmdbResult
+import com.storetd.play.core.network.OptimizedContentApi
+import com.storetd.play.core.storage.LocalAccount
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Locale
+
+private fun isMagmaMovieUrl(url: String): Boolean {
+    return url.contains("/magma-lite/movie/", ignoreCase = true)
+}
+
+private fun extractMagmaMovieStreamId(url: String): String? {
+    return Regex("/magma-lite/movie/([0-9]+)\\.m3u8", RegexOption.IGNORE_CASE)
+        .find(url)
+        ?.groupValues
+        ?.getOrNull(1)
+}
+
 
 @Composable
 fun VodDetailScreen(
-    channelName: String, streamUrl: String, groupName: String, logoUrl: String?,
-    onPlay: () -> Unit, onBack: () -> Unit
+    channelName: String,
+    streamUrl: String,
+    groupName: String,
+    logoUrl: String?,
+    onPlay: (String) -> Unit,
+    onBack: () -> Unit
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
     var info by remember { mutableStateOf<TmdbResult?>(null) }
     var isLoading by remember { mutableStateOf(true) }
+    var isLoadingSources by remember { mutableStateOf(false) }
+    var showSourceDialog by remember { mutableStateOf(false) }
+    var sourceMessage by remember { mutableStateOf<String?>(null) }
+    var movieSources by remember { mutableStateOf<List<OptimizedContentApi.MovieSourceLite>>(emptyList()) }
+
     val focusRequester = remember { FocusRequester() }
     val isSeries = groupName.contains("serie", ignoreCase = true) || groupName.contains("temporada", ignoreCase = true)
     
@@ -46,6 +76,129 @@ fun VodDetailScreen(
         isLoading = false
         delay(100)
         try { focusRequester.requestFocus() } catch (e: Exception) {}
+    }
+
+    val isMagmaMovie = remember(streamUrl) { isMagmaMovieUrl(streamUrl) }
+    val magmaMovieStreamId = remember(streamUrl) { extractMagmaMovieStreamId(streamUrl) }
+    val playButtonText = when {
+        isLoadingSources -> "Cargando fuentes..."
+        isMagmaMovie -> "▶ Elegir fuente"
+        else -> "▶ Reproducir"
+    }
+
+    fun handlePlayRequest() {
+        if (!isMagmaMovie) {
+            onPlay(streamUrl)
+            return
+        }
+
+        val streamId = magmaMovieStreamId
+
+        if (streamId.isNullOrBlank()) {
+            onPlay(streamUrl)
+            return
+        }
+
+        isLoadingSources = true
+        sourceMessage = null
+
+        scope.launch {
+            val account = LocalAccount.getAccount(context)
+            val activationCode = account.activationCode.trim()
+
+            val loadedSources = withContext(Dispatchers.IO) {
+                OptimizedContentApi.loadMagmaMovieSources(
+                    activationCode = activationCode,
+                    streamId = streamId
+                )
+            }
+
+            movieSources = if (loadedSources.isNotEmpty()) {
+                loadedSources
+            } else {
+                listOf(
+                    OptimizedContentApi.MovieSourceLite(
+                        id = streamId,
+                        title = "Fuente principal",
+                        subtitle = "Magma",
+                        quality = "Auto",
+                        language = "Latino",
+                        streamUrl = streamUrl
+                    )
+                )
+            }
+
+            isLoadingSources = false
+            showSourceDialog = true
+        }
+    }
+
+    if (showSourceDialog) {
+        AlertDialog(
+            onDismissRequest = { showSourceDialog = false },
+            title = {
+                Text(
+                    text = "Elegí una fuente",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    sourceMessage?.let {
+                        Text(
+                            text = it,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+
+                    movieSources.forEach { source ->
+                        Button(
+                            onClick = {
+                                showSourceDialog = false
+                                onPlay(source.streamUrl)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFFE50914),
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = source.title,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+
+                                Text(
+                                    text = listOf(source.subtitle, source.quality, source.language)
+                                        .filter { it.isNotBlank() }
+                                        .joinToString(" · "),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.White.copy(alpha = 0.82f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showSourceDialog = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
     }
 
     Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0F0F0F))) {
@@ -93,10 +246,10 @@ fun VodDetailScreen(
                     
                     // BOTÓN ARRIBA (Para que nunca desaparezca en la TV)
                     Button(
-                        onClick = onPlay, modifier = Modifier.focusRequester(focusRequester).height(60.dp),
+                        onClick = { handlePlayRequest() }, modifier = Modifier.focusRequester(focusRequester).height(60.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE50914), contentColor = Color.White)
                     ) {
-                        Text("▶ Reproducir", fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 16.dp))
+                        Text(playButtonText, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 16.dp))
                     }
                     
                     Spacer(modifier = Modifier.height(24.dp))
@@ -139,10 +292,10 @@ fun VodDetailScreen(
                 
                 // BOTÓN ANCHO Y FÁCIL DE TOCAR EN CELULARES
                 Button(
-                    onClick = onPlay, modifier = Modifier.focusRequester(focusRequester).fillMaxWidth().height(56.dp),
+                    onClick = { handlePlayRequest() }, modifier = Modifier.focusRequester(focusRequester).fillMaxWidth().height(56.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE50914), contentColor = Color.White)
                 ) {
-                    Text("▶ Reproducir", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text(playButtonText, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 }
                 
                 Spacer(modifier = Modifier.height(24.dp))

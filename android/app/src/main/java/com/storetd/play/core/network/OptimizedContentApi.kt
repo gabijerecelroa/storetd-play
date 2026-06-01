@@ -22,6 +22,15 @@ object OptimizedContentApi {
         val itemCount: Int
     )
 
+    data class MovieSourceLite(
+        val id: String,
+        val title: String,
+        val subtitle: String,
+        val quality: String,
+        val language: String,
+        val streamUrl: String
+    )
+
     private const val CONNECT_TIMEOUT_MS = 8000
     private const val READ_TIMEOUT_MS = 15000
 
@@ -201,7 +210,7 @@ object OptimizedContentApi {
 
         if (!json.optBoolean("success", true)) return emptyList()
 
-        val categories = json.optJSONArray("categories") ?: return emptyList()
+        val categories = json.optJSONArray("items") ?: json.optJSONArray("categories") ?: return emptyList()
         val result = mutableListOf<MovieCategoryLite>()
 
         for (i in 0 until categories.length()) {
@@ -325,6 +334,53 @@ object OptimizedContentApi {
 
         return items
     }
+
+    fun loadMagmaMovieSources(
+        activationCode: String,
+        streamId: String
+    ): List<MovieSourceLite> {
+        val base = BuildConfig.API_BASE_URL
+            .trim()
+            .trimEnd('/')
+
+        val code = activationCode.trim()
+        val safeStreamId = streamId.trim()
+
+        if (base.isBlank() || code.isBlank() || safeStreamId.isBlank()) return emptyList()
+
+        val encodedCode = URLEncoder.encode(code, "UTF-8")
+        val encodedId = URLEncoder.encode(safeStreamId, "UTF-8")
+        val requestUrl = "$base/api/magma-lite/movie-sources?code=$encodedCode&id=$encodedId"
+
+        return runCatching {
+            val raw = readUrl(requestUrl)
+            val json = JSONObject(raw)
+
+            if (!json.optBoolean("success", false)) return@runCatching emptyList<MovieSourceLite>()
+
+            val array = json.optJSONArray("items") ?: return@runCatching emptyList<MovieSourceLite>()
+            val result = mutableListOf<MovieSourceLite>()
+
+            for (i in 0 until array.length()) {
+                val obj = array.optJSONObject(i) ?: continue
+                val source = MovieSourceLite(
+                    id = obj.optString("id", safeStreamId),
+                    title = obj.optString("title", "Fuente principal"),
+                    subtitle = obj.optString("subtitle", "Magma"),
+                    quality = obj.optString("quality", "Auto"),
+                    language = obj.optString("language", ""),
+                    streamUrl = obj.optString("streamUrl", "")
+                )
+
+                if (source.streamUrl.isNotBlank()) {
+                    result.add(source)
+                }
+            }
+
+            result
+        }.getOrDefault(emptyList())
+    }
+
 
     fun loadMagmaLiveCatalogVersion(activationCode: String): Long {
         val base = BuildConfig.API_BASE_URL

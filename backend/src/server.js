@@ -332,6 +332,307 @@ app.get("/magma-lite/live/:streamId.m3u8", async (req, res) => {
     });
   }
 });
+
+// MAGMA_MOVIES_LITE_START
+function magmaLiteImageUrl(value, size = "w500") {
+  const text = String(value || "").trim();
+
+  if (!text) return "";
+  if (/^https?:\/\//i.test(text)) return text;
+  if (text.startsWith("/")) return `https://image.tmdb.org/t/p/${size}${text}`;
+
+  return text;
+}
+
+function magmaLiteMovieCategoryName(categoryMap, categoriesIds) {
+  const first = String(categoriesIds || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)[0];
+
+  return categoryMap.get(String(first)) || "Películas";
+}
+
+function magmaLiteMovieMatchesCategory(item, key) {
+  const cleanKey = String(key || "").trim();
+
+  if (!cleanKey || cleanKey === "all" || cleanKey === "todos") return true;
+
+  return String(item.categories_ids || item.category_id || "")
+    .split(",")
+    .map((value) => value.trim())
+    .includes(cleanKey);
+}
+
+// Categorías livianas de películas Magma.
+// No guarda películas pesadas ni segmentos en el VPS.
+app.get("/api/content/movie-categories-lite", async (req, res, next) => {
+  if (!isDatabaseConfigured()) return next();
+
+  try {
+    const code = normalizeCode(req.query.code || req.query.activationCode);
+    const valid = await magmaLiteGetClient(code);
+
+    if (!valid.ok) return next();
+
+    if (!magmaLiteIsEnabledForCode(valid.activationCode, valid.client)) {
+      return next();
+    }
+
+    const [categories, streams] = await Promise.all([
+      magmaLiteFetchJson("get_vod_categories"),
+      magmaLiteFetchJson("get_vod_streams")
+    ]);
+
+    const streamsArray = Array.isArray(streams) ? streams : [];
+
+    const counts = new Map();
+
+    for (const movie of streamsArray) {
+      const ids = String(movie.categories_ids || movie.category_id || "")
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean);
+
+      for (const id of ids) {
+        counts.set(id, (counts.get(id) || 0) + 1);
+      }
+    }
+
+    const items = (Array.isArray(categories) ? categories : [])
+      .map((cat) => {
+        const key = String(cat.category_id || "").trim();
+        const title = String(cat.category_name || "Películas").trim() || "Películas";
+
+        return {
+          key,
+          title,
+          itemCount: counts.get(key) || 0,
+          posterUrl: "",
+          backdropUrl: "",
+          source: "magma-lite"
+        };
+      })
+      .filter((item) => item.key && item.itemCount > 0);
+
+    const totalCount = streamsArray.length;
+
+    res.setHeader("Cache-Control", "no-store");
+    return res.json({
+      success: true,
+      source: "magma-movies-dynamic",
+      noServerCache: true,
+      activationCode: valid.activationCode,
+      itemCount: items.length,
+      totalCount,
+      items
+    });
+  } catch (error) {
+    console.error("Magma movie categories error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "No se pudieron leer categorías de películas Magma.",
+      error: error.message
+    });
+  }
+});
+
+// Películas de una categoría Magma.
+app.get("/api/content/movie-category", async (req, res, next) => {
+  if (!isDatabaseConfigured()) return next();
+
+  try {
+    const code = normalizeCode(req.query.code || req.query.activationCode);
+    const key = String(req.query.key || req.query.category || req.query.categoryId || "all").trim();
+
+    const valid = await magmaLiteGetClient(code);
+
+    if (!valid.ok) return next();
+
+    if (!magmaLiteIsEnabledForCode(valid.activationCode, valid.client)) {
+      return next();
+    }
+
+    const [categories, streams] = await Promise.all([
+      magmaLiteFetchJson("get_vod_categories"),
+      magmaLiteFetchJson("get_vod_streams")
+    ]);
+
+    const categoryMap = new Map(
+      (Array.isArray(categories) ? categories : []).map((cat) => [
+        String(cat.category_id),
+        String(cat.category_name || "Películas")
+      ])
+    );
+
+    const publicBase = magmaLitePublicBaseUrl(req);
+
+    const items = (Array.isArray(streams) ? streams : [])
+      .filter((item) => magmaLiteMovieMatchesCategory(item, key))
+      .map((item) => {
+        const streamId = item.stream_id || item.movie_id || item.id || item.license;
+        const group = magmaLiteMovieCategoryName(categoryMap, item.categories_ids || item.category_id);
+        const release = String(item.release || item.releaseDate || "").trim();
+
+        return {
+          name: String(item.name || "Película").trim(),
+          group,
+          tvgId: "",
+          logoUrl: magmaLiteImageUrl(item.stream_icon || item.cover || item.poster_path, "w500"),
+          posterUrl: magmaLiteImageUrl(item.stream_icon || item.cover || item.poster_path, "w500"),
+          backdropUrl: magmaLiteImageUrl(item.backdrop || item.backdrop_path, "w780"),
+          streamUrl: `${publicBase}/magma-lite/movie/${streamId}.m3u8?code=${encodeURIComponent(valid.activationCode)}`,
+          type: "movie",
+          source: "magma-lite",
+          streamId,
+          release,
+          rating: item.rating_5based || item.rating || 0
+        };
+      })
+      .filter((item) => item.name && item.streamUrl && item.streamId);
+
+    res.setHeader("Cache-Control", "no-store");
+    return res.json({
+      success: true,
+      source: "magma-movies-dynamic",
+      noServerCache: true,
+      section: "movies",
+      activationCode: valid.activationCode,
+      key,
+      itemCount: items.length,
+      items
+    });
+  } catch (error) {
+    console.error("Magma movie category error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "No se pudieron leer películas Magma.",
+      error: error.message
+    });
+  }
+});
+
+// Selector de fuentes para películas.
+// Por ahora entrega fuente principal. Luego se pueden agregar alternativas.
+app.get("/api/magma-lite/movie-sources", async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const code = normalizeCode(req.query.code || req.query.activationCode);
+    const valid = await magmaLiteGetClient(code);
+
+    if (!valid.ok) {
+      return res.status(valid.status).json({
+        success: false,
+        message: valid.message
+      });
+    }
+
+    if (!magmaLiteIsEnabledForCode(valid.activationCode, valid.client)) {
+      return res.status(403).json({
+        success: false,
+        message: "Magma Movies no habilitado para este cliente."
+      });
+    }
+
+    const streamId = String(req.query.id || req.query.streamId || "").replace(/[^0-9]/g, "");
+
+    if (!streamId) {
+      return res.status(400).json({
+        success: false,
+        message: "Falta ID de película."
+      });
+    }
+
+    const publicBase = magmaLitePublicBaseUrl(req);
+
+    res.setHeader("Cache-Control", "no-store");
+    return res.json({
+      success: true,
+      source: "magma-lite",
+      streamId,
+      itemCount: 1,
+      items: [
+        {
+          id: streamId,
+          title: "Fuente principal",
+          subtitle: "Magma",
+          quality: "Auto",
+          language: "Latino",
+          streamUrl: `${publicBase}/magma-lite/movie/${streamId}.m3u8?code=${encodeURIComponent(valid.activationCode)}`
+        }
+      ]
+    });
+  } catch (error) {
+    console.error("Magma movie sources error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "No se pudieron cargar fuentes de película.",
+      error: error.message
+    });
+  }
+});
+
+// Playlist liviana para película.
+// El VPS genera el link actualizado y devuelve el .m3u8.
+// Los segmentos .ts van directo al proveedor.
+app.get("/magma-lite/movie/:streamId.m3u8", async (req, res) => {
+  if (!requireDb(res)) return;
+
+  try {
+    const code = normalizeCode(req.query.code);
+    const valid = await magmaLiteGetClient(code);
+
+    if (!valid.ok) {
+      return res.status(valid.status).json({
+        success: false,
+        message: valid.message
+      });
+    }
+
+    if (!magmaLiteIsEnabledForCode(valid.activationCode, valid.client)) {
+      return res.status(403).json({
+        success: false,
+        message: "Magma Movies no habilitado para este cliente."
+      });
+    }
+
+    const streamId = String(req.params.streamId || "").replace(/[^0-9]/g, "");
+
+    if (!streamId) {
+      return res.status(400).json({
+        success: false,
+        message: "ID de película inválido."
+      });
+    }
+
+    const secureUrl = await magmaLiteGenerateLiveUrl(streamId);
+
+    const response = await fetch(secureUrl, {
+      headers: magmaLiteHeaders()
+    });
+
+    const text = await response.text();
+
+    if (!response.ok) {
+      return res.status(response.status).send(text);
+    }
+
+    res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
+    res.setHeader("Cache-Control", "no-store");
+    res.send(text);
+  } catch (error) {
+    console.error("Magma movie playlist error:", error);
+    res.status(500).json({
+      success: false,
+      message: "No se pudo generar playlist de película Magma.",
+      error: error.message
+    });
+  }
+});
+// MAGMA_MOVIES_LITE_END
+
+
 // MAGMA_LIVE_LITE_END
 
 
