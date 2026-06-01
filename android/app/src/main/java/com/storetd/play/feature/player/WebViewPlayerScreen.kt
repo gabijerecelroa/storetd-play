@@ -32,9 +32,21 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.ui.PlayerView
 
-val adServers = listOf("medixiru", "popads", "onclick", "doubleclick", "adsterra", "syndication", "profitablerate", "bet365", "highcpm", "adskeeper", "realsrv", "trafficstars", "1xbet", "betway")
+val adServers = listOf("medixiru", "popads", "onclick", "doubleclick", "adsterra", "syndication", "profitablerate", "bet365", "highcpm", "adskeeper", "realsrv", "trafficstars", "1xbet", "betway", "adult")
 
-@SuppressLint("SetJavaScriptEnabled", "UnsafeOptInUsageError")
+// 🕵️‍♂️ EL ESPÍA JAVASCRIPT: Se comunica desde la web hacia Kotlin
+class VideoJsInterface(private val onVideoFound: (String) -> Unit) {
+    @JavascriptInterface
+    fun catchVideoUrl(url: String) {
+        if (url.startsWith("http")) {
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                onVideoFound(url)
+            }
+        }
+    }
+}
+
+@SuppressLint("SetJavaScriptEnabled", "UnsafeOptInUsageError", "AddJavascriptInterface")
 @Composable
 fun WebViewPlayerScreen(
     title: String,
@@ -46,7 +58,7 @@ fun WebViewPlayerScreen(
     var isLoading by remember { mutableStateOf(true) }
     var message by remember { mutableStateOf("Buscando enlace directo del video...") }
     var playerError by remember { mutableStateOf<String?>(null) }
-    var isMainPageLoaded by remember { mutableStateOf(false) } // EL CANDADO MAESTRO
+    var isMainPageLoaded by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     BackHandler {
@@ -73,7 +85,7 @@ fun WebViewPlayerScreen(
         DisposableEffect(directVideoUrl) {
             val listener = object : Player.Listener {
                 override fun onPlayerError(error: PlaybackException) {
-                    playerError = "Error interno: ${error.errorCodeName}"
+                    playerError = "Error: ${error.errorCodeName}. Cambiá de fuente."
                 }
             }
             exoPlayer.addListener(listener)
@@ -103,18 +115,16 @@ fun WebViewPlayerScreen(
                 modifier = Modifier.fillMaxSize()
             )
             
-            // DATALOGGER OCULTO (Solo visible si hay error, ideal para el usuario final)
             Column(modifier = Modifier.align(Alignment.TopStart).padding(16.dp)) {
                 Button(onClick = onBack) { Text("Volver") }
                 if (playerError != null) {
-                    Text("Error al reproducir, probá otra fuente.", color = Color.Red, fontSize = 13.sp)
-                    Text(playerError ?: "", color = Color.White, fontSize = 11.sp)
+                    Text(playerError ?: "", color = Color.Red, fontSize = 13.sp)
                 }
             }
         }
 
     } else {
-        // FASE 1: EL SNIFFER CON CANDADO MAESTRO Y AUTO-CLICKER
+        // FASE 1: EL SNIFFER HÍBRIDO (Red + DOM Espía)
         Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
@@ -139,10 +149,17 @@ fun WebViewPlayerScreen(
                             javaScriptCanOpenWindowsAutomatically = true
                             userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                         }
+                        
+                        // 🕵️‍♂️ Inyectamos el Espía de Android en la Web
+                        addJavascriptInterface(VideoJsInterface { caughtUrl ->
+                            if (directVideoUrl == null) {
+                                directVideoUrl = caughtUrl
+                            }
+                        }, "AndroidSpy")
 
                         webChromeClient = object : WebChromeClient() {
                             override fun onCreateWindow(view: WebView?, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message?): Boolean {
-                                return false // Aniquilar popups de ventanas nuevas
+                                return false 
                             }
                         }
 
@@ -150,50 +167,49 @@ fun WebViewPlayerScreen(
                             override fun onPageStarted(view: WebView?, pageUrl: String?, favicon: Bitmap?) {
                                 isMainPageLoaded = false
                                 isLoading = true
-                                message = "Iniciando conexión segura..."
+                                message = "Iniciando escáner de video..."
                             }
 
                             override fun onPageFinished(view: WebView?, pageUrl: String?) {
-                                isMainPageLoaded = true // SE CIERRA EL CANDADO MAESTRO
+                                isMainPageLoaded = true 
                                 isLoading = false
-                                message = "Extrayendo video. Esperá unos segundos..."
+                                message = "Analizando reproductor web..."
                                 
-                                val autoClickScript = """
+                                // INYECCIÓN JAVASCRIPT: Auto-Clicker + Lector de Etiqueta <video>
+                                val spyScript = """
                                     (function() {
                                         setInterval(function() {
-                                            var videos = document.getElementsByTagName('video');
-                                            for(var i=0; i<videos.length; i++) {
-                                                videos[i].play();
+                                            // 1. Robar el video si el reproductor web intenta cargarlo
+                                            var v = document.querySelector('video');
+                                            if (v && v.src && v.src.startsWith('http')) {
+                                                window.AndroidSpy.catchVideoUrl(v.src);
                                             }
-                                            var x = window.innerWidth / 2;
-                                            var y = window.innerHeight / 2;
-                                            var ev = new MouseEvent('click', {
-                                                'view': window,
-                                                'bubbles': true,
-                                                'cancelable': true,
-                                                'clientX': x,
-                                                'clientY': y
-                                            });
-                                            var el = document.elementFromPoint(x, y);
+                                            // 2. Revisar si hay un <source> dentro del video
+                                            var s = document.querySelector('video > source');
+                                            if (s && s.src && s.src.startsWith('http')) {
+                                                window.AndroidSpy.catchVideoUrl(s.src);
+                                            }
+                                            // 3. Auto-Clicker
+                                            if(v) v.play();
+                                            var ev = new MouseEvent('click', {'view': window, 'bubbles': true, 'cancelable': true, 'clientX': window.innerWidth/2, 'clientY': window.innerHeight/2});
+                                            var el = document.elementFromPoint(window.innerWidth/2, window.innerHeight/2);
                                             if(el) el.dispatchEvent(ev);
                                         }, 500); 
                                     })();
                                 """.trimIndent()
-                                view?.evaluateJavascript(autoClickScript, null)
+                                view?.evaluateJavascript(spyScript, null)
                             }
 
                             override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
                                 val reqUrl = request?.url?.toString() ?: return null
                                 val lowerUrl = reqUrl.lowercase()
 
-                                // EL CAZADOR DE ENLACES
+                                // CAZADOR DE RED CLÁSICO
                                 if ((lowerUrl.endsWith(".m3u8") || lowerUrl.contains(".m3u8?") || 
                                      lowerUrl.endsWith(".m3u") || lowerUrl.contains(".m3u?") ||
                                      lowerUrl.endsWith(".mp4") || lowerUrl.contains(".mp4?")) && 
                                      !lowerUrl.contains("blank") && !lowerUrl.contains("ad") && 
-                                     !lowerUrl.contains("pixel") && !lowerUrl.contains("track") &&
-                                     !lowerUrl.contains("banner") && !lowerUrl.contains("logo") &&
-                                     !lowerUrl.contains("vast")) {
+                                     !lowerUrl.contains("icon")) {
                                     
                                     android.os.Handler(android.os.Looper.getMainLooper()).post {
                                         if (directVideoUrl == null) {
@@ -211,16 +227,11 @@ fun WebViewPlayerScreen(
 
                             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                                 val target = request?.url?.toString() ?: return false
-                                
                                 if (!target.startsWith("http")) return true
                                 
-                                // EL CANDADO MAESTRO: 
-                                // Si la página ya terminó de cargar, bloqueamos que el auto-click nos saque del sitio
                                 if (isMainPageLoaded && request?.isForMainFrame == true) {
-                                    message = "Publicidad detectada y neutralizada."
-                                    return true // SECUESTRO BLOQUEADO
+                                    return true 
                                 }
-                                
                                 return false 
                             }
                         }
@@ -230,16 +241,12 @@ fun WebViewPlayerScreen(
                 update = { webView -> if (webView.url != url) webView.loadUrl(url) }
             )
 
-            Column(
-                modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            Column(modifier = Modifier.align(Alignment.TopStart).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = onBack) { Text("Volver") }
                     Button(onClick = {
                         isLoading = true
                         isMainPageLoaded = false
-                        message = "Recargando servidor..."
                         webViewRef?.reload()
                     }) { Text("Recargar") }
                 }
