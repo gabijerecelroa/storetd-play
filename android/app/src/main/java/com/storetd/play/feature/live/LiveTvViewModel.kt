@@ -300,6 +300,40 @@ class LiveTvViewModel(
         loadPlaylistFrom(context, url, forceRefresh = true)
     }
 
+    private fun maybeRefreshMagmaLiveCatalog(
+        context: Context,
+        urlValue: String
+    ) {
+        val appContext = context.applicationContext
+        val cleanUrl = urlValue.trim()
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val account = LocalAccount.getAccount(appContext)
+            val activationCode = account.activationCode.trim()
+
+            if (activationCode.isBlank()) return@launch
+
+            val localNeedsDailyRefresh = shouldRefreshMagmaLiveCatalog(appContext)
+
+            val remoteVersion = OptimizedContentApi.loadMagmaLiveCatalogVersion(
+                activationCode = activationCode
+            )
+
+            val localVersion = getMagmaLiveCatalogLastRefreshAt(appContext)
+
+            val remoteNeedsRefresh = remoteVersion > 0L && remoteVersion > localVersion
+
+            if (localNeedsDailyRefresh || remoteNeedsRefresh) {
+                loadOptimizedLiveFromBackend(
+                    context = appContext,
+                    urlValue = cleanUrl,
+                    forceBackendRefresh = true
+                )
+            }
+        }
+    }
+
+
     private fun loadOptimizedLiveFromBackend(
         context: Context,
         urlValue: String,
