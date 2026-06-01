@@ -148,15 +148,23 @@ async function magmaLiteGetClient(code) {
 }
 
 async function magmaLiteFetchJson(action) {
+  const safeAction = String(action || "").trim();
+
+  if (!safeAction) {
+    throw new Error("Acción Magma vacía.");
+  }
+
   const url =
-    `${magmaLiteBaseUrl()}/player_api.php` +
-    `?username=${encodeURIComponent(magmaLiteUser())}` +
+    `${magmaLiteBaseUrl()}/player_api.php?username=${encodeURIComponent(magmaLiteUser())}` +
     `&password=${encodeURIComponent(magmaLitePass())}` +
-    `&action=${encodeURIComponent(action)}`;
+    `&action=${encodeURIComponent(safeAction)}`;
 
   const response = await fetch(url, {
     headers: {
-      "User-Agent": "StoreTD Play Backend"
+      "User-Agent": "Dalvik/2.1.0 (Linux; U; Android 15; moto g84 5G Build/V1TC35H.88-20-1-6)",
+      "Accept": "application/json, text/plain, */*",
+      "Cache-Control": "no-cache",
+      "Pragma": "no-cache"
     }
   });
 
@@ -166,7 +174,15 @@ async function magmaLiteFetchJson(action) {
     throw new Error(`Magma catálogo HTTP ${response.status}: ${text.slice(0, 160)}`);
   }
 
-  return JSON.parse(text);
+  if (!text.trim()) {
+    throw new Error(`Magma catálogo vacío para ${safeAction}.`);
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    throw new Error(`Magma catálogo JSON inválido para ${safeAction}: ${text.slice(0, 160)}`);
+  }
 }
 
 async function magmaLiteGenerateLiveUrl(streamId) {
@@ -420,6 +436,43 @@ async function magmaLiteFetchVodLinks(vodId) {
 }
 
 
+
+function magmaLiteMovieCategoryTitle(key) {
+  const titles = {
+    "1": "Drama",
+    "2": "Familia",
+    "3": "Animación",
+    "4": "Comedia",
+    "5": "Fantasía",
+    "6": "Acción",
+    "7": "Aventura",
+    "8": "Ciencia ficción",
+    "10": "Crimen",
+    "11": "Misterio",
+    "12": "Terror",
+    "13": "Romance",
+    "15": "Historia",
+    "17": "Música",
+    "53": "Suspenso",
+    "55": "Western",
+    "56": "Documental",
+    "62": "Guerra",
+    "64": "Barbie",
+    "66": "Superhéroes",
+    "67": "Mundo Marvel",
+    "68": "DC / Superhéroes",
+    "69": "Sagas infantiles",
+    "71": "Thriller",
+    "73": "Asiáticas",
+    "401": "Top",
+    "500": "Lo más relevante",
+    "1000": "Películas"
+  };
+
+  return titles[String(key)] || `Categoría ${key}`;
+}
+
+
 // MAGMA_MOVIES_LITE_START
 function magmaLiteImageUrl(value, size = "w500") {
   const text = String(value || "").trim();
@@ -490,7 +543,7 @@ app.get("/api/content/movie-categories-lite", async (req, res, next) => {
       ? categories
       : Array.from(counts.keys()).map((key) => ({
           category_id: key,
-          category_name: key === "401" ? "Top" : `Categoría ${key}`
+          category_name: magmaLiteMovieCategoryTitle(key)
         }));
 
     const items = categoryRows
