@@ -845,6 +845,327 @@ app.get("/magma-lite/movie/:streamId.m3u8", async (req, res) => {
     });
   }
 });
+
+
+// MAGMA_SERIES_LITE_START
+function magmaSeriesCatalogHeaders() {
+  return {
+    "User-Agent": "Dalvik/2.1.0 (Linux; U; Android 15; StoreTD Play)",
+    "Accept": "application/json,text/plain,*/*",
+    "Accept-Encoding": "gzip"
+  };
+}
+
+function magmaSeriesImageUrl(value, size = "w500") {
+  const text = String(value || "").trim();
+
+  if (!text || text === "-") return "";
+
+  if (/^https?:\/\//i.test(text)) return text;
+
+  if (text.startsWith("/")) {
+    return `https://image.tmdb.org/t/p/${size}${text}`;
+  }
+
+  return text;
+}
+
+async function magmaSeriesFetchJson(action, extra = {}) {
+  const base = magmaLiteBaseUrl();
+  const params = new URLSearchParams();
+
+  params.set("username", magmaLiteUser());
+  params.set("password", magmaLitePass());
+  params.set("action", action);
+
+  Object.entries(extra || {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && String(value).trim() !== "") {
+      params.set(key, String(value));
+    }
+  });
+
+  const url = `${base}/player_api.php?${params.toString()}`;
+  const response = await fetch(url, {
+    headers: magmaSeriesCatalogHeaders()
+  });
+
+  const text = await response.text();
+
+  if (!response.ok) {
+    throw new Error(`Magma series HTTP ${response.status}: ${text.slice(0, 180)}`);
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    throw new Error(`Respuesta Magma series inválida: ${text.slice(0, 180)}`);
+  }
+}
+
+function magmaBuildSeriesCategoryMap(categories) {
+  const map = new Map();
+
+  (Array.isArray(categories) ? categories : []).forEach((cat) => {
+    const id = String(cat.category_id || "").trim();
+    const name = String(cat.category_name || "").trim();
+
+    if (id && name) {
+      map.set(id, name);
+    }
+  });
+
+  return map;
+}
+
+function magmaBuildSeriesEpisodes({ info, seriesId, code, req }) {
+  const publicBase = magmaLitePublicBaseUrl(req);
+  const seriesTitle = String(
+    info?.info?.name ||
+    info?.info?.title ||
+    `Serie ${seriesId}`
+  ).trim();
+
+  const seriesPoster = magmaSeriesImageUrl(
+    info?.info?.cover ||
+    info?.info?.movie_image ||
+    "",
+    "w500"
+  );
+
+  const episodesRoot = info?.episodes || {};
+  const items = [];
+
+  Object.keys(episodesRoot)
+    .sort((a, b) => Number(a) - Number(b))
+    .forEach((seasonKey) => {
+      const episodes = Array.isArray(episodesRoot[seasonKey])
+        ? episodesRoot[seasonKey]
+        : [];
+
+      episodes.forEach((ep) => {
+        const episodeId = String(ep.id || ep.episode_id || ep.stream_id || "").trim();
+        if (!episodeId) return;
+
+        const season = Number(ep.season || ep.info?.season || seasonKey || 0);
+        const episode = Number(ep.episode_num || ep.episode || 0);
+        const title = String(ep.title || ep.name || `Episodio ${episode || ""}`).trim();
+
+        const seasonLabel = season > 0 ? `T${String(season).padStart(2, "0")}` : "T--";
+        const episodeLabel = episode > 0 ? `E${String(episode).padStart(2, "0")}` : "E--";
+        const cleanName = `${seasonLabel}${episodeLabel} - ${title}`;
+
+        const image = magmaSeriesImageUrl(
+          ep.info?.movie_image ||
+          ep.movie_image ||
+          ep.cover ||
+          "",
+          "w500"
+        ) || seriesPoster;
+
+        items.push({
+          id: episodeId,
+          name: cleanName,
+          title,
+          group: `Series · ${seriesTitle}`,
+          tvgId: episodeId,
+          logoUrl: image,
+          posterUrl: image,
+          backdropUrl: magmaSeriesImageUrl(info?.info?.backdrop || "", "w780"),
+          streamUrl: `${publicBase}/magma-lite/movie/${episodeId}.m3u8?code=${encodeURIComponent(code)}&kind=episode`,
+          type: "series",
+          source: "magma-lite",
+          seriesId,
+          streamId: episodeId,
+          episodeId,
+          season,
+          episode,
+          plot: String(ep.info?.plot || ep.plot || ""),
+          rating: Number(ep.info?.rating || ep.rating || 0),
+          duration: ep.info?.duration_secs || ep.info?.duration || ep.duration || 0
+        });
+      });
+    });
+
+  items.sort((a, b) => {
+    return Number(a.season || 0) - Number(b.season || 0)
+      || Number(a.episode || 0) - Number(b.episode || 0)
+      || String(a.name).localeCompare(String(b.name));
+  });
+
+  return {
+    title: seriesTitle,
+    posterUrl: seriesPoster,
+    backdropUrl: magmaSeriesImageUrl(info?.info?.backdrop || "", "w780"),
+    plot: String(info?.info?.plot || ""),
+    items
+  };
+}
+
+// Catálogo liviano de series Magma.
+// Se inserta antes de las rutas híbridas para que los códigos Magma usen este catálogo.
+app.get("/api/content/series-folders-lite", async (req, res, next) => {
+  if (!isDatabaseConfigured()) return next();
+
+  try {
+    const code = normalizeCode(req.query.code || req.query.activationCode);
+    const valid = await magmaLiteGetClient(code);
+
+    if (!valid.ok) {
+      return next();
+    }
+
+    if (!magmaLiteIsEnabledForCode(valid.activationCode, valid.client)) {
+      return next();
+    }
+
+    const [categories, series] = await Promise.all([
+      magmaSeriesFetchJson("get_series_categories"),
+      magmaSeriesFetchJson("get_series")
+    ]);
+
+    const categoryMap = magmaBuildSeriesCategoryMap(categories);
+
+    const folders = (Array.isArray(series) ? series : [])
+      .map((item) => {
+        const seriesId = String(item.series_id || item.id || "").trim();
+        if (!seriesId) return null;
+
+        const categoryId = String(item.category_id || "").trim();
+        const categoriesText = String(item.categories || "").trim();
+        const firstCategory = categoriesText.split(",").map((x) => x.trim()).filter(Boolean)[0];
+        const group = categoryMap.get(categoryId) || categoryMap.get(firstCategory) || "Series";
+
+        return {
+          key: seriesId,
+          title: String(item.name || `Serie ${seriesId}`).trim(),
+          name: String(item.name || `Serie ${seriesId}`).trim(),
+          group,
+          category: group,
+          logoUrl: magmaSeriesImageUrl(item.cover || item.stream_icon || "", "w500"),
+          posterUrl: magmaSeriesImageUrl(item.cover || item.stream_icon || "", "w500"),
+          backdropUrl: magmaSeriesImageUrl(item.backdrop_path || item.backdrop || "", "w780"),
+          seriesId,
+          itemCount: Number(item.episode_count || item.itemCount || item.episodes || 1),
+          release: String(item.releaseDate || item.release || ""),
+          rating: Number(item.rating_5based || item.rating || 0),
+          plot: String(item.plot || ""),
+          type: "series-folder",
+          source: "magma-lite"
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => {
+        return String(a.group).localeCompare(String(b.group))
+          || String(a.title).localeCompare(String(b.title));
+      });
+
+    res.setHeader("Cache-Control", "no-store");
+
+    return res.json({
+      success: true,
+      fromCache: false,
+      noServerCache: true,
+      source: "magma-series-dynamic",
+      section: "series-folders-lite",
+      mode: "magma-series-folders",
+      activationCode: valid.activationCode,
+      folderCount: folders.length,
+      itemCount: folders.length,
+      folders
+    });
+  } catch (error) {
+    console.error("Magma series folders error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "No se pudieron leer series Magma.",
+      error: error.message
+    });
+  }
+});
+
+// Episodios de una serie Magma.
+app.get("/api/content/series-folder", async (req, res, next) => {
+  if (!isDatabaseConfigured()) return next();
+
+  try {
+    const code = normalizeCode(req.query.code || req.query.activationCode);
+    const key = String(req.query.key || "").trim();
+    const valid = await magmaLiteGetClient(code);
+
+    if (!valid.ok) {
+      return next();
+    }
+
+    if (!magmaLiteIsEnabledForCode(valid.activationCode, valid.client)) {
+      return next();
+    }
+
+    const seriesId = key.replace(/^series-/, "").trim();
+
+    if (!seriesId) {
+      return res.status(400).json({
+        success: false,
+        message: "Falta key de serie."
+      });
+    }
+
+    const info = await magmaSeriesFetchJson("get_series_info", {
+      series_id: seriesId
+    });
+
+    const built = magmaBuildSeriesEpisodes({
+      info,
+      seriesId,
+      code: valid.activationCode,
+      req
+    });
+
+    const folder = {
+      key: seriesId,
+      title: built.title,
+      name: built.title,
+      group: "Series",
+      category: "Series",
+      logoUrl: built.posterUrl,
+      posterUrl: built.posterUrl,
+      backdropUrl: built.backdropUrl,
+      seriesId,
+      itemCount: built.items.length,
+      plot: built.plot,
+      type: "series-folder",
+      source: "magma-lite"
+    };
+
+    res.setHeader("Cache-Control", "no-store");
+
+    return res.json({
+      success: true,
+      fromCache: false,
+      noServerCache: true,
+      source: "magma-series-dynamic",
+      section: "series-folder",
+      mode: "magma-series-episodes",
+      activationCode: valid.activationCode,
+      key: seriesId,
+      seriesId,
+      title: built.title,
+      folder,
+      itemCount: built.items.length,
+      groups: ["Todos", built.title],
+      items: built.items
+    });
+  } catch (error) {
+    console.error("Magma series folder error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "No se pudieron leer capítulos Magma.",
+      error: error.message
+    });
+  }
+});
+// MAGMA_SERIES_LITE_END
+
+
 // MAGMA_MOVIES_LITE_END
 
 
