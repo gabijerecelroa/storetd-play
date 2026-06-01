@@ -34,7 +34,6 @@ import androidx.media3.ui.PlayerView
 
 val adServers = listOf("medixiru", "popads", "onclick", "doubleclick", "adsterra", "syndication", "profitablerate", "bet365", "highcpm", "adskeeper", "realsrv", "trafficstars")
 
-// 👉 AQUI ESTA LA MAGIA: Le decimos al compilador que sabemos lo que hacemos con la API de ExoPlayer
 @SuppressLint("SetJavaScriptEnabled", "UnsafeOptInUsageError")
 @Composable
 fun WebViewPlayerScreen(
@@ -58,13 +57,11 @@ fun WebViewPlayerScreen(
     }
 
     if (directVideoUrl != null) {
-        // ==========================================
-        // FASE 2: EXOPLAYER CON INYECCION DE HEADERS
-        // ==========================================
+        // FASE 2: EXOPLAYER NATIVO
         val exoPlayer = remember {
             val dataSourceFactory = DefaultHttpDataSource.Factory()
                 .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                .setDefaultRequestProperties(mapOf("Referer" to url)) // EL TRUCO VITAL: El pase VIP
+                .setDefaultRequestProperties(mapOf("Referer" to url))
                 .setAllowCrossProtocolRedirects(true)
 
             ExoPlayer.Builder(context)
@@ -75,7 +72,7 @@ fun WebViewPlayerScreen(
         DisposableEffect(directVideoUrl) {
             val listener = object : Player.Listener {
                 override fun onPlayerError(error: PlaybackException) {
-                    playerError = "Error interno: ${error.errorCodeName} - ${error.message}"
+                    playerError = "Error interno: ${error.errorCodeName}"
                 }
             }
             exoPlayer.addListener(listener)
@@ -105,23 +102,17 @@ fun WebViewPlayerScreen(
                 modifier = Modifier.fillMaxSize()
             )
             
-            // DATALOGGER EN PANTALLA (Para nuestros diagnósticos)
+            // DATALOGGER (Ocultar luego para producción)
             Column(modifier = Modifier.align(Alignment.TopStart).padding(16.dp)) {
-                Button(onClick = onBack) {
-                    Text("Volver")
-                }
-                Text("Enlace atrapado:", color = Color.Green, fontSize = 11.sp)
-                Text(directVideoUrl ?: "", color = Color.White, fontSize = 11.sp)
-                if (playerError != null) {
-                    Text(playerError ?: "", color = Color.Red, fontSize = 11.sp)
-                }
+                Button(onClick = onBack) { Text("Volver") }
+                Text("Enlace atrapado:", color = Color.Green, fontSize = 10.sp)
+                Text(directVideoUrl ?: "", color = Color.White, fontSize = 10.sp)
+                if (playerError != null) Text(playerError ?: "", color = Color.Red, fontSize = 11.sp)
             }
         }
 
     } else {
-        // ==========================================
-        // FASE 1: EL SNIFFER
-        // ==========================================
+        // FASE 1: EL SNIFFER CON AUTO-CLICKER
         Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
@@ -139,7 +130,7 @@ fun WebViewPlayerScreen(
                         settings.apply {
                             javaScriptEnabled = true
                             domStorageEnabled = true
-                            mediaPlaybackRequiresUserGesture = false 
+                            mediaPlaybackRequiresUserGesture = false // Permitir autoplay
                             useWideViewPort = true
                             loadWithOverviewMode = true
                             setSupportMultipleWindows(true)
@@ -149,22 +140,50 @@ fun WebViewPlayerScreen(
 
                         webChromeClient = object : WebChromeClient() {
                             override fun onCreateWindow(view: WebView?, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message?): Boolean {
-                                return false 
+                                return false // Aniquilar popups
                             }
                         }
 
                         webViewClient = object : WebViewClient() {
                             override fun onPageFinished(view: WebView?, pageUrl: String?) {
                                 isLoading = false
-                                message = "Toca 'Play' en el video..."
+                                message = "Página lista. Forzando extracción del video..."
+                                
+                                // INYECCIÓN JAVASCRIPT: El Auto-Clicker
+                                // Simula clics en el centro de la pantalla y fuerza el Play del video
+                                val autoClickScript = """
+                                    (function() {
+                                        setInterval(function() {
+                                            // Forzar play a cualquier etiqueta de video
+                                            var videos = document.getElementsByTagName('video');
+                                            for(var i=0; i<videos.length; i++) {
+                                                videos[i].play();
+                                            }
+                                            // Simular clic en el centro para quitar tapas
+                                            var x = window.innerWidth / 2;
+                                            var y = window.innerHeight / 2;
+                                            var ev = new MouseEvent('click', {
+                                                'view': window,
+                                                'bubbles': true,
+                                                'cancelable': true,
+                                                'clientX': x,
+                                                'clientY': y
+                                            });
+                                            var el = document.elementFromPoint(x, y);
+                                            if(el) el.dispatchEvent(ev);
+                                        }, 500); // 2 clics por segundo
+                                    })();
+                                """.trimIndent()
+                                view?.evaluateJavascript(autoClickScript, null)
                             }
 
                             override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
                                 val reqUrl = request?.url?.toString() ?: return null
                                 val lowerUrl = reqUrl.lowercase()
 
-                                // FILTRO DE BASURA
+                                // EL CAZADOR: Ahora también busca .m3u por si acaso
                                 if ((lowerUrl.endsWith(".m3u8") || lowerUrl.contains(".m3u8?") || 
+                                     lowerUrl.endsWith(".m3u") || lowerUrl.contains(".m3u?") ||
                                      lowerUrl.endsWith(".mp4") || lowerUrl.contains(".mp4?")) && 
                                      !lowerUrl.contains("blank") && !lowerUrl.contains("ad") && 
                                      !lowerUrl.contains("pixel") && !lowerUrl.contains("track")) {
@@ -195,6 +214,7 @@ fun WebViewPlayerScreen(
                 update = { webView -> if (webView.url != url) webView.loadUrl(url) }
             )
 
+            // Controles Fase 1
             Column(
                 modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -203,7 +223,7 @@ fun WebViewPlayerScreen(
                     Button(onClick = onBack) { Text("Volver") }
                     Button(onClick = {
                         isLoading = true
-                        message = "Buscando enlace..."
+                        message = "Recargando servidor..."
                         webViewRef?.reload()
                     }) { Text("Recargar") }
                 }
