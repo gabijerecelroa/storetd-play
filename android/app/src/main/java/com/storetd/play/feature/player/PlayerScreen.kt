@@ -232,11 +232,36 @@ fun PlayerScreen(
         }
 
         // 1. TIEMPOS DE ESPERA EXTREMOS: Si tu Wi-Fi se congela, esperamos hasta 2 minutos sin cancelar el video
-        val dataSourceFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
-            .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
-            .setAllowCrossProtocolRedirects(true)
-            .setConnectTimeoutMs(30_000)
-            .setReadTimeoutMs(120_000)
+        // INTERCEPTOR INTELIGENTE MAGMA LITE
+        val dataSourceFactory = androidx.media3.datasource.DataSource.Factory {
+            val defaultSource = androidx.media3.datasource.DefaultHttpDataSource.Factory()
+                .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
+                .setAllowCrossProtocolRedirects(true)
+                .setConnectTimeoutMs(30_000)
+                .setReadTimeoutMs(120_000)
+                .createDataSource()
+                
+            object : androidx.media3.datasource.HttpDataSource by defaultSource {
+                override fun open(dataSpec: androidx.media3.datasource.DataSpec): Long {
+                    val urlStr = dataSpec.uri.toString()
+                    val isMagma = urlStr.contains("tvcluboficial") || urlStr.contains("magma-lite") || urlStr.contains("m3uts")
+                    
+                    val finalSpec = if (isMagma) {
+                        dataSpec.buildUpon().setHttpRequestHeaders(
+                            dataSpec.httpRequestHeaders.toMutableMap().apply {
+                                put("User-Agent", "Magma Player/10")
+                                put("X-App", "di")
+                                put("X-Version", "10/1.0.9")
+                                put("X-Did", com.storetd.play.core.Secrets.MAGMA_DEVICE_ID)
+                                put("X-Hash", com.storetd.play.core.Secrets.MAGMA_HASH)
+                            }
+                        ).build()
+                    } else dataSpec
+                    
+                    return defaultSource.open(finalSpec)
+                }
+            }
+        }
 
         // 2. EL SECRETO (POLÍTICA DE ERRORES): En lugar de rendirse a los 3 errores de red, intentará reconectar silenciosamente 25 veces seguidas.
         val loadErrorPolicy = androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy(25)

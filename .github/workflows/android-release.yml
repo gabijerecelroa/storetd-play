@@ -36,6 +36,8 @@ jobs:
       - name: Build signed release APK
         run: |
           sed -i 's/REPLACE_ME_IN_ACTIONS/${{ secrets.TMDB_API_KEY }}/g' app/src/main/java/com/storetd/play/core/Secrets.kt
+          sed -i 's/REPLACE_MAGMA_DEVICE_ID_IN_ACTIONS/${{ secrets.MAGMA_DEVICE_ID }}/g' app/src/main/java/com/storetd/play/core/Secrets.kt
+          sed -i 's/REPLACE_MAGMA_HASH_IN_ACTIONS/${{ secrets.MAGMA_HASH }}/g' app/src/main/java/com/storetd/play/core/Secrets.kt
           ./gradlew assembleRelease
         working-directory: android
         env:
