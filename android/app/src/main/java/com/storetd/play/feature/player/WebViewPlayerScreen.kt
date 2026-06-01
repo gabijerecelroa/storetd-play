@@ -39,15 +39,36 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.delay
 
+private fun hostOf(url: String): String {
+    return runCatching {
+        Uri.parse(url).host.orEmpty().lowercase().removePrefix("www.")
+    }.getOrDefault("")
+}
+
 private fun isHttpUrl(url: String): Boolean {
     val clean = url.lowercase()
     return clean.startsWith("http://") || clean.startsWith("https://")
 }
 
-private fun safeHost(url: String): String {
-    return runCatching {
-        Uri.parse(url).host.orEmpty().removePrefix("www.")
-    }.getOrDefault("")
+private fun isDirectVideoUrl(url: String): Boolean {
+    val clean = url.lowercase()
+    return clean.contains(".m3u8") ||
+        clean.contains(".mp4") ||
+        clean.contains(".mpd") ||
+        clean.contains(".webm") ||
+        clean.contains(".mkv")
+}
+
+private fun isBadPopupHost(host: String): Boolean {
+    val clean = host.lowercase()
+    return clean.contains("medixiru") ||
+        clean.contains("doubleclick") ||
+        clean.contains("googlesyndication") ||
+        clean.contains("adsterra") ||
+        clean.contains("onclick") ||
+        clean.contains("popads") ||
+        clean.contains("profitablerate") ||
+        clean.contains("notification")
 }
 
 @SuppressLint("SetJavaScriptEnabled")
@@ -57,6 +78,8 @@ fun WebViewPlayerScreen(
     url: String,
     onBack: () -> Unit
 ) {
+    val originalHost = remember(url) { hostOf(url) }
+
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var message by remember { mutableStateOf("Cargando servidor externo...") }
@@ -65,7 +88,7 @@ fun WebViewPlayerScreen(
     LaunchedEffect(url) {
         delay(18000)
         if (isLoading) {
-            message = "El servidor está tardando. Tocá play si aparece, o probá Recargar."
+            message = "Si queda cargando, tocá Recargar o probá otro servidor."
         }
     }
 
@@ -109,8 +132,6 @@ fun WebViewPlayerScreen(
                     settings.loadWithOverviewMode = true
                     settings.allowFileAccess = false
                     settings.allowContentAccess = true
-
-                    // V3: permitir ventanas porque muchos servidores externos cargan el player real así.
                     settings.setSupportMultipleWindows(true)
                     settings.javaScriptCanOpenWindowsAutomatically = true
 
@@ -146,7 +167,8 @@ fun WebViewPlayerScreen(
                         ): Boolean {
                             val parent = view ?: return false
 
-                            val popupWebView = WebView(parent.context).apply {
+                            // WebView oculto para absorber popups sin secuestrar la pantalla principal.
+                            val popupSink = WebView(parent.context).apply {
                                 settings.javaScriptEnabled = true
                                 settings.domStorageEnabled = true
                                 settings.mediaPlaybackRequiresUserGesture = false
@@ -159,12 +181,15 @@ fun WebViewPlayerScreen(
                                         childView: WebView?,
                                         request: WebResourceRequest?
                                     ): Boolean {
-                                        val targetUrl = request?.url?.toString().orEmpty()
+                                        val target = request?.url?.toString().orEmpty()
+                                        val targetHost = hostOf(target)
 
-                                        if (isHttpUrl(targetUrl)) {
-                                            parent.loadUrl(targetUrl)
+                                        // Si el popup intenta abrir un video directo, lo cargamos en el player principal.
+                                        if (isDirectVideoUrl(target)) {
+                                            parent.loadUrl(target)
                                         }
 
+                                        // Todo lo demás se absorbe.
                                         return true
                                     }
 
@@ -173,15 +198,17 @@ fun WebViewPlayerScreen(
                                         childUrl: String?,
                                         favicon: Bitmap?
                                     ) {
-                                        if (!childUrl.isNullOrBlank() && isHttpUrl(childUrl)) {
-                                            parent.loadUrl(childUrl)
+                                        val target = childUrl.orEmpty()
+
+                                        if (isDirectVideoUrl(target)) {
+                                            parent.loadUrl(target)
                                         }
                                     }
                                 }
                             }
 
                             val transport = resultMsg?.obj as? WebView.WebViewTransport ?: return false
-                            transport.webView = popupWebView
+                            transport.webView = popupSink
                             resultMsg.sendToTarget()
                             return true
                         }
@@ -190,17 +217,13 @@ fun WebViewPlayerScreen(
                     webViewClient = object : WebViewClient() {
                         override fun onPageStarted(view: WebView?, pageUrl: String?, favicon: Bitmap?) {
                             isLoading = true
-                            val host = safeHost(pageUrl.orEmpty())
-                            message = if (host.isNotBlank()) {
-                                "Cargando $host..."
-                            } else {
-                                "Cargando servidor externo..."
-                            }
+                            val host = hostOf(pageUrl.orEmpty())
+                            message = if (host.isNotBlank()) "Cargando $host..." else "Cargando servidor externo..."
                         }
 
                         override fun onPageFinished(view: WebView?, pageUrl: String?) {
                             isLoading = false
-                            message = "Tocá play si aparece. Si queda en negro, probá Recargar u otro servidor."
+                            message = "Tocá play si aparece. Si no carga, probá otro servidor."
                         }
 
                         override fun onReceivedError(
@@ -218,14 +241,29 @@ fun WebViewPlayerScreen(
                             view: WebView?,
                             request: WebResourceRequest?
                         ): Boolean {
-                            val targetUrl = request?.url?.toString().orEmpty()
+                            val target = request?.url?.toString().orEmpty()
+                            val targetHost = hostOf(target)
 
-                            // Permitimos todas las navegaciones http/https porque estos embeds redirigen entre dominios.
-                            if (isHttpUrl(targetUrl)) {
-                                return false
+                            if (!isHttpUrl(target)) return true
+
+                            // Recursos internos/subframes se permiten.
+                            if (request?.isForMainFrame != true) return false
+
+                            // El dominio original del servidor se permite.
+                            if (targetHost == originalHost) return false
+
+                            // Video directo se permite.
+                            if (isDirectVideoUrl(target)) return false
+
+                            // Popups/anuncios conocidos se bloquean.
+                            if (isBadPopupHost(targetHost)) {
+                                message = "Popup bloqueado. Esperá el reproductor o probá otro servidor."
+                                return true
                             }
 
-                            // Bloqueamos intent://, market://, tel:, etc.
+                            // Para evitar que una publicidad cambie toda la pantalla, bloqueamos
+                            // navegación principal a otro dominio.
+                            message = "Redirección externa bloqueada. Tocá play o probá otro servidor."
                             return true
                         }
                     }
