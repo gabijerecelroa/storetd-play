@@ -343,6 +343,83 @@ async function magmaLiteFetchJsonOptional(action, fallback = []) {
   }
 }
 
+
+function magmaLiteVodHostLabel(value) {
+  try {
+    const host = new URL(String(value || "")).hostname.replace(/^www\./, "").toLowerCase();
+
+    if (host.includes("vidhide")) return "Vidhide";
+    if (host.includes("streamwish")) return "Streamwish";
+    if (host.includes("bysejikuar")) return "Servidor 2";
+    if (host.includes("josephseveralconcern")) return "Servidor 4";
+    if (host.includes("do7go")) return "Servidor 5";
+
+    return "Servidor externo";
+  } catch (_) {
+    return "Servidor externo";
+  }
+}
+
+function magmaLiteVodLanguageLabel(value) {
+  const text = String(value || "").trim().toLowerCase();
+
+  if (!text) return "";
+  if (text.includes("spanish") || text.includes("latino") || text.includes("español") || text.includes("espanol")) {
+    return "Latino";
+  }
+  if (text.includes("english") || text.includes("ingles") || text.includes("inglés")) {
+    return "Inglés";
+  }
+
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function magmaLiteNormalizeVodLinks(raw) {
+  if (Array.isArray(raw)) return raw;
+
+  if (raw && typeof raw === "object") {
+    for (const key of ["items", "links", "sources", "data", "result"]) {
+      if (Array.isArray(raw[key])) return raw[key];
+    }
+  }
+
+  return [];
+}
+
+async function magmaLiteFetchVodLinks(vodId) {
+  const cleanId = String(vodId || "").replace(/[^0-9]/g, "");
+
+  if (!cleanId) return [];
+
+  const url =
+    `${magmaLiteBaseUrl()}/player_api.php?username=${encodeURIComponent(magmaLiteUser())}` +
+    `&password=${encodeURIComponent(magmaLitePass())}` +
+    `&action=get_vod_links&vod_id=${encodeURIComponent(cleanId)}`;
+
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "Dalvik/2.1.0 (Linux; U; Android 15; moto g84 5G Build/V1TC35H.88-20-1-6)",
+      "Accept": "application/json",
+      "Accept-Encoding": "gzip"
+    }
+  });
+
+  const text = await response.text();
+
+  if (!response.ok || !text.trim()) {
+    console.warn("get_vod_links vacío/no OK:", cleanId, response.status, text.slice(0, 120));
+    return [];
+  }
+
+  try {
+    return magmaLiteNormalizeVodLinks(JSON.parse(text));
+  } catch (error) {
+    console.warn("get_vod_links JSON inválido:", cleanId, error.message, text.slice(0, 120));
+    return [];
+  }
+}
+
+
 // MAGMA_MOVIES_LITE_START
 function magmaLiteImageUrl(value, size = "w500") {
   const text = String(value || "").trim();
@@ -548,7 +625,7 @@ app.get("/api/magma-lite/movie-sources", async (req, res) => {
     if (!magmaLiteIsEnabledForCode(valid.activationCode, valid.client)) {
       return res.status(403).json({
         success: false,
-        message: "Magma Movies no habilitado para este cliente."
+        message: "Películas no habilitadas para este cliente."
       });
     }
 
@@ -558,6 +635,40 @@ app.get("/api/magma-lite/movie-sources", async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Falta ID de película."
+      });
+    }
+
+    const vodLinks = await magmaLiteFetchVodLinks(streamId);
+
+    const externalSources = vodLinks
+      .map((item, index) => {
+        const url = String(item.url || item.link || item.embed || item.file || "").trim();
+        const hostLabel = magmaLiteVodHostLabel(url);
+        const quality = String(item.quality || item.resolution || "Auto").trim() || "Auto";
+        const language = magmaLiteVodLanguageLabel(item.language || item.lang);
+
+        return {
+          id: String(item.id || `${streamId}-${index + 1}`),
+          title: `Servidor ${index + 1}`,
+          subtitle: hostLabel,
+          quality,
+          language,
+          streamUrl: url,
+          type: "external"
+        };
+      })
+      .filter((item) => /^https?:\/\//i.test(item.streamUrl));
+
+    res.setHeader("Cache-Control", "no-store");
+
+    if (externalSources.length > 0) {
+      return res.json({
+        success: true,
+        source: "vod-links",
+        available: true,
+        streamId,
+        itemCount: externalSources.length,
+        items: externalSources
       });
     }
 
@@ -580,15 +691,13 @@ app.get("/api/magma-lite/movie-sources", async (req, res) => {
         !playlistText.includes("magma_expired") &&
         /^https?:\/\//m.test(playlistText);
     } catch (error) {
-      console.warn("Magma movie source precheck failed:", streamId, error.message);
+      console.warn("Movie fallback m3u8 precheck failed:", streamId, error.message);
     }
-
-    res.setHeader("Cache-Control", "no-store");
 
     if (!sourceAvailable) {
       return res.json({
         success: true,
-        source: "magma-lite",
+        source: "vod-links",
         available: false,
         streamId,
         itemCount: 0,
@@ -599,23 +708,24 @@ app.get("/api/magma-lite/movie-sources", async (req, res) => {
 
     return res.json({
       success: true,
-      source: "magma-lite",
+      source: "movie-fallback",
       available: true,
       streamId,
       itemCount: 1,
       items: [
         {
           id: streamId,
-          title: "Fuente principal",
+          title: "Servidor 1",
           subtitle: "Servidor principal",
           quality: "Auto",
           language: "Latino",
-          streamUrl
+          streamUrl,
+          type: "m3u8"
         }
       ]
     });
   } catch (error) {
-    console.error("Magma movie sources error:", error);
+    console.error("Movie sources error:", error);
     return res.status(500).json({
       success: false,
       message: "No se pudieron cargar fuentes de película.",
@@ -623,6 +733,7 @@ app.get("/api/magma-lite/movie-sources", async (req, res) => {
     });
   }
 });
+
 
 // Playlist liviana para película.
 // El VPS genera el link actualizado y devuelve el .m3u8.

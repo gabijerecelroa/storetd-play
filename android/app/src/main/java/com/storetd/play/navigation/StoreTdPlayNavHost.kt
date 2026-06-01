@@ -38,6 +38,7 @@ import com.storetd.play.feature.live.LiveTvScreen
 import com.storetd.play.feature.live.LiveTvViewModel
 import com.storetd.play.feature.maintenance.MaintenanceScreen
 import com.storetd.play.feature.player.PlayerScreen
+import com.storetd.play.feature.player.WebViewPlayerScreen
 import com.storetd.play.feature.vod.VodDetailScreen
 import com.storetd.play.feature.settings.SettingsScreen
 import com.storetd.play.feature.security.SecurityBlockedScreen
@@ -57,6 +58,16 @@ import com.storetd.play.core.network.AppUpdateApi
 import com.storetd.play.core.network.AppUpdateInfo
 import com.storetd.play.core.update.AppUpdateDownloader
 import androidx.compose.ui.unit.dp
+
+private fun isDirectVideoPlaybackUrl(url: String): Boolean {
+    val clean = url.lowercase()
+
+    return clean.contains(".m3u8") ||
+        clean.contains(".mp4") ||
+        clean.contains("/magma-lite/") ||
+        clean.contains("tvcluboficial.com") ||
+        clean.contains("m3uts.xyz")
+}
 
 private fun isMagmaLiveUrl(url: String): Boolean {
     val clean = url.lowercase()
@@ -349,28 +360,49 @@ fun checkAccountStatus() {
                 onPlay = { selectedStreamUrl ->
                     val cleanLogo = logo.takeIf { it.isNotBlank() && it != "-" }
 
-                    val selectedSaved = SavedChannel(
-                        id = "${name.lowercase()}|$selectedStreamUrl".hashCode().toString(),
-                        name = name,
-                        streamUrl = selectedStreamUrl,
-                        logoUrl = cleanLogo,
-                        group = group,
-                        tvgId = null
-                    )
-
-                    PlayerSession.setQueue(
-                        channels = listOf(selectedSaved),
-                        currentStreamUrl = selectedStreamUrl
-                    )
-
-                    LocalLibrary.addHistory(context, selectedSaved)
-
                     val encName = android.net.Uri.encode(name)
                     val encUrl = android.net.Uri.encode(selectedStreamUrl)
                     val encGroup = android.net.Uri.encode(group)
                     val encLogo = if (logo.isBlank() || logo == "-") "-" else android.net.Uri.encode(logo)
-                    navController.navigate("${Routes.Player}/$encName/$encUrl/$encGroup/$encLogo")
+
+                    if (isDirectVideoPlaybackUrl(selectedStreamUrl)) {
+                        val selectedSaved = SavedChannel(
+                            id = "${name.lowercase()}|$selectedStreamUrl".hashCode().toString(),
+                            name = name,
+                            streamUrl = selectedStreamUrl,
+                            logoUrl = cleanLogo,
+                            group = group,
+                            tvgId = null
+                        )
+
+                        PlayerSession.setQueue(
+                            channels = listOf(selectedSaved),
+                            currentStreamUrl = selectedStreamUrl
+                        )
+
+                        LocalLibrary.addHistory(context, selectedSaved)
+
+                        navController.navigate("${Routes.Player}/$encName/$encUrl/$encGroup/$encLogo")
+                    } else {
+                        navController.navigate("${Routes.WebPlayer}/$encName/$encUrl/$encGroup/$encLogo")
+                    }
                 },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = "${Routes.WebPlayer}/{name}/{url}/{group}/{logo}",
+            arguments = listOf(
+                androidx.navigation.navArgument("name") { type = androidx.navigation.NavType.StringType },
+                androidx.navigation.navArgument("url") { type = androidx.navigation.NavType.StringType },
+                androidx.navigation.navArgument("group") { type = androidx.navigation.NavType.StringType },
+                androidx.navigation.navArgument("logo") { type = androidx.navigation.NavType.StringType }
+            )
+        ) { entry ->
+            WebViewPlayerScreen(
+                title = entry.arguments?.getString("name").orEmpty(),
+                url = entry.arguments?.getString("url").orEmpty(),
                 onBack = { navController.popBackStack() }
             )
         }
