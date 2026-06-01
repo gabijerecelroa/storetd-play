@@ -756,7 +756,19 @@ class LiveTvViewModel(
             return adultWords.any { text.contains(normalize(it)) }
         }
 
+        private fun isMagmaLiveChannel(channel: Channel): Boolean {
+            val cleanUrl = channel.streamUrl.lowercase(Locale.getDefault())
+            return cleanUrl.contains("/magma-lite/live/") ||
+                cleanUrl.contains("tvcluboficial.com") ||
+                cleanUrl.contains("m3uts.xyz")
+        }
+
         fun matchesContentMode(channel: Channel, mode: ContentMode): Boolean {
+            if (isMagmaLiveChannel(channel)) {
+                return mode == ContentMode.LiveTv
+            }
+
+
             val nameText = normalize(channel.name)
             val groupText = normalize(channel.group)
 

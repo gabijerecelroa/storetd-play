@@ -57,6 +57,14 @@ import com.storetd.play.core.network.AppUpdateApi
 import com.storetd.play.core.network.AppUpdateInfo
 import com.storetd.play.core.update.AppUpdateDownloader
 import androidx.compose.ui.unit.dp
+
+private fun isMagmaLiveUrl(url: String): Boolean {
+    val clean = url.lowercase()
+    return clean.contains("/magma-lite/live/") ||
+        clean.contains("tvcluboficial.com") ||
+        clean.contains("m3uts.xyz")
+}
+
 @Composable
 fun StoreTdPlayNavHost() {
     val navController = rememberNavController()
@@ -288,11 +296,16 @@ fun checkAccountStatus() {
                         currentStreamUrl = channel.streamUrl
                     )
                     LocalLibrary.addHistory(context, saved)
-                    val encName = android.net.Uri.encode(saved.name)
-                    val encUrl = android.net.Uri.encode(saved.streamUrl)
-                    val encGroup = android.net.Uri.encode(saved.group)
-                    val encLogo = if (saved.logoUrl.isNullOrBlank() || saved.logoUrl == "-") "-" else android.net.Uri.encode(saved.logoUrl!!)
-                    navController.navigate("${Routes.VodDetail}/$encName/$encUrl/$encGroup/$encLogo")
+
+                    if (isMagmaLiveUrl(saved.streamUrl)) {
+                        openPlayer(saved)
+                    } else {
+                        val encName = android.net.Uri.encode(saved.name)
+                        val encUrl = android.net.Uri.encode(saved.streamUrl)
+                        val encGroup = android.net.Uri.encode(saved.group)
+                        val encLogo = if (saved.logoUrl.isNullOrBlank() || saved.logoUrl == "-") "-" else android.net.Uri.encode(saved.logoUrl!!)
+                        navController.navigate("${Routes.VodDetail}/$encName/$encUrl/$encGroup/$encLogo")
+                    }
                 }
             )
         }
