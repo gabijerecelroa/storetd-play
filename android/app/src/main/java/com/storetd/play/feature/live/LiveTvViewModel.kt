@@ -141,15 +141,60 @@ class LiveTvViewModel(
             )
 
         if (isMagmaLiteLiveAccount) {
-            screenStateCache.remove(key)
-            PlaylistMemoryCache.clear(cleanUrl)
-            PlaylistDiskCache.clear(appContext, cleanUrl)
-            PlaylistDiskCache.clear(appContext, sectionCacheKey(cleanUrl, mode))
+            val sectionKey = sectionCacheKey(cleanUrl, mode)
+
+            screenStateCache[key]?.let { cachedState ->
+                if (cachedState.channels.isNotEmpty()) {
+                    _uiState.value = cachedState.copy(
+                        isLoading = false,
+                        isFiltering = false,
+                        loadedFromCache = true,
+                        errorMessage = null
+                    )
+
+                    if (shouldRefreshMagmaLiveCatalog(appContext)) {
+                        loadOptimizedLiveFromBackend(
+                            context = appContext,
+                            urlValue = cleanUrl,
+                            forceBackendRefresh = true
+                        )
+                    }
+                    return
+                }
+            }
+
+            val sectionDiskCached = PlaylistDiskCache.load(appContext, sectionKey)
+
+            if (sectionDiskCached.isNotEmpty()) {
+                val cachedState = buildCachedScreenState(
+                    url = cleanUrl,
+                    channels = sectionDiskCached,
+                    mode = mode,
+                    hideAdultContent = _uiState.value.hideAdultContent
+                ).copy(
+                    loadedFromCache = true,
+                    isLoading = false,
+                    isFiltering = false,
+                    errorMessage = null
+                )
+
+                _uiState.value = cachedState
+                saveScreenState(cachedState)
+
+                if (shouldRefreshMagmaLiveCatalog(appContext)) {
+                    loadOptimizedLiveFromBackend(
+                        context = appContext,
+                        urlValue = cleanUrl,
+                        forceBackendRefresh = true
+                    )
+                }
+                return
+            }
 
             loadOptimizedLiveFromBackend(
                 context = appContext,
                 urlValue = cleanUrl,
-                forceBackendRefresh = false
+                forceBackendRefresh = true
             )
             return
         }
@@ -278,7 +323,7 @@ class LiveTvViewModel(
         loadInProgress = true
 
         val currentBeforeLoad = _uiState.value
-        val hasVisibleCache = currentBeforeLoad.channels.isNotEmpty() && !isMagmaLiteLiveAccount
+        val hasVisibleCache = currentBeforeLoad.channels.isNotEmpty()
 
         _uiState.value = currentBeforeLoad.copy(
             playlistUrl = url,
@@ -323,12 +368,14 @@ class LiveTvViewModel(
                         message = "TV en vivo sincronizada."
                     )
 
-                    if (!isMagmaLiteLiveAccount) {
-                        PlaylistDiskCache.save(
-                            context = appContext,
-                            url = sectionCacheKey(url, ContentMode.LiveTv),
-                            channels = channels
-                        )
+                    PlaylistDiskCache.save(
+                        context = appContext,
+                        url = sectionCacheKey(url, ContentMode.LiveTv),
+                        channels = channels
+                    )
+
+                    if (isMagmaLiteLiveAccount) {
+                        markMagmaLiveCatalogRefreshed(appContext)
                     }
 
                     _uiState.value = _uiState.value.copy(
@@ -345,9 +392,37 @@ class LiveTvViewModel(
                     return@onSuccess
                 }
 
+                if (isMagmaLiteLiveAccount) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        isFiltering = false,
+                        errorMessage = if (_uiState.value.channels.isEmpty()) {
+                            "No se pudo cargar TV en vivo. Intenta nuevamente."
+                        } else {
+                            null
+                        }
+                    )
+                    return@onSuccess
+                }
+
                 loadPlaylistFrom(appContext, url, forceRefresh = true)
             }.onFailure {
                 loadInProgress = false
+
+                if (isMagmaLiteLiveAccount) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        isFiltering = false,
+                        loadedFromCache = _uiState.value.channels.isNotEmpty(),
+                        errorMessage = if (_uiState.value.channels.isEmpty()) {
+                            "No se pudo sincronizar TV en vivo."
+                        } else {
+                            null
+                        }
+                    )
+                    return@onFailure
+                }
+
                 loadPlaylistFrom(appContext, url, forceRefresh = true)
             }
         }
@@ -753,6 +828,40 @@ class LiveTvViewModel(
             )
         }
 
+
+        private const val MAGMA_LIVE_PREFS = "magma_live_catalog_cache"
+        private const val MAGMA_LIVE_LAST_REFRESH_AT = "last_refresh_at"
+
+        private fun markMagmaLiveCatalogRefreshed(context: Context) {
+            context.applicationContext
+                .getSharedPreferences(MAGMA_LIVE_PREFS, Context.MODE_PRIVATE)
+                .edit()
+                .putLong(MAGMA_LIVE_LAST_REFRESH_AT, System.currentTimeMillis())
+                .apply()
+        }
+
+        private fun shouldRefreshMagmaLiveCatalog(context: Context): Boolean {
+            val prefs = context.applicationContext.getSharedPreferences(
+                MAGMA_LIVE_PREFS,
+                Context.MODE_PRIVATE
+            )
+            val lastRefreshAt = prefs.getLong(MAGMA_LIVE_LAST_REFRESH_AT, 0L)
+
+            if (lastRefreshAt <= 0L) return true
+
+            val now = System.currentTimeMillis()
+            val calendar = java.util.Calendar.getInstance().apply {
+                timeInMillis = now
+                set(java.util.Calendar.HOUR_OF_DAY, 4)
+                set(java.util.Calendar.MINUTE, 0)
+                set(java.util.Calendar.SECOND, 0)
+                set(java.util.Calendar.MILLISECOND, 0)
+            }
+
+            val todayDawn = calendar.timeInMillis
+
+            return now >= todayDawn && lastRefreshAt < todayDawn
+        }
 
         private fun cacheKey(url: String, mode: ContentMode): String {
             return "${mode.name}|${url.trim()}"
