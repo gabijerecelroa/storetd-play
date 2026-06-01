@@ -2,6 +2,7 @@ package com.storetd.play.feature.player
 
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
+import android.net.Uri
 import android.os.Build
 import android.os.Message
 import android.view.View
@@ -10,6 +11,7 @@ import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -36,7 +38,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import java.io.ByteArrayInputStream
 import kotlinx.coroutines.delay
+
+// 🚫 LISTA NEGRA UNIVERSAL: Matamos la publicidad antes de que nazca
+val adServers = listOf(
+    "medixiru", "popads", "onclick", "doubleclick", "adsterra", 
+    "syndication", "profitablerate", "bet365", "highcpm", "adskeeper", 
+    "realsrv", "adxxx", "trafficstars"
+)
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -47,32 +57,22 @@ fun WebViewPlayerScreen(
 ) {
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
     var isLoading by remember { mutableStateOf(true) }
-    var message by remember { mutableStateOf("Cargando reproductor...") }
+    var message by remember { mutableStateOf("Conectando con el servidor VOD...") }
     var customView by remember { mutableStateOf<View?>(null) }
 
     LaunchedEffect(url) {
-        delay(20000)
-        if (isLoading) {
-            message = "Si no carga, probá otra fuente."
-        }
+        delay(25000)
+        if (isLoading) message = "Tardando demasiado. Sugerencia: recargar o cambiar fuente."
     }
 
     BackHandler {
         val webView = webViewRef
-        if (customView != null) {
-            customView = null
-        } else if (webView?.canGoBack() == true) {
-            webView.goBack()
-        } else {
-            onBack()
-        }
+        if (customView != null) customView = null
+        else if (webView?.canGoBack() == true) webView.goBack()
+        else onBack()
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-    ) {
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { context ->
@@ -80,7 +80,6 @@ fun WebViewPlayerScreen(
                     webViewRef = this
                     setBackgroundColor(android.graphics.Color.BLACK)
 
-                    // 1. CONFIGURACIÓN DEL MOTOR
                     CookieManager.getInstance().setAcceptCookie(true)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                         CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
@@ -89,87 +88,72 @@ fun WebViewPlayerScreen(
 
                     settings.apply {
                         javaScriptEnabled = true
-                        domStorageEnabled = true
+                        domStorageEnabled = true // Vital para Vidhide y Streamwish
                         databaseEnabled = true
-                        mediaPlaybackRequiresUserGesture = false // Crucial para autoplay y evitar clickjack
+                        mediaPlaybackRequiresUserGesture = false 
                         useWideViewPort = true
                         loadWithOverviewMode = true
-                        
-                        // Permitir popups en papel, pero los mataremos en el WebChromeClient
                         setSupportMultipleWindows(true)
                         javaScriptCanOpenWindowsAutomatically = true
                         
-                        userAgentString = "Mozilla/5.0 (Linux; Android 13; SM-G991U) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36"
+                        // Disfraz de Chrome Mobile moderno
+                        userAgentString = "Mozilla/5.0 (Linux; Android 13; SM-G991U) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36"
                     }
 
-                    // 2. EL FRANCOTIRADOR DE POPUPS
                     webChromeClient = object : WebChromeClient() {
                         override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
                             if (view != null) customView = view
                         }
-
-                        override fun onHideCustomView() {
-                            customView = null
-                        }
-
+                        override fun onHideCustomView() { customView = null }
                         override fun onProgressChanged(view: WebView?, newProgress: Int) {
                             if (newProgress >= 90) isLoading = false
                         }
-
                         override fun onCreateWindow(view: WebView?, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message?): Boolean {
-                            // ANIQUILAR CUALQUIER INTENTO DE ABRIR VENTANA NUEVA
+                            // Ahogamos los popups de ventanas nuevas
                             return false
                         }
                     }
 
-                    // 3. EL ESCUDO ANTI-REDIRECCIONES
                     webViewClient = object : WebViewClient() {
                         override fun onPageStarted(view: WebView?, pageUrl: String?, favicon: Bitmap?) {
                             isLoading = true
                             message = "Cargando reproductor..."
                         }
-
                         override fun onPageFinished(view: WebView?, pageUrl: String?) {
                             isLoading = false
-                            message = "Reproductor listo."
+                            message = "Reproductor listo. Tocá play si no inicia solo."
                         }
 
-                        override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
-                            if (request?.isForMainFrame == true) {
-                                isLoading = false
-                                message = "Error al cargar. Probá otra fuente."
+                        // 🛡️ EL AD-BLOCKER INVISIBLE: Intercepta imágenes y scripts
+                        override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
+                            val targetUrl = request?.url?.toString()?.lowercase() ?: return null
+                            if (adServers.any { targetUrl.contains(it) }) {
+                                // Devolvemos un archivo vacío = Anuncio neutralizado
+                                return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream("".toByteArray()))
                             }
+                            return super.shouldInterceptRequest(view, request)
                         }
 
+                        // 🛣️ PERMISO DE CIRCULACIÓN: Dejamos que salte a callistanise.com o donde necesite
                         override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                            val target = request?.url?.toString().orEmpty()
+                            val target = request?.url?.toString() ?: return false
                             
-                            // Permitimos cargar la URL original, pero bloqueamos CUALQUIER otra navegación principal.
-                            // Esto impide que un banner publicitario redirija todo el WebView a medixiru o similares.
-                            if (request?.isForMainFrame == true && target != url) {
-                                message = "Redirección publicitaria bloqueada."
-                                return true // Secuestro cancelado
-                            }
+                            // Si intenta abrir una app del sistema (Play Store), bloqueamos
+                            if (!target.startsWith("http")) return true
                             
-                            return false
+                            // Dejamos pasar todas las redirecciones HTTP/HTTPS para que llegue al nodo de video
+                            return false 
                         }
                     }
                     loadUrl(url)
                 }
             },
-            update = { webView ->
-                if (webView.url != url) {
-                    webView.loadUrl(url)
-                }
-            }
+            update = { webView -> if (webView.url != url) webView.loadUrl(url) }
         )
 
-        // Manejo de Pantalla Completa (Fullscreen)
         customView?.let { view ->
             AndroidView(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black),
+                modifier = Modifier.fillMaxSize().background(Color.Black),
                 factory = {
                     (view.parent as? ViewGroup)?.removeView(view)
                     view
@@ -177,37 +161,24 @@ fun WebViewPlayerScreen(
             )
         }
 
-        // Interfaz Superior (Botones)
-        Column(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onBack) {
-                    Text("Volver")
-                }
-                Button(
-                    onClick = {
+        if (customView == null) {
+            Column(
+                modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = onBack) { Text("Volver") }
+                    Button(onClick = {
                         isLoading = true
                         message = "Recargando..."
                         webViewRef?.reload()
-                    }
-                ) {
-                    Text("Recargar")
+                    }) { Text("Recargar") }
                 }
+                if (isLoading) LinearProgressIndicator()
+                Text(text = message, color = Color.White)
             }
-            if (isLoading) {
-                LinearProgressIndicator()
-            }
-            Text(
-                text = message,
-                color = Color.White
-            )
         }
     }
-
     DisposableEffect(Unit) {
         onDispose {
             webViewRef?.stopLoading()
