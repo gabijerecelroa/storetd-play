@@ -7460,6 +7460,248 @@ app.get("/api/content/movie-category", async (req, res) => {
 
 
 
+
+// MAGMA_DYNAMIC_SEARCH_START
+function magmaDynamicSearchNormalize(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function magmaDynamicSearchMatches(item, query) {
+  const q = magmaDynamicSearchNormalize(query);
+  if (!q) return false;
+
+  const text = magmaDynamicSearchNormalize([
+    item?.name,
+    item?.title,
+    item?.group,
+    item?.category,
+    item?.category_name,
+    item?.plot,
+    item?.release,
+    item?.releaseDate
+  ].filter(Boolean).join(" "));
+
+  return text.includes(q);
+}
+
+function magmaDynamicSearchImage(value, size = "w500") {
+  const text = String(value || "").trim();
+
+  if (!text || text === "-") return "";
+
+  if (/^https?:\/\//i.test(text)) return text;
+
+  if (text.startsWith("/")) {
+    return `https://image.tmdb.org/t/p/${size}${text}`;
+  }
+
+  return text;
+}
+
+async function magmaDynamicSearchFetchJson(action, extra = {}) {
+  const base = String(process.env.MAGMA_BASE_URL || "").trim().replace(/\/+$/, "");
+  const user = String(process.env.MAGMA_USER || "").trim();
+  const pass = String(process.env.MAGMA_PASS || "").trim();
+
+  if (!base || !user || !pass) {
+    throw new Error("Faltan credenciales MAGMA_BASE_URL / MAGMA_USER / MAGMA_PASS.");
+  }
+
+  const params = new URLSearchParams();
+  params.set("username", user);
+  params.set("password", pass);
+  params.set("action", action);
+
+  for (const [key, value] of Object.entries(extra || {})) {
+    if (value !== undefined && value !== null && String(value).trim() !== "") {
+      params.set(key, String(value));
+    }
+  }
+
+  const url = `${base}/player_api.php?${params.toString()}`;
+
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "Dalvik/2.1.0 (Linux; U; Android 15; StoreTD Play)",
+      "Accept": "application/json,text/plain,*/*",
+      "Accept-Encoding": "gzip"
+    }
+  });
+
+  const text = await response.text();
+
+  if (!response.ok) {
+    throw new Error(`Magma search HTTP ${response.status}: ${text.slice(0, 160)}`);
+  }
+
+  if (!text.trim()) return [];
+
+  return JSON.parse(text);
+}
+
+function magmaDynamicSearchPublicBase(req) {
+  const fromEnv = String(process.env.PUBLIC_BASE_URL || process.env.APP_PUBLIC_BASE_URL || "").trim().replace(/\/+$/, "");
+
+  if (fromEnv) return fromEnv;
+
+  const protocol = req.headers["x-forwarded-proto"] || req.protocol || "http";
+  const host = req.headers["x-forwarded-host"] || req.headers.host || "82.39.109.213:5000";
+
+  return `${protocol}://${host}`.replace(/\/+$/, "");
+}
+
+async function magmaDynamicSearchSeriesCategoryMap() {
+  const raw = await magmaDynamicSearchFetchJson("get_series_categories");
+  const list = Array.isArray(raw) ? raw : [];
+  const map = new Map();
+
+  for (const item of list) {
+    const id = String(item.category_id || item.id || "").trim();
+    const name = String(item.category_name || item.name || "").trim();
+
+    if (id && name) {
+      map.set(id, name);
+    }
+  }
+
+  return map;
+}
+
+app.get("/api/content/search", async (req, res, next) => {
+  const section = String(req.query.section || "").trim().toLowerCase();
+
+  if (section !== "movies" && section !== "series") {
+    return next();
+  }
+
+  try {
+    const activationCode = normalizeCode(req.query.code || req.query.activationCode);
+    const query = String(req.query.q || req.query.query || "").trim();
+    const limit = Math.max(1, Math.min(80, Number(req.query.limit || 40)));
+    const publicBase = magmaDynamicSearchPublicBase(req);
+
+    if (!activationCode) {
+      return res.status(400).json({
+        success: false,
+        message: "Falta code."
+      });
+    }
+
+    if (!query) {
+      return res.json({
+        success: true,
+        source: section === "movies" ? "magma-movies-search" : "magma-series-search",
+        section,
+        query,
+        itemCount: 0,
+        items: []
+      });
+    }
+
+    if (section === "movies") {
+      const moviesRaw = await magmaDynamicSearchFetchJson("get_vod_streams");
+      const movies = Array.isArray(moviesRaw) ? moviesRaw : [];
+
+      const items = movies
+        .filter((item) => magmaDynamicSearchMatches(item, query))
+        .slice(0, limit)
+        .map((item) => {
+          const streamId = String(item.stream_id || item.id || "").trim();
+          const poster = magmaDynamicSearchImage(item.stream_icon || item.cover || item.poster_path, "w500");
+          const backdrop = magmaDynamicSearchImage(item.backdrop || item.backdrop_path, "w780");
+          const release = String(item.release || item.releaseDate || "").trim();
+
+          return {
+            id: streamId,
+            name: item.name || item.title || `Película ${streamId}`,
+            title: item.name || item.title || `Película ${streamId}`,
+            group: release ? `Películas | ${release}` : "Películas",
+            tvgId: "",
+            logoUrl: poster,
+            posterUrl: poster,
+            backdropUrl: backdrop,
+            streamUrl: `${publicBase}/magma-lite/movie/${encodeURIComponent(streamId)}.m3u8?code=${encodeURIComponent(activationCode)}`,
+            type: "movie",
+            source: "magma-lite",
+            streamId,
+            release,
+            rating: Number(item.rating_5based || item.rating || 0)
+          };
+        })
+        .filter((item) => item.streamId);
+
+      return res.json({
+        success: true,
+        source: "magma-movies-search",
+        section,
+        query,
+        itemCount: items.length,
+        items
+      });
+    }
+
+    const categoryMap = await magmaDynamicSearchSeriesCategoryMap();
+    const seriesRaw = await magmaDynamicSearchFetchJson("get_series");
+    const series = Array.isArray(seriesRaw) ? seriesRaw : [];
+
+    const items = series
+      .filter((item) => magmaDynamicSearchMatches(item, query))
+      .slice(0, limit)
+      .map((item) => {
+        const seriesId = String(item.series_id || item.id || "").trim();
+        const categoryId = String(item.category_id || "").trim();
+        const categoryName = categoryMap.get(categoryId) || "Series";
+        const poster = magmaDynamicSearchImage(item.cover || item.stream_icon || item.poster_path, "w500");
+        const backdrop = magmaDynamicSearchImage(item.backdrop_path || item.backdrop, "w780");
+        const release = String(item.releaseDate || item.release || "").trim();
+
+        return {
+          id: seriesId,
+          key: seriesId,
+          name: item.name || item.title || `Serie ${seriesId}`,
+          title: item.name || item.title || `Serie ${seriesId}`,
+          group: categoryName,
+          category: categoryName,
+          tvgId: seriesId,
+          logoUrl: poster,
+          posterUrl: poster,
+          backdropUrl: backdrop,
+          streamUrl: `${publicBase}/magma-lite/series/${encodeURIComponent(seriesId)}?code=${encodeURIComponent(activationCode)}`,
+          type: "series-folder",
+          source: "magma-lite",
+          seriesId,
+          itemCount: Number(item.episode_count || item.itemCount || item.episodes || 1),
+          release,
+          rating: Number(item.rating_5based || item.rating || 0),
+          plot: item.plot || ""
+        };
+      })
+      .filter((item) => item.seriesId);
+
+    return res.json({
+      success: true,
+      source: "magma-series-search",
+      section,
+      query,
+      itemCount: items.length,
+      items
+    });
+  } catch (error) {
+    console.error("Magma dynamic search error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "No se pudo buscar en catálogo Magma.",
+      error: error.message
+    });
+  }
+});
+// MAGMA_DYNAMIC_SEARCH_END
+
 app.get("/api/content/search", async (req, res) => {
   if (!requireDb(res)) return;
 
