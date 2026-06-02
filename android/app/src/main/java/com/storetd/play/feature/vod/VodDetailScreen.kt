@@ -1,5 +1,7 @@
 package com.storetd.play.feature.vod
 
+import android.net.Uri
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -42,6 +44,12 @@ private fun extractMagmaMovieStreamId(url: String): String? {
         .find(url)
         ?.groupValues
         ?.getOrNull(1)
+}
+
+private fun extractUrlQueryParam(url: String, key: String): String {
+    return runCatching {
+        Uri.parse(url).getQueryParameter(key).orEmpty()
+    }.getOrDefault("")
 }
 
 
@@ -109,7 +117,11 @@ fun VodDetailScreen(
             val loadedSources = withContext(Dispatchers.IO) {
                 OptimizedContentApi.loadMagmaMovieSources(
                     activationCode = activationCode,
-                    streamId = streamId
+                    streamId = streamId,
+                    kind = extractUrlQueryParam(streamUrl, "kind"),
+                    seriesId = extractUrlQueryParam(streamUrl, "seriesId"),
+                    season = extractUrlQueryParam(streamUrl, "season"),
+                    episode = extractUrlQueryParam(streamUrl, "episode")
                 )
             }
 

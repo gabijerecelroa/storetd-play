@@ -665,7 +665,7 @@ app.get("/api/magma-lite/movie-sources", async (req, res) => {
   if (!requireDb(res)) return;
 
   try {
-    const code = normalizeCode(req.query.code || req.query.activationCode);
+    const code = normalizeCode(req.query.code);
     const valid = await magmaLiteGetClient(code);
 
     if (!valid.ok) {
@@ -678,110 +678,90 @@ app.get("/api/magma-lite/movie-sources", async (req, res) => {
     if (!magmaLiteIsEnabledForCode(valid.activationCode, valid.client)) {
       return res.status(403).json({
         success: false,
-        message: "Películas no habilitadas para este cliente."
+        message: "Contenido no habilitado para este cliente."
       });
     }
 
-    const streamId = String(req.query.id || req.query.streamId || "").replace(/[^0-9]/g, "");
+    const streamId = String(req.query.id || req.query.streamId || "")
+      .replace(/[^0-9]/g, "");
 
-    if (!streamId) {
-      return res.status(400).json({
-        success: false,
-        message: "Falta ID de película."
+    const kind = String(req.query.kind || "")
+      .trim()
+      .toLowerCase();
+
+    const seriesId = String(req.query.seriesId || req.query.series_id || req.query.serie || "")
+      .replace(/[^0-9]/g, "");
+
+    const season = String(req.query.season || "")
+      .replace(/[^0-9]/g, "");
+
+    const episode = String(req.query.episode || req.query.episodeNum || "")
+      .replace(/[^0-9]/g, "");
+
+    let rawLinks = [];
+    let sourceName = "vod-links";
+
+    if (kind === "episode" && seriesId && season && episode) {
+      rawLinks = await magmaSeriesFetchJson("get_episode_links", {
+        serie: seriesId,
+        season,
+        episode
       });
+
+      sourceName = "episode-links";
+    } else {
+      if (!streamId) {
+        return res.status(400).json({
+          success: false,
+          message: "Falta id."
+        });
+      }
+
+      rawLinks = await magmaSeriesFetchJson("get_vod_links", {
+        vod_id: streamId
+      });
+
+      sourceName = "vod-links";
     }
 
-    const vodLinks = await magmaLiteFetchVodLinks(streamId);
+    const links = Array.isArray(rawLinks) ? rawLinks : [];
 
-    const externalSources = vodLinks
+    const items = links
       .map((item, index) => {
-        const url = String(item.url || item.link || item.embed || item.file || "").trim();
-        const hostLabel = magmaLiteVodHostLabel(url);
-        const quality = String(item.quality || item.resolution || "Auto").trim() || "Auto";
-        const language = magmaLiteVodLanguageLabel(item.language || item.lang);
+        const url = String(item.url || item.streamUrl || "").trim();
 
         return {
-          id: String(item.id || `${streamId}-${index + 1}`),
+          id: String(item.id || `${streamId || seriesId}-${season}-${episode}-${index + 1}`),
           title: `Servidor ${index + 1}`,
-          subtitle: hostLabel,
-          quality,
-          language,
+          subtitle: magmaLiteVodHostLabel(url),
+          quality: String(item.quality || item.resolution || "Auto").trim() || "Auto",
+          language: magmaLiteVodLanguageLabel(item.language),
           streamUrl: url,
           type: "external"
         };
       })
-      .filter((item) => /^https?:\/\//i.test(item.streamUrl));
+      .filter((item) => item.streamUrl);
 
     res.setHeader("Cache-Control", "no-store");
 
-    if (externalSources.length > 0) {
-      return res.json({
-        success: true,
-        source: "vod-links",
-        available: true,
-        streamId,
-        itemCount: externalSources.length,
-        items: externalSources
-      });
-    }
-
-    const publicBase = magmaLitePublicBaseUrl(req);
-    const streamUrl = `${publicBase}/magma-lite/movie/${streamId}.m3u8?code=${encodeURIComponent(valid.activationCode)}`;
-
-    let sourceAvailable = false;
-
-    try {
-      const secureUrl = await magmaLiteGenerateLiveUrl(streamId);
-      const response = await fetch(secureUrl, {
-        headers: magmaLiteHeaders()
-      });
-
-      const playlistText = await response.text();
-
-      sourceAvailable =
-        response.ok &&
-        playlistText.includes("#EXTM3U") &&
-        !playlistText.includes("magma_expired") &&
-        /^https?:\/\//m.test(playlistText);
-    } catch (error) {
-      console.warn("Movie fallback m3u8 precheck failed:", streamId, error.message);
-    }
-
-    if (!sourceAvailable) {
-      return res.json({
-        success: true,
-        source: "vod-links",
-        available: false,
-        streamId,
-        itemCount: 0,
-        message: "Esta película no está disponible en este momento.",
-        items: []
-      });
-    }
-
     return res.json({
       success: true,
-      source: "movie-fallback",
-      available: true,
+      source: sourceName,
+      available: items.length > 0,
       streamId,
-      itemCount: 1,
-      items: [
-        {
-          id: streamId,
-          title: "Servidor 1",
-          subtitle: "Servidor principal",
-          quality: "Auto",
-          language: "Latino",
-          streamUrl,
-          type: "m3u8"
-        }
-      ]
+      kind,
+      seriesId,
+      season,
+      episode,
+      itemCount: items.length,
+      items
     });
   } catch (error) {
-    console.error("Movie sources error:", error);
-    return res.status(500).json({
+    console.error("Magma movie/episode sources error:", error);
+
+    res.status(500).json({
       success: false,
-      message: "No se pudieron cargar fuentes de película.",
+      message: "No se pudieron obtener fuentes.",
       error: error.message
     });
   }
@@ -971,7 +951,7 @@ function magmaBuildSeriesEpisodes({ info, seriesId, code, req }) {
           logoUrl: image,
           posterUrl: image,
           backdropUrl: magmaSeriesImageUrl(info?.info?.backdrop || "", "w780"),
-          streamUrl: `${publicBase}/magma-lite/movie/${episodeId}.m3u8?code=${encodeURIComponent(code)}&kind=episode`,
+          streamUrl: `${publicBase}/magma-lite/movie/${episodeId}.m3u8?code=${encodeURIComponent(code)}&kind=episode&seriesId=${encodeURIComponent(seriesId)}&season=${encodeURIComponent(season)}&episode=${encodeURIComponent(episode)}`,
           type: "series",
           source: "magma-lite",
           seriesId,

@@ -337,7 +337,11 @@ object OptimizedContentApi {
 
     fun loadMagmaMovieSources(
         activationCode: String,
-        streamId: String
+        streamId: String,
+        kind: String = "",
+        seriesId: String = "",
+        season: String = "",
+        episode: String = ""
     ): List<MovieSourceLite> {
         val base = BuildConfig.API_BASE_URL
             .trim()
@@ -350,7 +354,33 @@ object OptimizedContentApi {
 
         val encodedCode = URLEncoder.encode(code, "UTF-8")
         val encodedId = URLEncoder.encode(safeStreamId, "UTF-8")
-        val requestUrl = "$base/api/magma-lite/movie-sources?code=$encodedCode&id=$encodedId"
+
+        val params = StringBuilder()
+            .append("code=").append(encodedCode)
+            .append("&id=").append(encodedId)
+
+        val safeKind = kind.trim()
+        val safeSeriesId = seriesId.trim()
+        val safeSeason = season.trim()
+        val safeEpisode = episode.trim()
+
+        if (safeKind.isNotBlank()) {
+            params.append("&kind=").append(URLEncoder.encode(safeKind, "UTF-8"))
+        }
+
+        if (safeSeriesId.isNotBlank()) {
+            params.append("&seriesId=").append(URLEncoder.encode(safeSeriesId, "UTF-8"))
+        }
+
+        if (safeSeason.isNotBlank()) {
+            params.append("&season=").append(URLEncoder.encode(safeSeason, "UTF-8"))
+        }
+
+        if (safeEpisode.isNotBlank()) {
+            params.append("&episode=").append(URLEncoder.encode(safeEpisode, "UTF-8"))
+        }
+
+        val requestUrl = "$base/api/magma-lite/movie-sources?$params"
 
         return runCatching {
             val raw = readUrl(requestUrl)
@@ -365,8 +395,8 @@ object OptimizedContentApi {
                 val obj = array.optJSONObject(i) ?: continue
                 val source = MovieSourceLite(
                     id = obj.optString("id", safeStreamId),
-                    title = obj.optString("title", "Fuente principal"),
-                    subtitle = obj.optString("subtitle", "Magma"),
+                    title = obj.optString("title", "Servidor ${i + 1}"),
+                    subtitle = obj.optString("subtitle", "Servidor principal"),
                     quality = obj.optString("quality", "Auto"),
                     language = obj.optString("language", ""),
                     streamUrl = obj.optString("streamUrl", "")
@@ -380,7 +410,6 @@ object OptimizedContentApi {
             result
         }.getOrDefault(emptyList())
     }
-
 
     fun loadMagmaLiveCatalogVersion(activationCode: String): Long {
         val base = BuildConfig.API_BASE_URL
