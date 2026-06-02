@@ -22,6 +22,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -68,6 +70,19 @@ fun WebViewPlayerScreen(
     url: String,
     onBack: () -> Unit
 ) {
+    // WEBVIEW_KEEP_SCREEN_AWAKE_START
+    val keepScreenOnView = LocalView.current
+    DisposableEffect(keepScreenOnView) {
+        val previousKeepScreenOn = keepScreenOnView.keepScreenOn
+        keepScreenOnView.keepScreenOn = true
+
+        onDispose {
+            keepScreenOnView.keepScreenOn = previousKeepScreenOn
+        }
+    }
+    // WEBVIEW_KEEP_SCREEN_AWAKE_END
+
+
     var directVideoUrl by remember { mutableStateOf<String?>(null) }
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
     var isLoading by remember { mutableStateOf(true) }
