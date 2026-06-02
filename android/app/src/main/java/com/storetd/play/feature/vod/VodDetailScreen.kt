@@ -71,6 +71,7 @@ fun VodDetailScreen(
     var showSourceDialog by remember { mutableStateOf(false) }
     var sourceMessage by remember { mutableStateOf<String?>(null) }
     var movieSources by remember { mutableStateOf<List<OptimizedContentApi.MovieSourceLite>>(emptyList()) }
+    val sourceDialogScrollState = rememberScrollState()
 
     val focusRequester = remember { FocusRequester() }
     val isSeries = groupName.contains("serie", ignoreCase = true) || groupName.contains("temporada", ignoreCase = true)
@@ -149,6 +150,10 @@ fun VodDetailScreen(
             },
             text = {
                 Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = if (isLandscape) 420.dp else 560.dp)
+                        .verticalScroll(sourceDialogScrollState),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     sourceMessage?.let {
