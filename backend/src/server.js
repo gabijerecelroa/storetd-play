@@ -661,6 +661,288 @@ app.get("/api/content/movie-category", async (req, res, next) => {
 
 // Selector de fuentes para películas.
 // Por ahora entrega fuente principal. Luego se pueden agregar alternativas.
+
+
+// MAGMA_SOURCE_FILTER_START
+function magmaLiteSourceHost(value) {
+  try {
+    return new URL(String(value || "")).hostname.replace(/^www\./, "").toLowerCase();
+  } catch (_) {
+    return "";
+  }
+}
+
+function magmaLiteSourceProvider(hostValue) {
+  const host = String(hostValue || "").toLowerCase();
+
+  if (host.includes("vidhide")) {
+    return { key: "vidhide", label: "Vidhide", priority: 0 };
+  }
+
+  if (host.includes("streamwish")) {
+    return { key: "streamwish", label: "Streamwish", priority: 1 };
+  }
+
+  if (host.includes("filelions")) {
+    return { key: "filelions", label: "Filelions", priority: 2 };
+  }
+
+  if (host.includes("streamtape")) {
+    return { key: "streamtape", label: "Streamtape", priority: 3 };
+  }
+
+  if (host.includes("wolfstream")) {
+    return { key: "wolfstream", label: "Wolfstream", priority: 4 };
+  }
+
+  if (host.includes("do7go")) {
+    return { key: "do7go", label: "Servidor 5", priority: 5 };
+  }
+
+  if (host.includes("bysejikuar")) {
+    return { key: "bysejikuar", label: "Servidor 2", priority: 6 };
+  }
+
+  if (host.includes("zpjid")) {
+    return { key: "zpjid", label: "Servidor 3", priority: 7 };
+  }
+
+  if (host.includes("josephseveralconcern")) {
+    return { key: "josephseveralconcern", label: "Servidor 4", priority: 8 };
+  }
+
+  return { key: `other:${host}`, label: "Servidor externo", priority: 50 };
+}
+
+function magmaLiteSourceIsBad(item) {
+  const url = String(item?.streamUrl || item?.url || "").trim().toLowerCase();
+  const host = magmaLiteSourceHost(url);
+
+  if (!url.startsWith("http://") && !url.startsWith("https://")) return true;
+
+  const badWords = [
+    "doubleclick",
+    "googlesyndication",
+    "adsterra",
+    "popads",
+    "onclick",
+    "profitablerate",
+    "1xbet",
+    "casino",
+    "porn",
+    "adult",
+    "notification",
+    "pushads"
+  ];
+
+  return badWords.some((word) => host.includes(word) || url.includes(word));
+}
+
+function magmaLiteSourceIsSpanish(item) {
+  const language = String(item?.language || "").trim().toLowerCase();
+
+  return language.includes("latino") ||
+    language.includes("spanish") ||
+    language.includes("español") ||
+    language.includes("espanol") ||
+    language.includes("castellano");
+}
+
+function magmaLiteSourceLanguageScore(item) {
+  const language = String(item?.language || "").trim().toLowerCase();
+
+  if (
+    language.includes("latino") ||
+    language.includes("spanish") ||
+    language.includes("español") ||
+    language.includes("espanol") ||
+    language.includes("castellano")
+  ) {
+    return -100;
+  }
+
+  if (!language) return -10;
+
+  if (
+    language.includes("english") ||
+    language.includes("inglés") ||
+    language.includes("ingles")
+  ) {
+    return 30;
+  }
+
+  return 0;
+}
+
+function magmaLiteSourceQualityScore(item) {
+  const quality = String(item?.quality || item?.resolution || "").trim().toLowerCase();
+
+  if (quality.includes("4k")) return -12;
+  if (quality.includes("1080") || quality.includes("fhd")) return -10;
+  if (quality.includes("720") || quality.includes("hd")) return -8;
+  if (quality.includes("cam")) return 20;
+
+  return 0;
+}
+
+function magmaLiteSourceScore(item) {
+  const host = magmaLiteSourceHost(item?.streamUrl || item?.url || "");
+  const provider = magmaLiteSourceProvider(host);
+
+  return provider.priority * 100 +
+    magmaLiteSourceLanguageScore(item) +
+    magmaLiteSourceQualityScore(item);
+}
+
+function magmaLitePrepareVisibleSource(item, index) {
+  const host = magmaLiteSourceHost(item?.streamUrl || item?.url || "");
+  const provider = magmaLiteSourceProvider(host);
+
+  const subtitle = String(item?.subtitle || "").trim();
+  const lowerSubtitle = subtitle.toLowerCase();
+
+  const isGenericSubtitle =
+    !subtitle ||
+    lowerSubtitle === "servidor externo" ||
+    /^servidor\s+[0-9]+$/i.test(subtitle);
+
+  return {
+    ...item,
+    title: `Servidor ${index + 1}`,
+    subtitle: isGenericSubtitle ? provider.label : subtitle
+  };
+}
+
+
+function magmaLiteSourceIdNumber(item) {
+  const value = Number(item?.id || 0);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function magmaLiteSourceQualityRank(item) {
+  const quality = String(item?.quality || item?.resolution || "").trim().toLowerCase();
+
+  if (quality.includes("4k")) return 5;
+  if (quality.includes("1080") || quality.includes("fhd")) return 4;
+  if (quality.includes("720") || quality.includes("hd")) return 3;
+  if (quality.includes("cam")) return 0;
+
+  return 1;
+}
+
+function magmaLiteIsBetterSource(candidate, current) {
+  if (!current) return true;
+
+  const candidateQuality = magmaLiteSourceQualityRank(candidate);
+  const currentQuality = magmaLiteSourceQualityRank(current);
+
+  if (candidateQuality !== currentQuality) {
+    return candidateQuality > currentQuality;
+  }
+
+  const candidateSpanish = magmaLiteSourceIsSpanish(candidate);
+  const currentSpanish = magmaLiteSourceIsSpanish(current);
+
+  if (candidateSpanish !== currentSpanish) {
+    return candidateSpanish;
+  }
+
+  const candidateId = magmaLiteSourceIdNumber(candidate);
+  const currentId = magmaLiteSourceIdNumber(current);
+
+  if (candidateId !== currentId) {
+    return candidateId > currentId;
+  }
+
+  return magmaLiteSourceScore(candidate) < magmaLiteSourceScore(current);
+}
+
+function magmaLiteFilterPlayableSources(items) {
+  const raw = Array.isArray(items) ? items : [];
+
+  const clean = [];
+  const seenUrls = new Set();
+
+  for (const item of raw) {
+    if (magmaLiteSourceIsBad(item)) continue;
+
+    const url = String(item?.streamUrl || item?.url || "").trim();
+
+    if (!url || seenUrls.has(url)) continue;
+
+    seenUrls.add(url);
+    clean.push(item);
+  }
+
+  if (clean.length === 0) return [];
+
+  // 1) Si hay HD/FHD/4K, descartamos CAM y calidades viejas.
+  const maxQualityRank = Math.max(...clean.map(magmaLiteSourceQualityRank));
+  let filtered = maxQualityRank >= 2
+    ? clean.filter((item) => magmaLiteSourceQualityRank(item) === maxQualityRank)
+    : clean;
+
+  // 2) Si hay Latino/Español, usamos solo Latino/Español.
+  const spanishSources = filtered.filter(magmaLiteSourceIsSpanish);
+  if (spanishSources.length > 0) {
+    filtered = spanishSources;
+  }
+
+  // 3) Bysejikuar queda como respaldo. Si hay suficientes alternativas, se oculta.
+  const withoutBysejikuar = filtered.filter((item) => {
+    const host = magmaLiteSourceHost(item?.streamUrl || item?.url || "");
+    return magmaLiteSourceProvider(host).key !== "bysejikuar";
+  });
+
+  if (withoutBysejikuar.length >= 2) {
+    filtered = withoutBysejikuar;
+  }
+
+  // 4) Un solo link por proveedor, pero eligiendo el más nuevo y mejor.
+  const bestByProvider = new Map();
+
+  for (const item of filtered) {
+    const host = magmaLiteSourceHost(item?.streamUrl || item?.url || "");
+    const provider = magmaLiteSourceProvider(host);
+    const key = provider.key || host || String(item?.id || "");
+
+    const current = bestByProvider.get(key);
+
+    if (magmaLiteIsBetterSource(item, current)) {
+      bestByProvider.set(key, item);
+    }
+  }
+
+  filtered = Array.from(bestByProvider.values());
+
+  // 5) Si tenemos proveedores conocidos, ocultamos dominios raros.
+  const known = filtered.filter((item) => {
+    const host = magmaLiteSourceHost(item?.streamUrl || item?.url || "");
+    const provider = magmaLiteSourceProvider(host);
+    return !String(provider.key || "").startsWith("other:");
+  });
+
+  if (known.length >= 2) {
+    filtered = known;
+  }
+
+  filtered.sort((a, b) => magmaLiteSourceScore(a) - magmaLiteSourceScore(b));
+
+  const hasVidhide = filtered.some((item) => {
+    const host = magmaLiteSourceHost(item?.streamUrl || item?.url || "");
+    return magmaLiteSourceProvider(host).key === "vidhide";
+  });
+
+  const defaultMax = hasVidhide ? 4 : 5;
+  const maxSources = Number(process.env.MAGMA_MAX_VOD_SOURCES || defaultMax);
+  const safeMax = Math.max(1, Math.min(8, maxSources));
+
+  return filtered
+    .slice(0, safeMax)
+    .map((item, index) => magmaLitePrepareVisibleSource(item, index));
+}
+// MAGMA_SOURCE_FILTER_END
+
 app.get("/api/magma-lite/movie-sources", async (req, res) => {
   if (!requireDb(res)) return;
 
@@ -744,7 +1026,9 @@ app.get("/api/magma-lite/movie-sources", async (req, res) => {
 
     res.setHeader("Cache-Control", "no-store");
 
-    return res.json({
+        const visibleItems = magmaLiteFilterPlayableSources(items);
+
+return res.json({
       success: true,
       source: sourceName,
       available: items.length > 0,
@@ -753,8 +1037,10 @@ app.get("/api/magma-lite/movie-sources", async (req, res) => {
       seriesId,
       season,
       episode,
-      itemCount: items.length,
-      items
+      itemCount: visibleItems.length,
+      rawItemCount: items.length,
+      hiddenItemCount: Math.max(0, items.length - visibleItems.length),
+      items: visibleItems
     });
   } catch (error) {
     console.error("Magma movie/episode sources error:", error);
