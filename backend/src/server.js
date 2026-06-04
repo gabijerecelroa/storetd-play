@@ -54,6 +54,46 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "..", "public")));
 
+// MAGMA_CLIENT_DEFAULTS_START
+// Desde que StoreTD Play usa Magma global, ningún cliente nuevo necesita playlist M3U externa.
+// Este middleware fuerza la fuente Magma en altas/ediciones desde admin/reseller.
+function storetdForceMagmaClientDefaults(req, res, next) {
+  try {
+    const method = String(req.method || "").toUpperCase();
+    const path = String(req.path || "");
+
+    const isClientWrite =
+      ["POST", "PUT", "PATCH"].includes(method) &&
+      (
+        path === "/admin/api/clients" ||
+        path.startsWith("/admin/api/clients/") ||
+        path === "/reseller/api/clients" ||
+        path.startsWith("/reseller/api/clients/")
+      );
+
+    if (isClientWrite) {
+      req.body = req.body || {};
+
+      req.body.playlistUrl = "magma://global";
+      req.body.playlist_url = "magma://global";
+      req.body.playlist = "magma://global";
+      req.body.m3uUrl = "magma://global";
+      req.body.m3u_url = "magma://global";
+
+      req.body.epgUrl = "";
+      req.body.epg_url = "";
+    }
+  } catch (_) {
+    // No bloquea la creación del cliente.
+  }
+
+  next();
+}
+
+app.use(storetdForceMagmaClientDefaults);
+// MAGMA_CLIENT_DEFAULTS_END
+
+
 // MAGMA_LIVE_LITE_START
 function magmaLiteBaseUrl() {
   return String(process.env.MAGMA_BASE_URL || "http://tv.m3uts.xyz").replace(/\/+$/, "");
@@ -185,13 +225,34 @@ async function magmaLiteFetchJson(action) {
   }
 }
 
-async function magmaLiteGenerateLiveUrl(streamId) {
-  const id = String(streamId || "").replace(/[^0-9]/g, "");
+// MAGMA_LIVE_GEN_CACHE_START
+const magmaLiteLiveUrlCache = new Map();
+const magmaLiteLiveUrlPending = new Map();
 
-  if (!id) {
-    throw new Error("streamId inválido.");
-  }
+const MAGMA_LIVE_URL_CACHE_TTL_MS = Number(process.env.MAGMA_LIVE_URL_CACHE_TTL_MS || 45000);
+const MAGMA_LIVE_URL_STALE_TTL_MS = Number(process.env.MAGMA_LIVE_URL_STALE_TTL_MS || 300000);
 
+function magmaLiteDelay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function magmaLiteRetryAfterMs(text) {
+  const raw = String(text || "");
+
+  try {
+    const parsed = JSON.parse(raw);
+    const message = String(parsed.message || "");
+    const match = message.match(/retry in\s+([0-9]+)\s+seconds?/i);
+    if (match) return Math.max(1000, Number(match[1]) * 1000);
+  } catch (_) {}
+
+  const match = raw.match(/retry in\s+([0-9]+)\s+seconds?/i);
+  if (match) return Math.max(1000, Number(match[1]) * 1000);
+
+  return 1500;
+}
+
+async function magmaLiteGenerateLiveUrlRaw(id) {
   const body = new URLSearchParams({
     id,
     cast: "false",
@@ -211,15 +272,88 @@ async function magmaLiteGenerateLiveUrl(streamId) {
   const text = String(await response.text() || "").trim();
 
   if (!response.ok) {
-    throw new Error(`Magma stream/gen HTTP ${response.status}: ${text.slice(0, 160)}`);
+    const error = new Error(`Magma stream/gen HTTP ${response.status}: ${text.slice(0, 160)}`);
+    error.status = response.status;
+    error.body = text;
+    throw error;
   }
 
   if (!/^https?:\/\/.+\.m3u8/i.test(text)) {
-    throw new Error(`Respuesta Magma inválida: ${text.slice(0, 160)}`);
+    const error = new Error(`Respuesta Magma inválida: ${text.slice(0, 160)}`);
+    error.status = 502;
+    error.body = text;
+    throw error;
   }
 
   return text;
 }
+
+async function magmaLiteGenerateLiveUrl(streamId) {
+  const id = String(streamId || "").replace(/[^0-9]/g, "");
+
+  if (!id) {
+    throw new Error("streamId inválido.");
+  }
+
+  const now = Date.now();
+  const cached = magmaLiteLiveUrlCache.get(id);
+
+  if (cached && cached.url && now - cached.updatedAt < MAGMA_LIVE_URL_CACHE_TTL_MS) {
+    return cached.url;
+  }
+
+  const pending = magmaLiteLiveUrlPending.get(id);
+  if (pending) {
+    return pending;
+  }
+
+  const promise = (async () => {
+    try {
+      const url = await magmaLiteGenerateLiveUrlRaw(id);
+
+      magmaLiteLiveUrlCache.set(id, {
+        url,
+        updatedAt: Date.now()
+      });
+
+      return url;
+    } catch (error) {
+      const retryMs = magmaLiteRetryAfterMs(error.body || error.message || "");
+
+      if (
+        error.status === 429 &&
+        cached &&
+        cached.url &&
+        Date.now() - cached.updatedAt < MAGMA_LIVE_URL_STALE_TTL_MS
+      ) {
+        console.warn(`Magma stream/gen 429 para ${id}; usando URL cacheada. Retry sugerido: ${retryMs}ms`);
+        return cached.url;
+      }
+
+      if (error.status === 429 && retryMs > 0 && retryMs <= 3000) {
+        await magmaLiteDelay(retryMs);
+
+        const url = await magmaLiteGenerateLiveUrlRaw(id);
+
+        magmaLiteLiveUrlCache.set(id, {
+          url,
+          updatedAt: Date.now()
+        });
+
+        return url;
+      }
+
+      throw error;
+    } finally {
+      magmaLiteLiveUrlPending.delete(id);
+    }
+  })();
+
+  magmaLiteLiveUrlPending.set(id, promise);
+
+  return promise;
+}
+// MAGMA_LIVE_GEN_CACHE_END
 
 // Catálogo dinámico TV Magma.
 // No guarda canales en playlist_cache.
@@ -506,6 +640,88 @@ function magmaLiteMovieMatchesCategory(item, key) {
 
 // Categorías livianas de películas Magma.
 // No guarda películas pesadas ni segmentos en el VPS.
+
+// MAGMA_MOVIES_FLAT_ROUTE_START
+// Fuerza /api/content/movies a responder Magma y evita fallback a lista vieja.
+app.get("/api/content/movies", async (req, res, next) => {
+  if (!isDatabaseConfigured()) return next();
+
+  try {
+    const code = normalizeCode(req.query.code || req.query.activationCode);
+    const valid = await magmaLiteGetClient(code);
+
+    if (!valid.ok) return next();
+
+    if (!magmaLiteIsEnabledForCode(valid.activationCode, valid.client)) {
+      return next();
+    }
+
+    const [categories, streams] = await Promise.all([
+      magmaLiteFetchJsonOptional("get_vod_categories", []),
+      magmaLiteFetchJsonOptional("get_vod_streams", [])
+    ]);
+
+    const categoryMap = new Map(
+      (Array.isArray(categories) ? categories : []).map((cat) => [
+        String(cat.category_id),
+        String(cat.category_name || "Películas")
+      ])
+    );
+
+    const publicBase = magmaLitePublicBaseUrl(req);
+
+    const items = (Array.isArray(streams) ? streams : [])
+      .map((item) => {
+        const streamId = item.stream_id || item.movie_id || item.id || item.license;
+        const group = magmaLiteMovieCategoryName(categoryMap, item.categories_ids || item.category_id);
+        const release = String(item.release || item.releaseDate || "").trim();
+
+        return {
+          name: String(item.name || "Película").trim(),
+          group,
+          tvgId: "",
+          logoUrl: magmaLiteImageUrl(item.stream_icon || item.cover || item.poster_path, "w500"),
+          posterUrl: magmaLiteImageUrl(item.stream_icon || item.cover || item.poster_path, "w500"),
+          backdropUrl: magmaLiteImageUrl(item.backdrop || item.backdrop_path, "w780"),
+          streamUrl: `${publicBase}/magma-lite/movie/${streamId}.m3u8?code=${encodeURIComponent(valid.activationCode)}`,
+          type: "movie",
+          source: "magma-lite",
+          streamId,
+          release,
+          rating: item.rating_5based || item.rating || 0
+        };
+      })
+      .filter((item) => item.name && item.streamUrl && item.streamId);
+
+    const groups = [
+      "Todos",
+      ...Array.from(new Set(items.map((item) => item.group))).sort()
+    ];
+
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+
+    return res.json({
+      success: true,
+      fromCache: false,
+      noServerCache: true,
+      source: "magma-movies-dynamic-flat",
+      section: "movies",
+      activationCode: valid.activationCode,
+      itemCount: items.length,
+      groups,
+      items
+    });
+  } catch (error) {
+    console.error("Magma flat movies error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "No se pudieron leer películas Magma.",
+      error: error.message
+    });
+  }
+});
+// MAGMA_MOVIES_FLAT_ROUTE_END
+
 app.get("/api/content/movie-categories-lite", async (req, res, next) => {
   if (!isDatabaseConfigured()) return next();
 
