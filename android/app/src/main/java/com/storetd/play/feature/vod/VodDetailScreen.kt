@@ -108,8 +108,12 @@ fun VodDetailScreen(
             return
         }
 
+        // MAGMA_FRESH_SOURCE_SELECTOR_START
+        // Al tocar "Elegir fuente" siempre abrimos el selector y consultamos fuentes frescas.
         isLoadingSources = true
-        sourceMessage = null
+        movieSources = emptyList()
+        sourceMessage = "Buscando fuentes actualizadas..."
+        showSourceDialog = true
 
         scope.launch {
             val account = LocalAccount.getAccount(context)
@@ -135,8 +139,8 @@ fun VodDetailScreen(
             }
 
             isLoadingSources = false
-            showSourceDialog = true
         }
+        // MAGMA_FRESH_SOURCE_SELECTOR_END
     }
 
     if (showSourceDialog) {

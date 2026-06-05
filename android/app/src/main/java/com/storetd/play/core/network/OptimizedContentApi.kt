@@ -380,7 +380,9 @@ object OptimizedContentApi {
             params.append("&episode=").append(URLEncoder.encode(safeEpisode, "UTF-8"))
         }
 
-        val requestUrl = "$base/api/magma-lite/movie-sources?$params"
+        // MAGMA_MOVIE_SOURCES_FRESH_URL_START
+        val requestUrl = "$base/api/magma-lite/movie-sources?$params&fresh=1&t=${System.currentTimeMillis()}"
+        // MAGMA_MOVIE_SOURCES_FRESH_URL_END
 
         return runCatching {
             val raw = readUrl(requestUrl)
