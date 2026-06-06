@@ -1068,7 +1068,8 @@ class LiveTvViewModel(
 
             if (
                 streamUrlText.contains("/xtream-lite/live/") ||
-                streamUrlText.contains("/magma-lite/live/")
+                streamUrlText.contains("/magma-lite/live/") ||
+                streamUrlText.contains("/live/")
             ) {
                 return mode == ContentMode.LiveTv
             }

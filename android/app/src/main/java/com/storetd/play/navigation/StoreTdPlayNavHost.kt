@@ -80,10 +80,35 @@ private fun isMagmaLiveUrl(url: String): Boolean {
 
 // STORETD_FORCE_LIVE_NAV_START
 private fun storeTdIsLivePlaybackUrl(url: String): Boolean {
-    val text = url.lowercase()
-    return text.contains("/xtream-lite/live/") ||
-        text.contains("/magma-lite/live/") ||
-        text.contains("/live/")
+    val text = android.net.Uri.decode(url).lowercase()
+
+    val isMovieOrSeries =
+        text.contains("/xtream-lite/movie/") ||
+        text.contains("/magma-lite/movie/") ||
+        text.contains("/xtream-lite/series/") ||
+        text.contains("/magma-lite/series/") ||
+        text.contains("/movie/") ||
+        text.contains("/series/")
+
+    return !isMovieOrSeries && (
+        text.contains("/xtream-lite/live/") ||
+            text.contains("/magma-lite/live/") ||
+            text.contains("/live/")
+        )
+}
+
+private fun storeTdIsMoviePlaybackUrl(url: String): Boolean {
+    val text = android.net.Uri.decode(url).lowercase()
+    return text.contains("/xtream-lite/movie/") ||
+        text.contains("/magma-lite/movie/") ||
+        text.contains("/movie/")
+}
+
+private fun storeTdIsSeriesPlaybackUrl(url: String): Boolean {
+    val text = android.net.Uri.decode(url).lowercase()
+    return text.contains("/xtream-lite/series/") ||
+        text.contains("/magma-lite/series/") ||
+        text.contains("/series/")
 }
 // STORETD_FORCE_LIVE_NAV_END
 
@@ -405,6 +430,43 @@ fun checkAccountStatus() {
             val url = entry.arguments?.getString("url").orEmpty()
             val group = entry.arguments?.getString("group").orEmpty()
             val logo = entry.arguments?.getString("logo").orEmpty()
+
+            // STORETD_VODDETAIL_LIVE_GUARD_START
+            // Si una URL live llega por error a VodDetail, nunca mostrar detalle VOD:
+            // redirige directo al reproductor de TV.
+            if (storeTdIsLivePlaybackUrl(url)) {
+                val cleanLogo = logo.takeIf { it.isNotBlank() && it != "-" }
+
+                val selectedSaved = SavedChannel(
+                    id = "${name.lowercase()}|$url".hashCode().toString(),
+                    name = name,
+                    streamUrl = url,
+                    logoUrl = cleanLogo,
+                    group = group,
+                    tvgId = null
+                )
+
+                val encName = android.net.Uri.encode(name)
+                val encUrl = android.net.Uri.encode(url)
+                val encGroup = android.net.Uri.encode(group)
+                val encLogo = if (cleanLogo.isNullOrBlank()) "-" else android.net.Uri.encode(cleanLogo)
+
+                androidx.compose.runtime.LaunchedEffect(url) {
+                    PlayerSession.setQueue(
+                        channels = listOf(selectedSaved),
+                        currentStreamUrl = url
+                    )
+
+                    LocalLibrary.addHistory(context, selectedSaved)
+
+                    navController.navigate("${Routes.Player}/$encName/$encUrl/$encGroup/$encLogo") {
+                        launchSingleTop = true
+                    }
+                }
+
+                return@composable
+            }
+            // STORETD_VODDETAIL_LIVE_GUARD_END
 
             VodDetailScreen(
                 channelName = name,
