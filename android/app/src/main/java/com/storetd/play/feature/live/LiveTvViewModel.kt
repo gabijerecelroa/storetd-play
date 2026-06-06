@@ -77,7 +77,7 @@ private fun storeTdLiveGroupPriority(group: String): Int {
             text.contains("ppv") ||
             text.contains("evento") ||
             text.contains("espn") ||
-            text.contains("e$pn") ||
+            text.contains("e\$pn") ||
             text.contains("fox sports") ||
             text.contains("tyc") ||
             text.contains("tigo sports") ||
