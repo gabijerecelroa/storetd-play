@@ -76,6 +76,17 @@ private fun isMagmaLiveUrl(url: String): Boolean {
         clean.contains("m3uts.xyz")
 }
 
+
+
+// STORETD_FORCE_LIVE_NAV_START
+private fun storeTdIsLivePlaybackUrl(url: String): Boolean {
+    val text = url.lowercase()
+    return text.contains("/xtream-lite/live/") ||
+        text.contains("/magma-lite/live/") ||
+        text.contains("/live/")
+}
+// STORETD_FORCE_LIVE_NAV_END
+
 @Composable
 fun StoreTdPlayNavHost() {
     val navController = rememberNavController()
@@ -315,7 +326,18 @@ fun checkAccountStatus() {
                         val encUrl = android.net.Uri.encode(saved.streamUrl)
                         val encGroup = android.net.Uri.encode(saved.group)
                         val encLogo = if (saved.logoUrl.isNullOrBlank() || saved.logoUrl == "-") "-" else android.net.Uri.encode(saved.logoUrl!!)
-                        navController.navigate("${Routes.VodDetail}/$encName/$encUrl/$encGroup/$encLogo")
+                        if (storeTdIsLivePlaybackUrl(saved.streamUrl)) {
+                            PlayerSession.setQueue(
+                                channels = listOf(saved),
+                                currentStreamUrl = saved.streamUrl
+                            )
+
+                            LocalLibrary.addHistory(context, saved)
+
+                            navController.navigate("${Routes.Player}/$encName/$encUrl/$encGroup/$encLogo")
+                        } else {
+                            navController.navigate("${Routes.VodDetail}/$encName/$encUrl/$encGroup/$encLogo")
+                        }
                     }
                 }
             )
@@ -353,7 +375,18 @@ fun checkAccountStatus() {
                             android.net.Uri.encode(saved.logoUrl!!)
                         }
 
-                        navController.navigate("${Routes.VodDetail}/$encName/$encUrl/$encGroup/$encLogo")
+                        if (storeTdIsLivePlaybackUrl(saved.streamUrl)) {
+                            PlayerSession.setQueue(
+                                channels = listOf(saved),
+                                currentStreamUrl = saved.streamUrl
+                            )
+
+                            LocalLibrary.addHistory(context, saved)
+
+                            navController.navigate("${Routes.Player}/$encName/$encUrl/$encGroup/$encLogo")
+                        } else {
+                            navController.navigate("${Routes.VodDetail}/$encName/$encUrl/$encGroup/$encLogo")
+                        }
                     }
                 }
             )
