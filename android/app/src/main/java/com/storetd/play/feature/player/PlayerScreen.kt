@@ -110,9 +110,22 @@ private const val STREAM_UNAVAILABLE_TIMEOUT_MS = 60_000L
 
 private fun isMagmaLiveStreamUrl(url: String): Boolean {
     val clean = url.lowercase(Locale.getDefault())
-    return clean.contains("/magma-lite/live/") ||
-        clean.contains("tvcluboficial.com") ||
-        clean.contains("m3uts.xyz")
+
+    val isMovieOrSeries =
+        clean.contains("/xtream-lite/movie/") ||
+            clean.contains("/magma-lite/movie/") ||
+            clean.contains("/xtream-lite/series/") ||
+            clean.contains("/magma-lite/series/") ||
+            clean.contains("/movie/") ||
+            clean.contains("/series/")
+
+    return !isMovieOrSeries && (
+        clean.contains("/xtream-lite/live/") ||
+            clean.contains("/magma-lite/live/") ||
+            clean.contains("/live/") ||
+            clean.contains("tvcluboficial.com") ||
+            clean.contains("m3uts.xyz")
+        )
 }
 
 
