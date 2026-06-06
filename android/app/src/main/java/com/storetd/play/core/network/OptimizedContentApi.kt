@@ -123,7 +123,7 @@ object OptimizedContentApi {
 
         val encodedCode = URLEncoder.encode(code, "UTF-8")
         val adultParam = if (includeAdult) "&includeAdult=1" else ""
-        val requestUrl = "$base/api/content/series-folders-lite?code=$encodedCode&autoRefresh=0$adultParam"
+        val requestUrl = "$base/api/content/series-folders-lite?code=$encodedCode&autoRefresh=1&t=${System.currentTimeMillis()}$adultParam"
         val raw = readUrl(requestUrl)
         val json = JSONObject(raw)
 
@@ -168,7 +168,7 @@ object OptimizedContentApi {
         val encodedCode = URLEncoder.encode(code, "UTF-8")
         val encodedKey = URLEncoder.encode(safeKey, "UTF-8")
         val adultParam = if (includeAdult) "&includeAdult=1" else ""
-        val requestUrl = "$base/api/content/series-folder?code=$encodedCode&key=$encodedKey&autoRefresh=0$adultParam"
+        val requestUrl = "$base/api/content/series-folder?code=$encodedCode&key=$encodedKey&autoRefresh=1&t=${System.currentTimeMillis()}$adultParam"
         val raw = readUrl(requestUrl)
         val json = JSONObject(raw)
 
@@ -204,7 +204,7 @@ object OptimizedContentApi {
 
         val encodedCode = URLEncoder.encode(code, "UTF-8")
         val adultParam = if (includeAdult) "&includeAdult=1" else ""
-        val requestUrl = "$base/api/content/movie-categories-lite?code=$encodedCode&autoRefresh=0$adultParam"
+        val requestUrl = "$base/api/content/movie-categories-lite?code=$encodedCode&autoRefresh=1&t=${System.currentTimeMillis()}$adultParam"
         val raw = readUrl(requestUrl)
         val json = JSONObject(raw)
 
@@ -247,7 +247,7 @@ object OptimizedContentApi {
         val encodedCode = URLEncoder.encode(code, "UTF-8")
         val encodedKey = URLEncoder.encode(safeKey, "UTF-8")
         val adultParam = if (includeAdult) "&includeAdult=1" else ""
-        val requestUrl = "$base/api/content/movie-category?code=$encodedCode&key=$encodedKey&autoRefresh=0$adultParam"
+        val requestUrl = "$base/api/content/movie-category?code=$encodedCode&key=$encodedKey&autoRefresh=1&t=${System.currentTimeMillis()}$adultParam"
         val raw = readUrl(requestUrl)
         val json = JSONObject(raw)
 
@@ -313,7 +313,7 @@ object OptimizedContentApi {
         val encodedQuery = URLEncoder.encode(safeQuery, "UTF-8")
         val safeLimit = limit.coerceIn(1, 150)
         val adultParam = if (includeAdult) "&includeAdult=1" else ""
-        val requestUrl = "$base/api/content/search?code=$encodedCode&section=$encodedSection&q=$encodedQuery&limit=$safeLimit&autoRefresh=0$adultParam"
+        val requestUrl = "$base/api/content/search?code=$encodedCode&section=$encodedSection&q=$encodedQuery&limit=$safeLimit&autoRefresh=1&t=${System.currentTimeMillis()}$adultParam"
 
         val raw = readUrl(requestUrl)
         val json = JSONObject(raw)
@@ -459,7 +459,7 @@ object OptimizedContentApi {
 
         val encodedCode = URLEncoder.encode(activationCode.trim(), "UTF-8")
         val adultParam = if (includeAdult) "&includeAdult=1" else ""
-        val requestUrl = "$base/api/content/$safeSection?code=$encodedCode&autoRefresh=0$adultParam"
+        val requestUrl = "$base/api/content/$safeSection?code=$encodedCode&autoRefresh=1&t=${System.currentTimeMillis()}$adultParam"
 
         val raw = readUrl(requestUrl)
         val json = JSONObject(raw)
@@ -524,7 +524,7 @@ object OptimizedContentApi {
         if (base.isBlank() || code.isBlank()) return emptyList()
 
         val encodedCode = URLEncoder.encode(code, "UTF-8")
-        val requestUrl = "$base/api/content/series-folders?code=$encodedCode&autoRefresh=0"
+        val requestUrl = "$base/api/content/series-folders?code=$encodedCode&autoRefresh=1&t=${System.currentTimeMillis()}"
 
         val raw = readUrl(requestUrl)
         val json = JSONObject(raw)
