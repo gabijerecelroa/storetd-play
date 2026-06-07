@@ -42,90 +42,6 @@ enum class ContentMode(
     )
 }
 
-
-
-// STORETD_LIVE_GROUP_ORDER_START
-private fun storeTdNormalizeLiveGroup(value: String): String {
-    return value
-        .lowercase(Locale.getDefault())
-        .replace("á", "a")
-        .replace("é", "e")
-        .replace("í", "i")
-        .replace("ó", "o")
-        .replace("ú", "u")
-        .replace("∆", "a")
-        .replace("ę", "e")
-        .replace("lna", "ina")
-        .trim()
-}
-
-private fun storeTdLiveGroupPriority(group: String): Int {
-    val text = storeTdNormalizeLiveGroup(group)
-
-    return when {
-        text.contains("paraguay") || text.contains("py |") -> 0
-
-        text.contains("argentina") ||
-            text.contains("argentlna") ||
-            text.contains("gran hermano argentina") ||
-            text.contains("ar |") -> 1
-
-        text.contains("deporte") ||
-            text.contains("sports") ||
-            text.contains("futbol") ||
-            text.contains("fútbol") ||
-            text.contains("ppv") ||
-            text.contains("evento") ||
-            text.contains("espn") ||
-            text.contains("e\$pn") ||
-            text.contains("fox sports") ||
-            text.contains("tyc") ||
-            text.contains("tigo sports") ||
-            text.contains("dazn") ||
-            text.contains("formula 1") ||
-            text.contains("motogp") ||
-            text.contains("libertadores") ||
-            text.contains("sudamericana") -> 10
-
-        text.contains("cine") ||
-            text.contains("pelicula") ||
-            text.contains("peliculas") ||
-            text.contains("películas") ||
-            text.contains("cinema") ||
-            text.contains("movie") ||
-            text.contains("hbo") ||
-            text.contains("tnt") ||
-            text.contains("warner") ||
-            text.contains("space") ||
-            text.contains("paramount") ||
-            text.contains("universal") ||
-            text.contains("star channel") ||
-            text.contains("sony") ||
-            text.contains("fx") ||
-            text.contains("amc") ||
-            text.contains("axn") -> 20
-
-        text.contains("24/7") ||
-            text.contains("24-7") ||
-            text.contains("24 7") -> 30
-
-        else -> 100
-    }
-}
-
-private val storeTdLiveGroupComparator = Comparator<String> { first, second ->
-    val firstPriority = storeTdLiveGroupPriority(first)
-    val secondPriority = storeTdLiveGroupPriority(second)
-
-    if (firstPriority != secondPriority) {
-        firstPriority - secondPriority
-    } else {
-        first.lowercase(Locale.getDefault())
-            .compareTo(second.lowercase(Locale.getDefault()))
-    }
-}
-// STORETD_LIVE_GROUP_ORDER_END
-
 data class LiveTvUiState(
     val playlistUrl: String = "",
     val channels: List<Channel> = emptyList(),
@@ -705,12 +621,12 @@ class LiveTvViewModel(
                 it.group.ifBlank { "Sin categoría" }
             }
 
-            val groupNames = listOf("Todos") + grouped.keys.sortedWith(storeTdLiveGroupComparator)
+            val groupNames = listOf("Todos") + grouped.keys.sorted()
 
             val groupMap = LinkedHashMap<String, List<Channel>>()
             groupMap["Todos"] = cleanedContent
 
-            grouped.keys.sortedWith(storeTdLiveGroupComparator).forEach { group ->
+            grouped.keys.sorted().forEach { group ->
                 groupMap[group] = grouped[group].orEmpty()
             }
 
@@ -756,7 +672,7 @@ class LiveTvViewModel(
     }
 
     companion object {
-        private const val MAX_VISIBLE_ITEMS = 500000
+        private const val MAX_VISIBLE_ITEMS = 350
         private const val MAX_SCREEN_CACHE = 12
 
         private val screenStateCache = LinkedHashMap<String, LiveTvUiState>()
@@ -911,12 +827,12 @@ class LiveTvViewModel(
                 it.group.ifBlank { "Sin categoría" }
             }
 
-            val groupNames = listOf("Todos") + grouped.keys.sortedWith(storeTdLiveGroupComparator)
+            val groupNames = listOf("Todos") + grouped.keys.sorted()
 
             val groupMap = LinkedHashMap<String, List<Channel>>()
             groupMap["Todos"] = cleanedContent
 
-            grouped.keys.sortedWith(storeTdLiveGroupComparator).forEach { group ->
+            grouped.keys.sorted().forEach { group ->
                 groupMap[group] = grouped[group].orEmpty()
             }
 
@@ -1061,30 +977,6 @@ class LiveTvViewModel(
                     Regex("\\b[0-9]{1,2}x[0-9]{1,3}\\b").containsMatchIn(nameText)
 
             if (looksLikeEpisode) {
-                return mode == ContentMode.Series
-            }
-
-            val streamUrlText = normalize(channel.streamUrl)
-
-            if (
-                streamUrlText.contains("/xtream-lite/live/") ||
-                streamUrlText.contains("/magma-lite/live/") ||
-                streamUrlText.contains("/live/")
-            ) {
-                return mode == ContentMode.LiveTv
-            }
-
-            if (
-                streamUrlText.contains("/xtream-lite/movie/") ||
-                streamUrlText.contains("/magma-lite/movie/")
-            ) {
-                return mode == ContentMode.Movies
-            }
-
-            if (
-                streamUrlText.contains("/xtream-lite/series/") ||
-                streamUrlText.contains("/magma-lite/series/")
-            ) {
                 return mode == ContentMode.Series
             }
 

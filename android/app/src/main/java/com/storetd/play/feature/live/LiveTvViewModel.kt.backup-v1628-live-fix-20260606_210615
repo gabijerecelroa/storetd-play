@@ -77,7 +77,7 @@ private fun storeTdLiveGroupPriority(group: String): Int {
             text.contains("ppv") ||
             text.contains("evento") ||
             text.contains("espn") ||
-            text.contains("e\$pn") ||
+            text.contains("e$pn") ||
             text.contains("fox sports") ||
             text.contains("tyc") ||
             text.contains("tigo sports") ||
@@ -756,7 +756,7 @@ class LiveTvViewModel(
     }
 
     companion object {
-        private const val MAX_VISIBLE_ITEMS = 500000
+        private const val MAX_VISIBLE_ITEMS = 350
         private const val MAX_SCREEN_CACHE = 12
 
         private val screenStateCache = LinkedHashMap<String, LiveTvUiState>()
@@ -1061,30 +1061,6 @@ class LiveTvViewModel(
                     Regex("\\b[0-9]{1,2}x[0-9]{1,3}\\b").containsMatchIn(nameText)
 
             if (looksLikeEpisode) {
-                return mode == ContentMode.Series
-            }
-
-            val streamUrlText = normalize(channel.streamUrl)
-
-            if (
-                streamUrlText.contains("/xtream-lite/live/") ||
-                streamUrlText.contains("/magma-lite/live/") ||
-                streamUrlText.contains("/live/")
-            ) {
-                return mode == ContentMode.LiveTv
-            }
-
-            if (
-                streamUrlText.contains("/xtream-lite/movie/") ||
-                streamUrlText.contains("/magma-lite/movie/")
-            ) {
-                return mode == ContentMode.Movies
-            }
-
-            if (
-                streamUrlText.contains("/xtream-lite/series/") ||
-                streamUrlText.contains("/magma-lite/series/")
-            ) {
                 return mode == ContentMode.Series
             }
 

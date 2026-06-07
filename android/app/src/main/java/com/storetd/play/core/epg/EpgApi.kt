@@ -14,8 +14,8 @@ object EpgApi {
         val connection = URL(epgUrl).openConnection() as HttpURLConnection
 
         connection.requestMethod = "GET"
-        connection.connectTimeout = 15000
-        connection.readTimeout = 35000
+        connection.connectTimeout = 60000
+        connection.readTimeout = 120000
         connection.setRequestProperty("Accept", "application/xml,text/xml,*/*")
         connection.setRequestProperty("User-Agent", "StoreTD-Play-EPG")
 

@@ -756,7 +756,7 @@ class LiveTvViewModel(
     }
 
     companion object {
-        private const val MAX_VISIBLE_ITEMS = 500000
+        private const val MAX_VISIBLE_ITEMS = 350
         private const val MAX_SCREEN_CACHE = 12
 
         private val screenStateCache = LinkedHashMap<String, LiveTvUiState>()
@@ -1068,8 +1068,7 @@ class LiveTvViewModel(
 
             if (
                 streamUrlText.contains("/xtream-lite/live/") ||
-                streamUrlText.contains("/magma-lite/live/") ||
-                streamUrlText.contains("/live/")
+                streamUrlText.contains("/magma-lite/live/")
             ) {
                 return mode == ContentMode.LiveTv
             }

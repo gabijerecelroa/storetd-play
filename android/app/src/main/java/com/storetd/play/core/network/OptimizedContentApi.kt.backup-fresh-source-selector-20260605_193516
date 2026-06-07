@@ -31,8 +31,8 @@ object OptimizedContentApi {
         val streamUrl: String
     )
 
-    private const val CONNECT_TIMEOUT_MS = 60000
-    private const val READ_TIMEOUT_MS = 120000
+    private const val CONNECT_TIMEOUT_MS = 8000
+    private const val READ_TIMEOUT_MS = 15000
 
     fun refreshContent(
         activationCode: String,
@@ -380,9 +380,7 @@ object OptimizedContentApi {
             params.append("&episode=").append(URLEncoder.encode(safeEpisode, "UTF-8"))
         }
 
-        // MAGMA_MOVIE_SOURCES_FRESH_URL_START
-        val requestUrl = "$base/api/magma-lite/movie-sources?$params&fresh=1&t=${System.currentTimeMillis()}"
-        // MAGMA_MOVIE_SOURCES_FRESH_URL_END
+        val requestUrl = "$base/api/magma-lite/movie-sources?$params"
 
         return runCatching {
             val raw = readUrl(requestUrl)
@@ -459,11 +457,7 @@ object OptimizedContentApi {
 
         val encodedCode = URLEncoder.encode(activationCode.trim(), "UTF-8")
         val adultParam = if (includeAdult) "&includeAdult=1" else ""
-        val requestUrl = if (safeSection == "live") {
-            "$base/api/content/live-group?code=$encodedCode&key=__all__&limit=600&offset=0$adultParam"
-        } else {
-            "$base/api/content/$safeSection?code=$encodedCode&autoRefresh=0$adultParam"
-        }
+        val requestUrl = "$base/api/content/$safeSection?code=$encodedCode&autoRefresh=0$adultParam"
 
         val raw = readUrl(requestUrl)
         val json = JSONObject(raw)
