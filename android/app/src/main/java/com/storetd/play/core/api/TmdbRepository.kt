@@ -29,13 +29,27 @@ class TmdbRepository {
             // FILTRO PRTV: Borrar prefijos numericos de las listas (ej: "09 Sniper" -> "Sniper")
             val prefixRegex = Regex("^\\d+\\s*[\\.\\-\\|]?\\s*")
             cleanName = cleanName.replace(prefixRegex, "").trim()
+
+            // STORETD_TMDB_CLEAN_START
+            cleanName = cleanName
+                .replace("_", " ")
+                .replace(".", " ")
+                .replace(Regex("(?i)^\\s*(cine|pel[ií]culas?|movies?|vod|series?|tv|latino|estrenos?)\\s*[|:/-]\\s*"), "")
+                .replace(Regex("(?i)^\\s*(ar|arg|mx|co|pe|py|us|usa|br|cl|ec|uy)\\s*[|:/-]\\s*"), "")
+                .replace(Regex("(?i)\\b(FHD|HD|SD|UHD|4K|1080P|720P|CAM|TS|LATINO|LAT|CASTELLANO|SUBTITULADO|SUB|DUAL AUDIO|DUAL|A COLOR|BLANCO Y NEGRO|OP\\s*\\d+|OPC\\s*\\d+)\\b"), " ")
+                .replace(Regex("(?i)\\b(ONLINE|VIP|PREMIUM|FULL|NUEVO|NEW)\\b"), " ")
+                .replace(Regex("(?i)\\([^)]*\\b(D|C|LAT|LATINO|CASTELLANO|SUB|DUAL|CAM|TS|HD|FHD|SD|UHD|4K|1080P|720P|OP\\s*\\d*)\\b[^)]*\\)"), " ")
+                .replace(Regex("[^A-Za-z0-9ÁÉÍÓÚÜÑáéíóúüñ:,'’\\- ]+"), " ")
+                .replace(Regex("\\s+"), " ")
+                .trim(' ', '-', '|', ':', ',')
+            // STORETD_TMDB_CLEAN_END
             if (isSeries) {
                 // Filtro mágico: Borra S01E01, 1x01, Temporada 1, etc solo para buscar en TMDB
                 val epRegex = Regex("(?i)(\\s*[-_]?\\s*(S\\d+\\s*E\\d+|T\\d+\\s*E\\d+|\\d+x\\d+|Temporada\\s*\\d+|Capitulo\\s*\\d+|Capítulo\\s*\\d+|Episodio\\s*\\d+|Cap\\s*\\d+|Ep\\s*\\d+|T\\s*\\d+|S\\s*\\d+).*)")
                 cleanName = cleanName.replace(epRegex, "").trim()
             }
 
-            val type = if (isSeries) "tv" else "multi"
+            val type = if (isSeries) "tv" else "movie"
             var url = "https://api.themoviedb.org/3/search/$type?api_key=$apiKey&language=es-ES&query=${URLEncoder.encode(cleanName, "UTF-8")}"
             if (year.isNotEmpty()) {
                 url += if (isSeries) "&first_air_date_year=$year" else "&primary_release_year=$year"
