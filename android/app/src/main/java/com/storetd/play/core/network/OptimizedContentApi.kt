@@ -460,7 +460,7 @@ object OptimizedContentApi {
         val encodedCode = URLEncoder.encode(activationCode.trim(), "UTF-8")
         val adultParam = if (includeAdult) "&includeAdult=1" else ""
         val requestUrl = if (safeSection == "live") {
-            "$base/api/content/live-group?code=$encodedCode&key=__all__&limit=600&offset=0$adultParam"
+            "$base/api/content/live-group?code=$encodedCode&key=__all__&limit=500000&offset=0$adultParam"
         } else {
             "$base/api/content/$safeSection?code=$encodedCode&autoRefresh=0$adultParam"
         }
