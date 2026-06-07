@@ -12,25 +12,25 @@ object PlaylistDiskCache {
     }
 
     /*
-     * STORETD V1.6.33:
-     * En TV Android, el cache local de listas grandes puede provocar cierres
-     * al reabrir TV en vivo. El backend ya responde cacheado y rápido.
-     * Por eso la app ya no reutiliza listas pesadas desde disco.
+     * STORETD v1.6.33:
+     * Se desactiva la reutilización de listas pesadas desde disco.
+     * El backend ya entrega contenido cacheado y rápido.
      */
     fun load(context: Context, url: String): List<Channel> {
         return emptyList()
     }
 
     fun save(context: Context, url: String, channels: List<Channel>) {
-        // No-op: el cache real queda del lado backend.
+        // No-op.
     }
 
     fun clear(context: Context, url: String) {
-        runCatching {
-            cacheDir(context).listFiles()?.forEach { file ->
-                if (file.name.contains(url.hashCode().toString())) file.delete()
-            }
-        }
+        clearAll(context)
+    }
+
+    // Compatibilidad con AppCacheManager viejo.
+    fun clear(context: Context) {
+        clearAll(context)
     }
 
     fun clearAll(context: Context) {

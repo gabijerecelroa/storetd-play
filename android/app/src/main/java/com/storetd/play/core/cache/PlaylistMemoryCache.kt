@@ -4,9 +4,8 @@ import com.storetd.play.core.model.Channel
 
 object PlaylistMemoryCache {
     /*
-     * STORETD V1.6.33:
-     * Evita retener listas grandes en memoria entre aperturas de TV en vivo.
-     * La app consulta al backend, y el backend entrega cache rápido.
+     * STORETD v1.6.33:
+     * Evita retener listas grandes de TV en vivo en memoria.
      */
     fun get(url: String): List<Channel>? = null
 
@@ -16,6 +15,11 @@ object PlaylistMemoryCache {
 
     fun clear(url: String) {
         // No-op.
+    }
+
+    // Compatibilidad con llamadas viejas.
+    fun clear() {
+        clearAll()
     }
 
     fun clearAll() {
