@@ -3,30 +3,60 @@ package com.storetd.play.core.cache
 import com.storetd.play.core.model.Channel
 
 object PlaylistMemoryCache {
-    /*
-     * STORETD v1.6.33:
-     * Evita retener listas grandes de TV en vivo en memoria.
-     */
-    fun get(url: String): List<Channel>? = null
+    data class CacheEntry(
+        val channels: List<Channel>,
+        val cachedAtMillis: Long
+    )
+
+    private const val MAX_ENTRIES = 6
+    private val cache = LinkedHashMap<String, CacheEntry>()
+
+    fun get(url: String): List<Channel>? {
+        val cleanUrl = url.trim()
+        if (cleanUrl.isBlank()) return null
+
+        val entry = cache[cleanUrl] ?: return null
+
+        // Refrescar orden LRU
+        cache.remove(cleanUrl)
+        cache[cleanUrl] = entry
+
+        return entry.channels.takeIf { it.isNotEmpty() }
+    }
 
     fun save(url: String, channels: List<Channel>) {
-        // No-op.
+        val cleanUrl = url.trim()
+        if (cleanUrl.isBlank() || channels.isEmpty()) return
+
+        cache.remove(cleanUrl)
+        cache[cleanUrl] = CacheEntry(
+            channels = channels,
+            cachedAtMillis = System.currentTimeMillis()
+        )
+
+        while (cache.size > MAX_ENTRIES) {
+            val firstKey = cache.keys.firstOrNull() ?: break
+            cache.remove(firstKey)
+        }
     }
 
     fun clear(url: String) {
-        // No-op.
+        cache.remove(url.trim())
     }
 
-    // Compatibilidad con llamadas viejas.
     fun clear() {
         clearAll()
     }
 
     fun clearAll() {
-        // No-op.
+        cache.clear()
     }
 
-    fun cachedAtMillis(url: String): Long = 0L
+    fun cachedAtMillis(url: String): Long {
+        return cache[url.trim()]?.cachedAtMillis ?: 0L
+    }
 
-    fun latestCachedAtMillis(): Long = 0L
+    fun latestCachedAtMillis(): Long {
+        return cache.values.lastOrNull()?.cachedAtMillis ?: 0L
+    }
 }

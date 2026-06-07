@@ -743,15 +743,6 @@ class LiveTvViewModel(
         if (url.isBlank() || state.channels.isEmpty()) return
 
         val key = cacheKey(url, state.contentMode)
-
-        // STORETD_NO_SAVE_LIVE_SCREENSTATE_START
-        // TV en vivo tiene miles de canales. No guardamos ese estado pesado
-        // en memoria estática; se vuelve a pedir al backend cacheado.
-        if (state.contentMode == ContentMode.LiveTv) {
-            screenStateCache.remove(key)
-            return
-        }
-        // STORETD_NO_SAVE_LIVE_SCREENSTATE_END
         screenStateCache[key] = state.copy(
             isLoading = false,
             isFiltering = false,
