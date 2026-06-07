@@ -36,7 +36,9 @@ object PlaylistDiskCache {
 
         return runCatching {
             val file = cacheFile(context, cleanUrl)
+
             if (!file.exists()) return@runCatching emptyList<Channel>()
+
             if (file.length() <= 0L || file.length() > MAX_CACHE_FILE_BYTES) {
                 file.delete()
                 return@runCatching emptyList<Channel>()
@@ -67,14 +69,17 @@ object PlaylistDiskCache {
 
                 if (name.isBlank() || streamUrl.isBlank()) continue
 
+                val id = obj.optString("id", "").takeIf { it.isNotBlank() }
+                    ?: "${name.lowercase()}|$streamUrl".hashCode().toString()
+
                 result.add(
                     Channel(
+                        id = id,
                         name = name,
                         streamUrl = streamUrl,
                         logoUrl = obj.optString("logoUrl", "").takeIf { it.isNotBlank() && it != "null" },
                         group = obj.optString("group", "Sin categoría"),
-                        tvgId = obj.optString("tvgId", "").takeIf { it.isNotBlank() && it != "null" },
-                        type = obj.optString("type", "live")
+                        tvgId = obj.optString("tvgId", "").takeIf { it.isNotBlank() && it != "null" }
                     )
                 )
             }
@@ -98,12 +103,12 @@ object PlaylistDiskCache {
 
             channels.forEach { channel ->
                 val obj = JSONObject()
+                obj.put("id", channel.id)
                 obj.put("name", channel.name)
                 obj.put("streamUrl", channel.streamUrl)
                 obj.put("logoUrl", channel.logoUrl ?: "")
                 obj.put("group", channel.group)
                 obj.put("tvgId", channel.tvgId ?: "")
-                obj.put("type", channel.type)
                 array.put(obj)
             }
 
