@@ -217,6 +217,12 @@ class LiveTvViewModel(
         val cleanUrl = url.trim()
         val mode = _uiState.value.contentMode
         val key = cacheKey(cleanUrl, mode)
+
+        // STORETD_DISABLE_LIVE_SCREEN_CACHE_START
+        if (mode == ContentMode.LiveTv) {
+            screenStateCache.remove(key)
+        }
+        // STORETD_DISABLE_LIVE_SCREEN_CACHE_END
         val account = LocalAccount.getAccount(appContext)
         val isMagmaLiteLiveAccount = mode == ContentMode.LiveTv &&
             (
@@ -743,7 +749,9 @@ class LiveTvViewModel(
         if (url.isBlank() || state.channels.isEmpty()) return
 
         val key = cacheKey(url, state.contentMode)
-        screenStateCache[key] = state.copy(
+        if (state.contentMode != ContentMode.LiveTv) {
+                screenStateCache[key] = state
+            }.copy(
             isLoading = false,
             isFiltering = false,
             errorMessage = null
@@ -804,7 +812,9 @@ class LiveTvViewModel(
                         hideAdultContent = false
                     )
 
+                    if (mode != ContentMode.LiveTv) {
                     screenStateCache[cacheKey(cleanUrl, mode)] = state
+                }
                 }
             }
 
@@ -865,7 +875,9 @@ class LiveTvViewModel(
                 )
 
                 synchronized(screenStateCache) {
+                    if (mode != ContentMode.LiveTv) {
                     screenStateCache[cacheKey(cleanUrl, mode)] = cachedState
+                }
 
                     while (screenStateCache.size > MAX_SCREEN_CACHE) {
                         val firstKey = screenStateCache.keys.firstOrNull() ?: break

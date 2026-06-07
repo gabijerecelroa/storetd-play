@@ -2,94 +2,35 @@ package com.storetd.play.core.cache
 
 import android.content.Context
 import com.storetd.play.core.model.Channel
-import org.json.JSONArray
-import org.json.JSONObject
 import java.io.File
 
 object PlaylistDiskCache {
     private const val DIR_NAME = "playlist_cache"
 
     private fun cacheDir(context: Context): File {
-        val dir = File(context.filesDir, DIR_NAME)
-        if (!dir.exists()) dir.mkdirs()
-        return dir
+        return File(context.applicationContext.cacheDir, DIR_NAME)
     }
 
-    private fun safeKey(url: String): String {
-        return url
-            .trim()
-            .hashCode()
-            .toString()
-            .replace("-", "n")
-    }
-
-    private fun dataFile(context: Context, url: String): File {
-        return File(cacheDir(context), "${safeKey(url)}.json")
-    }
-
-    private fun metaFile(context: Context, url: String): File {
-        return File(cacheDir(context), "${safeKey(url)}.meta")
+    /*
+     * STORETD V1.6.33:
+     * En TV Android, el cache local de listas grandes puede provocar cierres
+     * al reabrir TV en vivo. El backend ya responde cacheado y rápido.
+     * Por eso la app ya no reutiliza listas pesadas desde disco.
+     */
+    fun load(context: Context, url: String): List<Channel> {
+        return emptyList()
     }
 
     fun save(context: Context, url: String, channels: List<Channel>) {
-        runCatching {
-            val array = JSONArray()
-
-            channels.forEach { channel ->
-                val item = JSONObject()
-                    .put("id", channel.id)
-                    .put("name", channel.name)
-                    .put("streamUrl", channel.streamUrl)
-                    .put("group", channel.group)
-                    .put("logoUrl", channel.logoUrl ?: "")
-                    .put("tvgId", channel.tvgId ?: "")
-
-                array.put(item)
-            }
-
-            dataFile(context, url).writeText(array.toString())
-            metaFile(context, url).writeText(System.currentTimeMillis().toString())
-        }
-    }
-
-    fun load(context: Context, url: String): List<Channel> {
-        return runCatching {
-            val file = dataFile(context, url)
-            if (!file.exists()) return emptyList()
-
-            val array = JSONArray(file.readText())
-            val channels = mutableListOf<Channel>()
-
-            for (index in 0 until array.length()) {
-                val item = array.getJSONObject(index)
-
-                channels.add(
-                    Channel(
-                        id = item.optString("id").ifBlank { item.optString("streamUrl") },
-                        name = item.optString("name"),
-                        streamUrl = item.optString("streamUrl"),
-                        group = item.optString("group"),
-                        logoUrl = item.optString("logoUrl").ifBlank { null },
-                        tvgId = item.optString("tvgId").ifBlank { null }
-                    )
-                )
-            }
-
-            channels
-        }.getOrDefault(emptyList())
-    }
-
-    fun lastUpdatedAt(context: Context, url: String): Long {
-        return runCatching {
-            val file = metaFile(context, url)
-            if (!file.exists()) return 0L
-            file.readText().toLongOrNull() ?: 0L
-        }.getOrDefault(0L)
+        // No-op: el cache real queda del lado backend.
     }
 
     fun clear(context: Context, url: String) {
-        runCatching { dataFile(context, url).delete() }
-        runCatching { metaFile(context, url).delete() }
+        runCatching {
+            cacheDir(context).listFiles()?.forEach { file ->
+                if (file.name.contains(url.hashCode().toString())) file.delete()
+            }
+        }
     }
 
     fun clearAll(context: Context) {

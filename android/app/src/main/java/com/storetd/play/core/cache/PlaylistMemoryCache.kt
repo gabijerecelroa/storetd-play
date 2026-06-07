@@ -3,60 +3,26 @@ package com.storetd.play.core.cache
 import com.storetd.play.core.model.Channel
 
 object PlaylistMemoryCache {
-    private data class CacheEntry(
-        val channels: List<Channel>,
-        val cachedAtMillis: Long
-    )
-
-    private const val MAX_ENTRIES = 8
-
-    private val cache = LinkedHashMap<String, CacheEntry>()
-
-    fun get(url: String): List<Channel>? {
-        val cleanUrl = url.trim()
-        if (cleanUrl.isBlank()) return null
-
-        val entry = cache[cleanUrl] ?: return null
-        if (entry.channels.isEmpty()) return null
-
-        cache.remove(cleanUrl)
-        cache[cleanUrl] = entry
-
-        return entry.channels
-    }
+    /*
+     * STORETD V1.6.33:
+     * Evita retener listas grandes en memoria entre aperturas de TV en vivo.
+     * La app consulta al backend, y el backend entrega cache rápido.
+     */
+    fun get(url: String): List<Channel>? = null
 
     fun save(url: String, channels: List<Channel>) {
-        val cleanUrl = url.trim()
-        if (cleanUrl.isBlank() || channels.isEmpty()) return
-
-        cache.remove(cleanUrl)
-        cache[cleanUrl] = CacheEntry(
-            channels = channels,
-            cachedAtMillis = System.currentTimeMillis()
-        )
-
-        while (cache.size > MAX_ENTRIES) {
-            val firstKey = cache.keys.firstOrNull() ?: break
-            cache.remove(firstKey)
-        }
+        // No-op.
     }
 
     fun clear(url: String) {
-        val cleanUrl = url.trim()
-        if (cleanUrl.isNotBlank()) {
-            cache.remove(cleanUrl)
-        }
+        // No-op.
     }
 
-    fun clear() {
-        cache.clear()
+    fun clearAll() {
+        // No-op.
     }
 
-    fun loadedAt(url: String): Long {
-        return cache[url.trim()]?.cachedAtMillis ?: 0L
-    }
+    fun cachedAtMillis(url: String): Long = 0L
 
-    fun loadedAt(): Long {
-        return cache.values.lastOrNull()?.cachedAtMillis ?: 0L
-    }
+    fun latestCachedAtMillis(): Long = 0L
 }
