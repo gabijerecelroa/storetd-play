@@ -590,30 +590,7 @@ fun LiveTvScreen(
                         isLoading = state.isLoading || state.isFiltering || isLazySeriesLoading || isLazyMoviesLoading
                     )
 
-                    Spacer(Modifier.height(16.dp))
-
-                    PremiumHeroPanel(
-                        mode = contentMode,
-                        titleOverride = when (contentMode) {
-                            ContentMode.Movies -> lazyMovieCategories.firstOrNull { it.key == selectedMovieCategoryKey }?.title
-                            ContentMode.Series -> lazySeriesFolders.firstOrNull { it.key == selectedSeriesKey }?.title ?: selectedSeriesGroup?.takeIf { it.isNotBlank() && it != "__all_series__" }
-                            ContentMode.LiveTv -> null
-                        },
-                        subtitleOverride = when (contentMode) {
-                            ContentMode.LiveTv -> "${state.totalVisibleCount.takeIf { it > 0 } ?: state.visibleChannels.size} canales disponibles"
-                            ContentMode.Movies -> if (selectedMovieCategoryKey == null) "${lazyMovieCategories.size} carpetas de películas" else "${lazyMovieItems.size} películas disponibles"
-                            ContentMode.Series -> when {
-                                selectedSeriesKey != null -> "${lazySeriesEpisodes.size} capítulos disponibles"
-                                selectedSeriesGroup == null || selectedSeriesGroup == "__all_series__" -> "${lazySeriesFolders.size} series disponibles"
-                                else -> "${lazySeriesFolders.count { it.group == selectedSeriesGroup }} series disponibles"
-                            }
-                        },
-                        channel = when (contentMode) {
-                            ContentMode.LiveTv -> state.visibleChannels.firstOrNull()
-                            ContentMode.Movies -> lazyMovieItems.firstOrNull() ?: lazyMovieSearchItems.firstOrNull()
-                            ContentMode.Series -> lazySeriesEpisodes.firstOrNull()
-                        }
-                    )
+                    
                 }
 
                 if (!usingLazyBackendContent) {
@@ -691,30 +668,7 @@ fun LiveTvScreen(
                         isLoading = state.isLoading || state.isFiltering || isLazySeriesLoading || isLazyMoviesLoading
                     )
 
-                    Spacer(Modifier.height(16.dp))
-
-                    PremiumHeroPanel(
-                        mode = contentMode,
-                        titleOverride = when (contentMode) {
-                            ContentMode.Movies -> lazyMovieCategories.firstOrNull { it.key == selectedMovieCategoryKey }?.title
-                            ContentMode.Series -> lazySeriesFolders.firstOrNull { it.key == selectedSeriesKey }?.title ?: selectedSeriesGroup?.takeIf { it.isNotBlank() && it != "__all_series__" }
-                            ContentMode.LiveTv -> null
-                        },
-                        subtitleOverride = when (contentMode) {
-                            ContentMode.LiveTv -> "${state.totalVisibleCount.takeIf { it > 0 } ?: state.visibleChannels.size} canales disponibles"
-                            ContentMode.Movies -> if (selectedMovieCategoryKey == null) "${lazyMovieCategories.size} carpetas de películas" else "${lazyMovieItems.size} películas disponibles"
-                            ContentMode.Series -> when {
-                                selectedSeriesKey != null -> "${lazySeriesEpisodes.size} capítulos disponibles"
-                                selectedSeriesGroup == null || selectedSeriesGroup == "__all_series__" -> "${lazySeriesFolders.size} series disponibles"
-                                else -> "${lazySeriesFolders.count { it.group == selectedSeriesGroup }} series disponibles"
-                            }
-                        },
-                        channel = when (contentMode) {
-                            ContentMode.LiveTv -> state.visibleChannels.firstOrNull()
-                            ContentMode.Movies -> lazyMovieItems.firstOrNull() ?: lazyMovieSearchItems.firstOrNull()
-                            ContentMode.Series -> lazySeriesEpisodes.firstOrNull()
-                        }
-                    )
+                    
 
                     if (!usingLazyBackendContent) {
                         Spacer(Modifier.height(24.dp))
