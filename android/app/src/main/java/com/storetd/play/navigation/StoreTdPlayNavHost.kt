@@ -500,7 +500,7 @@ fun checkAccountStatus() {
 
                         navController.navigate("${Routes.Player}/$encName/$encUrl/$encGroup/$encLogo")
                     } else {
-                        navController.navigate("${Routes.WebPlayer}/$encName/$encUrl/$encGroup/$encLogo")
+                        navController.navigate("${Routes.Player}/$encName/$encUrl/$encGroup/$encLogo")
                     }
                 },
                 onBack = { navController.popBackStack() }
