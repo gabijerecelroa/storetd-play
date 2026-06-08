@@ -9,6 +9,24 @@ import com.storetd.play.ui.theme.StoreTdPlayTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // --- AUTO-LIMPIEZA DE CACHÉ (NUEVA VERSIÓN) ---
+        try {
+            val prefs = getSharedPreferences("StoreTD_Prefs", android.content.Context.MODE_PRIVATE)
+            val lastVersion = prefs.getInt("last_version_code", 0)
+            val currentVersion = 88
+
+            if (currentVersion > lastVersion) {
+                cacheDir?.deleteRecursively()
+                codeCacheDir?.deleteRecursively()
+                prefs.edit().putInt("last_version_code", currentVersion).apply()
+                android.util.Log.d("STORETD", "¡Caché e historial viejo eliminados en actualización!")
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        // ----------------------------------------------
+
         setContent {
             StoreTdPlayTheme {
                 StoreTdPlayNavHost()
