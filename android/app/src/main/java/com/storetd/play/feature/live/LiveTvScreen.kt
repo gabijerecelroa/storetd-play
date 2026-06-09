@@ -1136,10 +1136,10 @@ private fun PremiumHeroPanel(
             .fillMaxWidth()
             .heightIn(min = 150.dp),
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.18f),
-        shape = RoundedCornerShape(36.dp),
+        shape = RoundedCornerShape(12.dp),
         border = BorderStroke(
             1.dp,
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+            androidx.compose.ui.graphics.Color.White.copy(alpha = 0.15f)
         ),
         shadowElevation = 10.dp
     ) {
@@ -1189,7 +1189,7 @@ private fun PremiumHeroPanel(
                 verticalArrangement = Arrangement.spacedBy(9.dp)
             ) {
                 Surface(
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                    color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.15f),
                     shape = RoundedCornerShape(999.dp)
                 ) {
                     Text(
@@ -1411,7 +1411,7 @@ private fun ContentControls(
                 shape = RoundedCornerShape(999.dp),
                 border = BorderStroke(
                     1.dp,
-                    MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.35f)
+                    androidx.compose.ui.graphics.Color.White.copy(alpha = 0.15f)
                 )
             ) {
                 Text(
@@ -1757,7 +1757,7 @@ private fun LazySearchHeader(
                         if (showSearch) {
                             MaterialTheme.colorScheme.primary
                         } else {
-                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f)
+                            androidx.compose.ui.graphics.Color.White.copy(alpha = 0.10f)
                         }
                     )
                 ) {
@@ -1945,7 +1945,7 @@ private fun MovieCategoryHeader(
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Surface(
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                    color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.15f),
                     shape = RoundedCornerShape(999.dp)
                 ) {
                     Text(
@@ -2059,11 +2059,11 @@ private fun SeriesSourceGroupRow(
         ) {
             Surface(
                 modifier = Modifier.size(64.dp),
-                color = MaterialTheme.colorScheme.primary.copy(alpha = if (isFocused) 0.28f else 0.14f),
+                color = androidx.compose.ui.graphics.Color.White.copy(alpha = if (isFocused) 0.7f else 0.0f),
                 shape = RoundedCornerShape(22.dp),
                 border = BorderStroke(
                     1.dp,
-                    MaterialTheme.colorScheme.primary.copy(alpha = if (isFocused) 0.55f else 0.20f)
+                    androidx.compose.ui.graphics.Color.White.copy(alpha = if (isFocused) 1.0f else 0.0f)
                 )
             ) {
                 Box(
@@ -2262,11 +2262,11 @@ private fun SeriesFolderLiteRow(
         ) {
             Surface(
                 modifier = Modifier.size(68.dp),
-                color = MaterialTheme.colorScheme.primary.copy(alpha = if (isFocused) 0.28f else 0.14f),
-                shape = RoundedCornerShape(24.dp),
+                color = androidx.compose.ui.graphics.Color.White.copy(alpha = if (isFocused) 0.7f else 0.0f),
+                shape = RoundedCornerShape(12.dp),
                 border = BorderStroke(
                     1.dp,
-                    MaterialTheme.colorScheme.primary.copy(alpha = if (isFocused) 0.55f else 0.20f)
+                    androidx.compose.ui.graphics.Color.White.copy(alpha = if (isFocused) 1.0f else 0.0f)
                 )
             ) {
                 Box(
@@ -2717,7 +2717,7 @@ private fun ChannelRow(
             Surface(
                 modifier = Modifier.size(86.dp),
                 color = if (active) {
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                    androidx.compose.ui.graphics.Color.White.copy(alpha = 0.15f)
                 } else {
                     MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.58f)
                 },

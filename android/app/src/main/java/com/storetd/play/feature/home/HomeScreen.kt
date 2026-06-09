@@ -559,10 +559,10 @@ private fun HomeGlobalRefreshCard(
         modifier = modifier
             .clickable(enabled = !isRefreshing) { onRefresh() },
         color = MaterialTheme.colorScheme.primary.copy(alpha = if (isRefreshing) 0.72f else 0.95f),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(12.dp),
         border = BorderStroke(
             1.dp,
-            MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.35f)
+            androidx.compose.ui.graphics.Color.White.copy(alpha = 0.15f)
         ),
         shadowElevation = 8.dp
     ) {
@@ -733,7 +733,7 @@ private fun TvHomeCard(
 ) {
     var focused by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
-    val shape = RoundedCornerShape(24.dp)
+    val shape = RoundedCornerShape(12.dp)
 
     if (requestInitialFocus) {
         LaunchedEffect(Unit) {
@@ -786,7 +786,7 @@ private fun TvHomeCard(
         ) {
             Surface(
                 color = MaterialTheme.colorScheme.background.copy(alpha = 0.36f),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f)),
+                border = BorderStroke(1.dp, androidx.compose.ui.graphics.Color.White.copy(alpha = 0.10f)),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
