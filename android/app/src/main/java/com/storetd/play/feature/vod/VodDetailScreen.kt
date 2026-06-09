@@ -87,11 +87,11 @@ fun VodDetailScreen(
         try { focusRequester.requestFocus() } catch (e: Exception) {}
     }
 
-    val isMagmaMovie = false // Forzado para reproducir VOD nativo desde el VPS
+    val isMagmaMovie = remember(streamUrl) { isMagmaMovieUrl(streamUrl) }
     val magmaMovieStreamId = remember(streamUrl) { extractMagmaMovieStreamId(streamUrl) }
     val playButtonText = when {
         isLoadingSources -> "Cargando fuentes..."
-        isMagmaMovie -> "▶ Elegir fuente"
+        isMagmaMovie -> "▶ Reproducir"
         else -> "▶ Reproducir"
     }
 
@@ -109,11 +109,8 @@ fun VodDetailScreen(
         }
 
         // MAGMA_FRESH_SOURCE_SELECTOR_START
-        // Al tocar "Elegir fuente" siempre abrimos el selector y consultamos fuentes frescas.
         isLoadingSources = true
-        movieSources = emptyList()
-        sourceMessage = "Buscando fuentes actualizadas..."
-        showSourceDialog = true
+        showSourceDialog = false // OCULTAMOS EL MENÚ PARA HACERLO SILENCIOSO
 
         scope.launch {
             val account = LocalAccount.getAccount(context)
@@ -131,11 +128,12 @@ fun VodDetailScreen(
             }
 
             if (loadedSources.isNotEmpty()) {
-                movieSources = loadedSources
-                sourceMessage = null
+                // 🔥 EL TOQUE MAESTRO: AUTO-PLAY INMEDIATO
+                onPlay(loadedSources.first().streamUrl)
             } else {
-                movieSources = emptyList()
+                // Solo mostramos error si no hay enlaces
                 sourceMessage = "Esta película no está disponible en este momento. Probá otra opción."
+                showSourceDialog = true 
             }
 
             isLoadingSources = false
