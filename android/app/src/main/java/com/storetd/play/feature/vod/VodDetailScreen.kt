@@ -87,7 +87,7 @@ fun VodDetailScreen(
         try { focusRequester.requestFocus() } catch (e: Exception) {}
     }
 
-    val isMagmaMovie = remember(streamUrl) { isMagmaMovieUrl(streamUrl) }
+    val isMagmaMovie = false // Forzado para reproducir VOD nativo desde el VPS
     val magmaMovieStreamId = remember(streamUrl) { extractMagmaMovieStreamId(streamUrl) }
     val playButtonText = when {
         isLoadingSources -> "Cargando fuentes..."
