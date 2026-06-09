@@ -1,5 +1,13 @@
 package com.storetd.play.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.background
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.weight
 import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -257,17 +265,17 @@ fun checkAccountStatus() {
     val currentRoute = navBackStackEntry?.destination?.route
     val showSideMenu = currentRoute in listOf(Routes.Home, Routes.LiveTv, Routes.Movies, Routes.Series, Routes.Favorites, Routes.History, Routes.Account, Routes.Settings)
 
-    androidx.compose.foundation.layout.Box(
-        modifier = androidx.compose.ui.Modifier.fillMaxSize()
-            .androidx.compose.foundation.background(androidx.compose.ui.graphics.Brush.horizontalGradient(
-                colors = listOf(androidx.compose.ui.graphics.Color(0xFF000000), androidx.compose.ui.graphics.Color(0xFF09090B))
+    Box(
+        modifier = Modifier.fillMaxSize()
+            .background(Brush.horizontalGradient(
+                colors = listOf(Color(0xFF000000), Color(0xFF09090B))
             ))
     ) {
-        androidx.compose.foundation.layout.Row(modifier = androidx.compose.ui.Modifier.fillMaxSize()) {
+        Row(modifier = Modifier.fillMaxSize()) {
             if (showSideMenu) {
                 com.storetd.play.ui.components.PremiumSideMenu(navController = navController, currentRoute = currentRoute)
             }
-            androidx.compose.foundation.layout.Box(modifier = androidx.compose.ui.Modifier.weight(1f)) {
+            Box(modifier = Modifier.weight(1f)) {
                 NavHost(navController = navController, startDestination = startDestination) {
         composable(Routes.Activation) {
             ActivationScreen(

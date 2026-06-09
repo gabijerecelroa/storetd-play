@@ -1,5 +1,7 @@
 package com.storetd.play.feature.home
 
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.zIndex
 import com.storetd.play.core.network.AppUpdateInfo
 import com.storetd.play.core.network.AppUpdateApi
 import com.storetd.play.core.update.AppUpdateDownloader
@@ -745,7 +747,7 @@ private fun TvHomeCard(
         modifier = modifier
             .height(154.dp)
             .focusRequester(focusRequester)
-            .androidx.compose.ui.draw.scale(if (focused) 1.05f else 1f).androidx.compose.ui.zIndex(if (focused) 1f else 0f).onFocusChanged { focused = it.isFocused || it.hasFocus }
+            .scale(if (focused) 1.05f else 1f).zIndex(if (focused) 1f else 0f).onFocusChanged { focused = it.isFocused || it.hasFocus }
             .onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 when (event.key) {

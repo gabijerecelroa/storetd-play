@@ -1,5 +1,7 @@
 package com.storetd.play.feature.live
 
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.zIndex
 import com.storetd.play.feature.vod.SeriesTmdbHeader
 
 import androidx.compose.ui.text.font.FontWeight
@@ -1569,7 +1571,7 @@ private fun TvCategoryChip(
 
     Surface(
         modifier = Modifier
-            .androidx.compose.ui.draw.scale(if (focused) 1.05f else 1f).androidx.compose.ui.zIndex(if (focused) 1f else 0f).onFocusChanged { focused = it.isFocused || it.hasFocus }
+            .scale(if (focused) 1.05f else 1f).zIndex(if (focused) 1f else 0f).onFocusChanged { focused = it.isFocused || it.hasFocus }
             .onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) {
                     return@onPreviewKeyEvent false
@@ -1814,7 +1816,7 @@ private fun MovieCategoryLiteRow(
         modifier = Modifier
             .fillMaxWidth()
             .focusRequester(focusRequester)
-            .androidx.compose.ui.draw.scale(if (isFocused) 1.05f else 1f).androidx.compose.ui.zIndex(if (isFocused) 1f else 0f).onFocusChanged { isFocused = it.isFocused || it.hasFocus }
+            .scale(if (isFocused) 1.05f else 1f).zIndex(if (isFocused) 1f else 0f).onFocusChanged { isFocused = it.isFocused || it.hasFocus }
             .onPreviewKeyEvent { event ->
                 if (
                     event.type == KeyEventType.KeyUp &&
@@ -2022,7 +2024,7 @@ private fun SeriesSourceGroupRow(
         modifier = Modifier
             .fillMaxWidth()
             .focusRequester(focusRequester)
-            .androidx.compose.ui.draw.scale(if (isFocused) 1.05f else 1f).androidx.compose.ui.zIndex(if (isFocused) 1f else 0f).onFocusChanged { isFocused = it.isFocused || it.hasFocus }
+            .scale(if (isFocused) 1.05f else 1f).zIndex(if (isFocused) 1f else 0f).onFocusChanged { isFocused = it.isFocused || it.hasFocus }
             .onPreviewKeyEvent { event ->
                 if (
                     event.type == KeyEventType.KeyUp &&
@@ -2225,7 +2227,7 @@ private fun SeriesFolderLiteRow(
         modifier = Modifier
             .fillMaxWidth()
             .focusRequester(focusRequester)
-            .androidx.compose.ui.draw.scale(if (isFocused) 1.05f else 1f).androidx.compose.ui.zIndex(if (isFocused) 1f else 0f).onFocusChanged { isFocused = it.isFocused || it.hasFocus }
+            .scale(if (isFocused) 1.05f else 1f).zIndex(if (isFocused) 1f else 0f).onFocusChanged { isFocused = it.isFocused || it.hasFocus }
             .onPreviewKeyEvent { event ->
                 if (
                     event.type == KeyEventType.KeyUp &&
@@ -2433,7 +2435,7 @@ private fun SeriesFolderRow(
         onClick = onOpen,
         modifier = Modifier
             .fillMaxWidth()
-            .androidx.compose.ui.draw.scale(if (focused) 1.05f else 1f).androidx.compose.ui.zIndex(if (focused) 1f else 0f).onFocusChanged { focused = it.isFocused || it.hasFocus }
+            .scale(if (focused) 1.05f else 1f).zIndex(if (focused) 1f else 0f).onFocusChanged { focused = it.isFocused || it.hasFocus }
             .onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) {
                     return@onPreviewKeyEvent false
@@ -2665,7 +2667,7 @@ private fun ChannelRow(
         modifier = Modifier
             .fillMaxWidth()
             .focusRequester(rowFocusRequester)
-            .androidx.compose.ui.draw.scale(if (focused) 1.05f else 1f).androidx.compose.ui.zIndex(if (focused) 1f else 0f).onFocusChanged { focused = it.isFocused || it.hasFocus }
+            .scale(if (focused) 1.05f else 1f).zIndex(if (focused) 1f else 0f).onFocusChanged { focused = it.isFocused || it.hasFocus }
             .onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) {
                     return@onPreviewKeyEvent false
