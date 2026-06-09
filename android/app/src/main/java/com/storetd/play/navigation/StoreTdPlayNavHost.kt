@@ -16,6 +16,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
@@ -251,7 +252,23 @@ fun checkAccountStatus() {
 
     GlobalAppUpdateGate(enabled = LocalAccount.isActivated(context))
 
-    NavHost(navController = navController, startDestination = startDestination) {
+    
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+    val showSideMenu = currentRoute in listOf(Routes.Home, Routes.LiveTv, Routes.Movies, Routes.Series, Routes.Favorites, Routes.History, Routes.Account, Routes.Settings)
+
+    androidx.compose.foundation.layout.Box(
+        modifier = androidx.compose.ui.Modifier.fillMaxSize()
+            .androidx.compose.foundation.background(androidx.compose.ui.graphics.Brush.horizontalGradient(
+                colors = listOf(androidx.compose.ui.graphics.Color(0xFF000000), androidx.compose.ui.graphics.Color(0xFF09090B))
+            ))
+    ) {
+        androidx.compose.foundation.layout.Row(modifier = androidx.compose.ui.Modifier.fillMaxSize()) {
+            if (showSideMenu) {
+                com.storetd.play.ui.components.PremiumSideMenu(navController = navController, currentRoute = currentRoute)
+            }
+            androidx.compose.foundation.layout.Box(modifier = androidx.compose.ui.Modifier.weight(1f)) {
+                NavHost(navController = navController, startDestination = startDestination) {
         composable(Routes.Activation) {
             ActivationScreen(
                 onActivate = { customerName, activationCode, status, expiresAt, playlistUrl, epgUrl, maxDevices, deviceCount ->
@@ -589,6 +606,9 @@ composable(
 
         composable(Routes.Settings) {
             SettingsScreen(onBack = { navController.popBackStack() })
+        }
+    }
+            }
         }
     }
 }

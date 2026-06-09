@@ -745,7 +745,7 @@ private fun TvHomeCard(
         modifier = modifier
             .height(154.dp)
             .focusRequester(focusRequester)
-            .onFocusChanged { focused = it.isFocused || it.hasFocus }
+            .androidx.compose.ui.draw.scale(if (focused) 1.05f else 1f).androidx.compose.ui.zIndex(if (focused) 1f else 0f).onFocusChanged { focused = it.isFocused || it.hasFocus }
             .onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 when (event.key) {
