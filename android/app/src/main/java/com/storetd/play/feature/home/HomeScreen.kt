@@ -1,4 +1,6 @@
 package com.storetd.play.feature.home
+import com.storetd.play.core.network.SeriesFolderLite
+import com.storetd.play.core.network.MovieCategoryLite
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
