@@ -1,7 +1,6 @@
 package com.storetd.play.feature.home
-import com.storetd.play.core.network.SeriesFolderLite
-import com.storetd.play.core.network.MovieCategoryLite
 
+import android.content.Context
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -12,8 +11,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,7 +25,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -34,9 +32,12 @@ import coil.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-import com.storetd.play.core.model.*
-import com.storetd.play.core.network.*
-import com.storetd.play.core.storage.*
+import com.storetd.play.core.model.Channel
+import com.storetd.play.core.network.OptimizedContentApi
+import com.storetd.play.core.storage.LocalAccount
+import com.storetd.play.core.storage.LocalAppConfig
+import com.storetd.play.core.storage.LocalLibrary
+import com.storetd.play.core.storage.SavedChannel
 
 @Composable
 fun HomeScreen(
@@ -50,19 +51,21 @@ fun HomeScreen(
     onOpenAccount: () -> Unit,
     onOpenSupport: () -> Unit,
     onOpenSettings: () -> Unit,
-    config: AppConfig
+    config: com.storetd.play.core.storage.AppConfig? = null // Ignoramos el del NavHost y leemos el local
 ) {
     val context = LocalContext.current
     var isLoading by remember { mutableStateOf(true) }
+    
+    val localConfig = remember { LocalAppConfig.get(context) }
+    val appNameSafe = localConfig.appName ?: "STORE TD"
     
     var history by remember { mutableStateOf<List<SavedChannel>>(emptyList()) }
     var favorites by remember { mutableStateOf<List<SavedChannel>>(emptyList()) }
     
     var estrenos by remember { mutableStateOf<List<Channel>>(emptyList()) }
     var peliculasVistas by remember { mutableStateOf<List<Channel>>(emptyList()) }
-    var seriesVistas by remember { mutableStateOf<List<Channel>>(emptyList()) }
 
-    // Motor de extracción automática de contenido
+    // Motor de extracción SUPER SEGURO (Buscando canales directos, sin usar clases "Lite")
     LaunchedEffect(Unit) {
         history = LocalLibrary.history(context).take(15)
         favorites = LocalLibrary.favorites(context).take(15)
@@ -72,23 +75,11 @@ fun HomeScreen(
                 val acc = LocalAccount.getAccount(context)
                 val code = acc.activationCode
                 
-                // Extraer Películas Inteligentes
-                val mCats = OptimizedContentApi.loadMovieCategoriesLite(code)
-                if (mCats.isNotEmpty()) {
-                    val estCat = mCats.find { it.name.contains("estreno", true) || it.name.contains("nuevo", true) || it.name.contains("2026", true) } ?: mCats.first()
-                    estrenos = OptimizedContentApi.loadMovieCategoryItems(code, estCat.id).take(20)
-                    
-                    val popCat = mCats.find { it.name.contains("popular", true) || it.name.contains("top", true) || it.name.contains("vista", true) } ?: mCats.getOrNull(1) ?: mCats.first()
-                    if (popCat.id != estCat.id) {
-                        peliculasVistas = OptimizedContentApi.loadMovieCategoryItems(code, popCat.id).take(20)
-                    }
-                }
-
-                // Extraer Series Inteligentes
-                val sCats = OptimizedContentApi.loadSeriesFoldersLite(code)
-                if (sCats.isNotEmpty()) {
-                    val popSCat = sCats.find { it.name.contains("popular", true) || it.name.contains("top", true) || it.name.contains("vista", true) } ?: sCats.first()
-                    seriesVistas = OptimizedContentApi.loadSeriesFolderEpisodes(code, popSCat.id).take(20)
+                // Pedimos TODAS las películas juntas para no fallar con los IDs
+                val allMovies = OptimizedContentApi.loadSection(code, "movie").take(150)
+                if (allMovies.isNotEmpty()) {
+                    estrenos = allMovies.shuffled().take(20) // Simulamos los estrenos mezclando
+                    peliculasVistas = allMovies.take(20)     // Simulamos las más vistas tomando las primeras
                 }
             } catch(e: Exception) {
                 e.printStackTrace()
@@ -129,7 +120,7 @@ fun HomeScreen(
                             modifier = Modifier.align(Alignment.CenterStart).padding(32.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text("🎬 BIENVENIDO A ${config.appName.uppercase()}", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                            Text("🎬 BIENVENIDO A ${appNameSafe.uppercase()}", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                             Text("El mejor entretenimiento\npara tu familia", color = Color.White, fontSize = 36.sp, fontWeight = FontWeight.Black)
                             Spacer(modifier = Modifier.height(12.dp))
                             Text("Navegá por el menú lateral para descubrir la cartelera completa", color = Color.LightGray, fontSize = 16.sp)
@@ -138,39 +129,23 @@ fun HomeScreen(
                 }
 
                 if (history.isNotEmpty()) {
-                    item {
-                        CarouselSectionSaved("⏱️ Continuar Viendo", history) { onOpenContinueItem(it) }
-                    }
+                    item { CarouselSectionSaved("⏱️ Continuar Viendo", history) { onOpenContinueItem(it) } }
                 }
 
                 if (estrenos.isNotEmpty()) {
-                    item {
-                        CarouselSection("🔥 Estrenos Recientes", estrenos) { ch ->
-                            onOpenContinueItem(SavedChannel(ch.id, ch.name, ch.streamUrl, ch.logoUrl, ch.group ?: "Estrenos", null))
-                        }
-                    }
+                    item { CarouselSection("🔥 Recomendados para ti", estrenos) { ch -> 
+                        onOpenContinueItem(SavedChannel(ch.id, ch.name, ch.streamUrl, ch.logoUrl, ch.group ?: "Peliculas", null))
+                    } }
                 }
 
                 if (peliculasVistas.isNotEmpty()) {
-                    item {
-                        CarouselSection("⭐ Películas Más Vistas", peliculasVistas) { ch ->
-                            onOpenContinueItem(SavedChannel(ch.id, ch.name, ch.streamUrl, ch.logoUrl, ch.group ?: "Peliculas", null))
-                        }
-                    }
-                }
-
-                if (seriesVistas.isNotEmpty()) {
-                    item {
-                        CarouselSection("🍿 Series Destacadas", seriesVistas) { ch ->
-                            onOpenContinueItem(SavedChannel(ch.id, ch.name, ch.streamUrl, ch.logoUrl, ch.group ?: "Series", null))
-                        }
-                    }
+                    item { CarouselSection("⭐ Películas Más Vistas", peliculasVistas) { ch -> 
+                        onOpenContinueItem(SavedChannel(ch.id, ch.name, ch.streamUrl, ch.logoUrl, ch.group ?: "Peliculas", null))
+                    } }
                 }
                 
                 if (favorites.isNotEmpty()) {
-                    item {
-                        CarouselSectionSaved("❤️ Mi Lista de Favoritos", favorites) { onOpenContinueItem(it) }
-                    }
+                    item { CarouselSectionSaved("❤️ Mi Lista de Favoritos", favorites) { onOpenContinueItem(it) } }
                 }
             }
         }
@@ -183,9 +158,7 @@ fun CarouselSection(title: String, items: List<Channel>, onClick: (Channel) -> U
         Text(title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 32.dp))
         Spacer(modifier = Modifier.height(16.dp))
         LazyRow(contentPadding = PaddingValues(horizontal = 32.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            items(items) { item ->
-                MovieCard(item.name, item.logoUrl) { onClick(item) }
-            }
+            items(items) { item -> MovieCard(item.name, item.logoUrl) { onClick(item) } }
         }
     }
 }
@@ -196,9 +169,7 @@ fun CarouselSectionSaved(title: String, items: List<SavedChannel>, onClick: (Sav
         Text(title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 32.dp))
         Spacer(modifier = Modifier.height(16.dp))
         LazyRow(contentPadding = PaddingValues(horizontal = 32.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            items(items) { item ->
-                MovieCard(item.name, item.logoUrl) { onClick(item) }
-            }
+            items(items) { item -> MovieCard(item.name, item.logoUrl) { onClick(item) } }
         }
     }
 }
@@ -222,20 +193,12 @@ fun MovieCard(name: String, logoUrl: String?, onClick: () -> Unit) {
             .clickable { onClick() }
     ) {
         if (!logoUrl.isNullOrBlank() && logoUrl != "-") {
-            AsyncImage(
-                model = logoUrl,
-                contentDescription = name,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
+            AsyncImage(model = logoUrl, contentDescription = name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
         } else {
             Box(modifier = Modifier.fillMaxSize().padding(8.dp), contentAlignment = Alignment.Center) {
                 Text(name, color = Color.White, fontSize = 13.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
             }
         }
-        
-        if (isFocused) {
-            Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha=0.15f)))
-        }
+        if (isFocused) Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha=0.15f)))
     }
 }
