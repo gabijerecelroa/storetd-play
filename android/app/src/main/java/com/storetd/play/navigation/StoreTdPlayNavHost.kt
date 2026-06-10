@@ -262,7 +262,7 @@ fun checkAccountStatus() {
     
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-    val showSideMenu = currentRoute in listOf(Routes.Home, Routes.LiveTv, Routes.Movies, Routes.Series, Routes.Favorites, Routes.History, Routes.Account, Routes.Settings)
+    val showSideMenu = currentRoute in listOf(Routes.Home, Routes.LiveTv, Routes.Movies, Routes.Series, Routes.Favorites, Routes.History, Routes.Account, Routes.Settings, Routes.Support, Routes.Epg)
 
     Box(
         modifier = Modifier.fillMaxSize()

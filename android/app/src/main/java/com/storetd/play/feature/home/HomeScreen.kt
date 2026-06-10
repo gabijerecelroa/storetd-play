@@ -61,9 +61,8 @@ fun HomeScreen(
     
     var estrenos by remember { mutableStateOf<List<Channel>>(emptyList()) }
     var peliculasVistas by remember { mutableStateOf<List<Channel>>(emptyList()) }
-    var seriesVistas by remember { mutableStateOf<List<Channel>>(emptyList()) }
+    var seriesFolders by remember { mutableStateOf<List<Channel>>(emptyList()) }
 
-    // Motor de Extracción con las Llaves Maestras (key y title)
     LaunchedEffect(Unit) {
         history = LocalLibrary.history(context).take(15)
         favorites = LocalLibrary.favorites(context).take(15)
@@ -73,67 +72,50 @@ fun HomeScreen(
                 val acc = LocalAccount.getAccount(context)
                 val code = acc.activationCode
                 
-                // Películas
                 val mCats = OptimizedContentApi.loadMovieCategoriesLite(code)
                 if (mCats.isNotEmpty()) {
-                    val estCat = mCats.find { it.title.contains("estreno", ignoreCase = true) || it.title.contains("nuevo", ignoreCase = true) || it.title.contains("202", ignoreCase = true) } ?: mCats.firstOrNull()
-                    if (estCat != null) {
-                        estrenos = OptimizedContentApi.loadMovieCategoryItems(code, estCat.key).take(20)
-                    }
+                    val estCat = mCats.find { it.title.contains("estreno", true) || it.title.contains("nuevo", true) || it.title.contains("202", true) } ?: mCats.firstOrNull()
+                    if (estCat != null) estrenos = OptimizedContentApi.loadMovieCategoryItems(code, estCat.key).take(20)
                     
-                    val popCat = mCats.find { it.title.contains("popular", ignoreCase = true) || it.title.contains("top", ignoreCase = true) || it.title.contains("vista", ignoreCase = true) } ?: mCats.getOrNull(1) ?: mCats.firstOrNull()
-                    if (popCat != null && popCat.key != estCat?.key) {
-                        peliculasVistas = OptimizedContentApi.loadMovieCategoryItems(code, popCat.key).take(20)
-                    }
+                    val popCat = mCats.find { it.title.contains("popular", true) || it.title.contains("top", true) || it.title.contains("vista", true) } ?: mCats.getOrNull(1) ?: mCats.firstOrNull()
+                    if (popCat != null && popCat.key != estCat?.key) peliculasVistas = OptimizedContentApi.loadMovieCategoryItems(code, popCat.key).take(20)
                 }
 
-                // Series
+                // 🔥 FIX SERIES: Ahora traemos las CARPETAS PRINCIPALES, NO capítulos sueltos 🔥
                 val sCats = OptimizedContentApi.loadSeriesFoldersLite(code)
                 if (sCats.isNotEmpty()) {
-                    val popSCat = sCats.find { it.title.contains("popular", ignoreCase = true) || it.title.contains("top", ignoreCase = true) || it.title.contains("vista", ignoreCase = true) } ?: sCats.firstOrNull()
-                    if (popSCat != null) {
-                        seriesVistas = OptimizedContentApi.loadSeriesFolderEpisodes(code, popSCat.key).take(20)
+                    seriesFolders = sCats.shuffled().take(20).map { 
+                        Channel(id = it.key, name = it.title, streamUrl = "dummy_series", logoUrl = it.posterUrl ?: "-", group = it.group ?: "Series", tvgId = null) 
                     }
                 }
-            } catch(e: Exception) {
-                e.printStackTrace()
-            } finally {
-                isLoading = false
-            }
+            } catch(e: Exception) { e.printStackTrace() } finally { isLoading = false }
         }
     }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Transparent)) {
         if (isLoading && history.isEmpty() && estrenos.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Color(0xFFE50914))
-            }
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color(0xFFE50914)) }
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(top = 42.dp, bottom = 60.dp)
             ) {
                 item {
-                    // HERO BANNER GIGANTE
+                    var isHeroFocused by remember { mutableStateOf(false) }
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 32.dp)
                             .height(260.dp)
-                            .background(
-                                Brush.horizontalGradient(
-                                    colors = listOf(Color(0xFFE50914).copy(alpha = 0.8f), Color(0xFF000000).copy(alpha = 0.3f))
-                                ),
-                                RoundedCornerShape(16.dp)
-                            )
-                            .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(16.dp))
-                            .clickable { onOpenMovies() }
+                            .scale(if (isHeroFocused) 1.02f else 1f)
+                            .border(if (isHeroFocused) 4.dp else 1.dp, if (isHeroFocused) Color.White else Color.White.copy(alpha = 0.15f), RoundedCornerShape(16.dp))
+                            .background(Brush.horizontalGradient(colors = listOf(Color(0xFFE50914).copy(alpha = 0.8f), Color(0xFF000000).copy(alpha = 0.3f))), RoundedCornerShape(16.dp))
+                            .clip(RoundedCornerShape(16.dp))
+                            .onFocusChanged { isHeroFocused = it.isFocused || it.hasFocus }
                             .focusable()
+                            .clickable { onOpenMovies() }
                     ) {
-                        Column(
-                            modifier = Modifier.align(Alignment.CenterStart).padding(32.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
+                        Column(modifier = Modifier.align(Alignment.CenterStart).padding(32.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("🎬 BIENVENIDO A STORE TD PLAY", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                             Text("El mejor entretenimiento\npara tu familia", color = Color.White, fontSize = 36.sp, fontWeight = FontWeight.Black)
                             Spacer(modifier = Modifier.height(12.dp))
@@ -142,13 +124,9 @@ fun HomeScreen(
                     }
                 }
 
-                // VITRINA DE ACCESO RÁPIDO
                 item {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 32.dp, vertical = 24.dp)
-                            .horizontalScroll(rememberScrollState()),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 24.dp).horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         QuickButton("📺 TV en Vivo") { onOpenLiveTv() }
@@ -158,26 +136,16 @@ fun HomeScreen(
                     }
                 }
 
-                if (history.isNotEmpty()) {
-                    item { CarouselSectionSaved("⏱️ Continuar Viendo", history) { onOpenContinueItem(it) } }
-                }
-
-                if (estrenos.isNotEmpty()) {
-                    item { CarouselSection("🔥 Estrenos y Recomendados", estrenos) { ch -> 
-                        onOpenContinueItem(SavedChannel(ch.id, ch.name, ch.streamUrl, ch.logoUrl, ch.group ?: "Peliculas", null))
-                    } }
-                }
-
-                if (peliculasVistas.isNotEmpty()) {
-                    item { CarouselSection("⭐ Películas Populares", peliculasVistas) { ch -> 
-                        onOpenContinueItem(SavedChannel(ch.id, ch.name, ch.streamUrl, ch.logoUrl, ch.group ?: "Peliculas", null))
-                    } }
-                }
-                
-                if (seriesVistas.isNotEmpty()) {
-                    item { CarouselSection("🍿 Series Destacadas", seriesVistas) { ch -> 
-                        onOpenContinueItem(SavedChannel(ch.id, ch.name, ch.streamUrl, ch.logoUrl, ch.group ?: "Series", null))
-                    } }
+                if (history.isNotEmpty()) item { CarouselSectionSaved("⏱️ Continuar Viendo", history) { onOpenContinueItem(it) } }
+                if (estrenos.isNotEmpty()) item { CarouselSection("🔥 Estrenos y Recomendados", estrenos) { ch -> onOpenContinueItem(SavedChannel(ch.id, ch.name, ch.streamUrl, ch.logoUrl, ch.group ?: "Peliculas", null)) } }
+                if (peliculasVistas.isNotEmpty()) item { CarouselSection("⭐ Películas Populares", peliculasVistas) { ch -> onOpenContinueItem(SavedChannel(ch.id, ch.name, ch.streamUrl, ch.logoUrl, ch.group ?: "Peliculas", null)) } }
+                if (seriesFolders.isNotEmpty()) {
+                    item { 
+                        CarouselSection("🍿 Series Destacadas", seriesFolders) { ch -> 
+                            // Al hacer clic en cualquier Serie del inicio, lo llevamos a la sección de Series para evitar errores
+                            onOpenSeries() 
+                        } 
+                    } 
                 }
             }
         }
@@ -188,22 +156,27 @@ fun HomeScreen(
 fun QuickButton(text: String, onClick: () -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (isFocused) 1.05f else 1f)
-    val bgColor = if (isFocused) Color(0xFFE50914) else Color(0xFF18181B)
+    
+    // 🔥 MAGIA DE ALTO CONTRASTE PARA BOTONES RÁPIDOS 🔥
+    val bgColor = if (isFocused) Color.White else Color(0xFFE50914)
+    val textColor = if (isFocused) Color.Black else Color.White
+    val borderWidth = if (isFocused) 4.dp else 1.dp
+    val borderColor = if (isFocused) Color.White else Color.White.copy(alpha=0.2f)
     
     Box(
         modifier = Modifier
             .width(160.dp)
             .height(55.dp)
             .scale(scale)
+            .border(borderWidth, borderColor, RoundedCornerShape(8.dp))
             .background(bgColor, RoundedCornerShape(8.dp))
-            .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
             .clip(RoundedCornerShape(8.dp))
+            .onFocusChanged { isFocused = it.isFocused || it.hasFocus }
             .focusable()
-            .onFocusChanged { isFocused = it.isFocused }
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
-        Text(text, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+        Text(text, color = textColor, fontWeight = FontWeight.Bold, fontSize = 15.sp)
     }
 }
 
@@ -233,6 +206,10 @@ fun CarouselSectionSaved(title: String, items: List<SavedChannel>, onClick: (Sav
 fun MovieCard(name: String, logoUrl: String?, onClick: () -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (isFocused) 1.1f else 1f)
+    
+    // 🔥 MARCO BLANCO EXTREMO PARA LA TV 🔥
+    val borderWidth = if (isFocused) 4.dp else 0.dp
+    val borderColor = if (isFocused) Color.White else Color.Transparent
 
     Box(
         modifier = Modifier
@@ -240,11 +217,11 @@ fun MovieCard(name: String, logoUrl: String?, onClick: () -> Unit) {
             .height(210.dp)
             .scale(scale)
             .zIndex(if (isFocused) 1f else 0f)
+            .border(borderWidth, borderColor, RoundedCornerShape(10.dp))
             .background(Color(0xFF18181B), RoundedCornerShape(10.dp))
-            .border(if (isFocused) 3.dp else 0.dp, Color.White, RoundedCornerShape(10.dp))
             .clip(RoundedCornerShape(10.dp))
+            .onFocusChanged { isFocused = it.isFocused || it.hasFocus }
             .focusable()
-            .onFocusChanged { isFocused = it.isFocused }
             .clickable { onClick() }
     ) {
         if (!logoUrl.isNullOrBlank() && logoUrl != "-") {
@@ -254,6 +231,9 @@ fun MovieCard(name: String, logoUrl: String?, onClick: () -> Unit) {
                 Text(name, color = Color.White, fontSize = 13.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
             }
         }
-        if (isFocused) Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha=0.15f)))
+        // Velo blanco sobre la imagen para dar efecto de luz
+        if (isFocused) {
+            Box(modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha=0.15f)))
+        }
     }
 }
