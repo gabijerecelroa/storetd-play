@@ -1,15 +1,16 @@
 package com.storetd.play.feature.home
 
-import android.content.Context
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
@@ -35,7 +36,6 @@ import kotlinx.coroutines.withContext
 import com.storetd.play.core.model.Channel
 import com.storetd.play.core.network.OptimizedContentApi
 import com.storetd.play.core.storage.LocalAccount
-import com.storetd.play.core.storage.LocalAppConfig
 import com.storetd.play.core.storage.LocalLibrary
 import com.storetd.play.core.storage.SavedChannel
 
@@ -56,16 +56,14 @@ fun HomeScreen(
     val context = LocalContext.current
     var isLoading by remember { mutableStateOf(true) }
     
-    
-    val appNameSafe = "STORE TD PLAY"
-    
     var history by remember { mutableStateOf<List<SavedChannel>>(emptyList()) }
     var favorites by remember { mutableStateOf<List<SavedChannel>>(emptyList()) }
     
     var estrenos by remember { mutableStateOf<List<Channel>>(emptyList()) }
     var peliculasVistas by remember { mutableStateOf<List<Channel>>(emptyList()) }
+    var seriesVistas by remember { mutableStateOf<List<Channel>>(emptyList()) }
 
-    // Motor de extracción SUPER SEGURO (Buscando canales directos, sin usar clases "Lite")
+    // Motor de Extracción con las Llaves Maestras (key y title)
     LaunchedEffect(Unit) {
         history = LocalLibrary.history(context).take(15)
         favorites = LocalLibrary.favorites(context).take(15)
@@ -75,11 +73,27 @@ fun HomeScreen(
                 val acc = LocalAccount.getAccount(context)
                 val code = acc.activationCode
                 
-                // Pedimos TODAS las películas juntas para no fallar con los IDs
-                val allMovies = OptimizedContentApi.loadSection(code, "movie").take(150)
-                if (allMovies.isNotEmpty()) {
-                    estrenos = allMovies.shuffled().take(20) // Simulamos los estrenos mezclando
-                    peliculasVistas = allMovies.take(20)     // Simulamos las más vistas tomando las primeras
+                // Películas
+                val mCats = OptimizedContentApi.loadMovieCategoriesLite(code)
+                if (mCats.isNotEmpty()) {
+                    val estCat = mCats.find { it.title.contains("estreno", ignoreCase = true) || it.title.contains("nuevo", ignoreCase = true) || it.title.contains("202", ignoreCase = true) } ?: mCats.firstOrNull()
+                    if (estCat != null) {
+                        estrenos = OptimizedContentApi.loadMovieCategoryItems(code, estCat.key).take(20)
+                    }
+                    
+                    val popCat = mCats.find { it.title.contains("popular", ignoreCase = true) || it.title.contains("top", ignoreCase = true) || it.title.contains("vista", ignoreCase = true) } ?: mCats.getOrNull(1) ?: mCats.firstOrNull()
+                    if (popCat != null && popCat.key != estCat?.key) {
+                        peliculasVistas = OptimizedContentApi.loadMovieCategoryItems(code, popCat.key).take(20)
+                    }
+                }
+
+                // Series
+                val sCats = OptimizedContentApi.loadSeriesFoldersLite(code)
+                if (sCats.isNotEmpty()) {
+                    val popSCat = sCats.find { it.title.contains("popular", ignoreCase = true) || it.title.contains("top", ignoreCase = true) || it.title.contains("vista", ignoreCase = true) } ?: sCats.firstOrNull()
+                    if (popSCat != null) {
+                        seriesVistas = OptimizedContentApi.loadSeriesFolderEpisodes(code, popSCat.key).take(20)
+                    }
                 }
             } catch(e: Exception) {
                 e.printStackTrace()
@@ -90,7 +104,7 @@ fun HomeScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Transparent)) {
-        if (isLoading && history.isEmpty()) {
+        if (isLoading && history.isEmpty() && estrenos.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = Color(0xFFE50914))
             }
@@ -120,11 +134,27 @@ fun HomeScreen(
                             modifier = Modifier.align(Alignment.CenterStart).padding(32.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text("🎬 BIENVENIDO A ${appNameSafe.uppercase()}", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                            Text("🎬 BIENVENIDO A STORE TD PLAY", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                             Text("El mejor entretenimiento\npara tu familia", color = Color.White, fontSize = 36.sp, fontWeight = FontWeight.Black)
                             Spacer(modifier = Modifier.height(12.dp))
                             Text("Navegá por el menú lateral para descubrir la cartelera completa", color = Color.LightGray, fontSize = 16.sp)
                         }
+                    }
+                }
+
+                // VITRINA DE ACCESO RÁPIDO
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 32.dp, vertical = 24.dp)
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        QuickButton("📺 TV en Vivo") { onOpenLiveTv() }
+                        QuickButton("🎬 Películas") { onOpenMovies() }
+                        QuickButton("🍿 Series") { onOpenSeries() }
+                        QuickButton("❤️ Favoritos") { onOpenFavorites() }
                     }
                 }
 
@@ -133,19 +163,21 @@ fun HomeScreen(
                 }
 
                 if (estrenos.isNotEmpty()) {
-                    item { CarouselSection("🔥 Recomendados para ti", estrenos) { ch -> 
+                    item { CarouselSection("🔥 Estrenos y Recomendados", estrenos) { ch -> 
                         onOpenContinueItem(SavedChannel(ch.id, ch.name, ch.streamUrl, ch.logoUrl, ch.group ?: "Peliculas", null))
                     } }
                 }
 
                 if (peliculasVistas.isNotEmpty()) {
-                    item { CarouselSection("⭐ Películas Más Vistas", peliculasVistas) { ch -> 
+                    item { CarouselSection("⭐ Películas Populares", peliculasVistas) { ch -> 
                         onOpenContinueItem(SavedChannel(ch.id, ch.name, ch.streamUrl, ch.logoUrl, ch.group ?: "Peliculas", null))
                     } }
                 }
                 
-                if (favorites.isNotEmpty()) {
-                    item { CarouselSectionSaved("❤️ Mi Lista de Favoritos", favorites) { onOpenContinueItem(it) } }
+                if (seriesVistas.isNotEmpty()) {
+                    item { CarouselSection("🍿 Series Destacadas", seriesVistas) { ch -> 
+                        onOpenContinueItem(SavedChannel(ch.id, ch.name, ch.streamUrl, ch.logoUrl, ch.group ?: "Series", null))
+                    } }
                 }
             }
         }
@@ -153,8 +185,31 @@ fun HomeScreen(
 }
 
 @Composable
+fun QuickButton(text: String, onClick: () -> Unit) {
+    var isFocused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(if (isFocused) 1.05f else 1f)
+    val bgColor = if (isFocused) Color(0xFFE50914) else Color(0xFF18181B)
+    
+    Box(
+        modifier = Modifier
+            .width(160.dp)
+            .height(55.dp)
+            .scale(scale)
+            .background(bgColor, RoundedCornerShape(8.dp))
+            .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(8.dp))
+            .focusable()
+            .onFocusChanged { isFocused = it.isFocused }
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        Text(text, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+    }
+}
+
+@Composable
 fun CarouselSection(title: String, items: List<Channel>, onClick: (Channel) -> Unit) {
-    Column(modifier = Modifier.padding(top = 36.dp)) {
+    Column(modifier = Modifier.padding(top = 12.dp, bottom = 16.dp)) {
         Text(title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 32.dp))
         Spacer(modifier = Modifier.height(16.dp))
         LazyRow(contentPadding = PaddingValues(horizontal = 32.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -165,7 +220,7 @@ fun CarouselSection(title: String, items: List<Channel>, onClick: (Channel) -> U
 
 @Composable
 fun CarouselSectionSaved(title: String, items: List<SavedChannel>, onClick: (SavedChannel) -> Unit) {
-    Column(modifier = Modifier.padding(top = 36.dp)) {
+    Column(modifier = Modifier.padding(top = 12.dp, bottom = 16.dp)) {
         Text(title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 32.dp))
         Spacer(modifier = Modifier.height(16.dp))
         LazyRow(contentPadding = PaddingValues(horizontal = 32.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
