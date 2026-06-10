@@ -51,13 +51,13 @@ fun HomeScreen(
     onOpenAccount: () -> Unit,
     onOpenSupport: () -> Unit,
     onOpenSettings: () -> Unit,
-    config: com.storetd.play.core.storage.AppConfig? = null // Ignoramos el del NavHost y leemos el local
+    config: Any? = null
 ) {
     val context = LocalContext.current
     var isLoading by remember { mutableStateOf(true) }
     
-    val localConfig = remember { LocalAppConfig.get(context) }
-    val appNameSafe = localConfig.appName ?: "STORE TD"
+    
+    val appNameSafe = "STORE TD PLAY"
     
     var history by remember { mutableStateOf<List<SavedChannel>>(emptyList()) }
     var favorites by remember { mutableStateOf<List<SavedChannel>>(emptyList()) }
