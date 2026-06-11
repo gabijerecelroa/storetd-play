@@ -314,6 +314,13 @@ fun checkAccountStatus() {
                 onOpenSeries = { navController.navigate(Routes.Series) },
                 onOpenFavorites = { navController.navigate(Routes.Favorites) },
                 onOpenHistory = { navController.navigate(Routes.History) },
+                onOpenVodDetail = { item ->
+                    val encName = android.net.Uri.encode(item.name)
+                    val encUrl = android.net.Uri.encode(item.streamUrl)
+                    val encGroup = android.net.Uri.encode(item.group)
+                    val encLogo = if (item.logoUrl.isNullOrBlank() || item.logoUrl == "-") "-" else android.net.Uri.encode(item.logoUrl!!)
+                    navController.navigate("${Routes.VodDetail}/$encName/$encUrl/$encGroup/$encLogo")
+                },
                 onOpenContinueItem = { item ->
                     PlayerSession.setQueue(
                         channels = listOf(item),
