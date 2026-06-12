@@ -524,8 +524,8 @@ fun LiveTvScreen(
         modifier = Modifier.fillMaxSize().background(Color(0xFF09090B))
     ) {
         val boxMaxWidth = maxWidth
-        val isCompact = boxMaxWidth < 700.dp
-        androidx.compose.runtime.LaunchedEffect(isCompact) { LiveTvBgState.isCompact = isCompact }
+        val isCompact = true
+        androidx.compose.runtime.LaunchedEffect(isCompact) { LiveTvBgState.isCompact = boxMaxWidth < 700.dp }
         
         Crossfade(targetState = LiveTvBgState.currentBgUrl, animationSpec = tween(700), label = "bgFade") { bgUrl ->
             if (!bgUrl.isNullOrBlank() && bgUrl != "-") {
@@ -533,7 +533,7 @@ fun LiveTvScreen(
                     model = ImageRequest.Builder(LocalContext.current).data(bgUrl).crossfade(true).build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize().alpha(0.35f).blur(70.dp)
+                    modifier = Modifier.fillMaxSize().alpha(0.35f).blur(16.dp)
                 )
             }
         }
@@ -555,7 +555,7 @@ fun LiveTvScreen(
             modifier = Modifier.fillMaxSize().navigationBarsPadding().padding(20.dp)
         ) {
             val maxWidth = boxMaxWidth
-            val isCompact = boxMaxWidth < 700.dp
+            val isCompact = true
         val usingLazyBackendContent =
             contentMode == ContentMode.Series || contentMode == ContentMode.Movies
 
@@ -1508,105 +1508,37 @@ private fun CategoryRow(
     onSelectGroup: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val visibleGroups = groups
-        .filter { it.isNotBlank() }
-        .distinct()
-
+    val visibleGroups = groups.filter { it.isNotBlank() }.distinct()
     if (visibleGroups.isEmpty()) return
 
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.30f),
-        shape = RoundedCornerShape(26.dp),
-        border = BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-        )
+    androidx.compose.foundation.lazy.LazyRow(
+        modifier = modifier.fillMaxWidth().padding(bottom = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = "Categorías",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Bold
-            )
+        items(visibleGroups) { group ->
+            var focused by remember(group, selectedGroup) { mutableStateOf(false) }
+            val active = group == selectedGroup || focused
+            val scale by animateFloatAsState(if (focused) 1.05f else 1f, label = "scale")
 
-            Text(
-                text = "Elegí una carpeta con el control remoto.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.70f)
-            )
-
-            LazyColumn(
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 360.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                    .height(48.dp)
+                    .graphicsLayer { scaleX = scale; scaleY = scale }
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (active) Color(0xFFE50914) else Color(0xFF27272A).copy(alpha = 0.8f))
+                    .border(2.dp, if (focused) Color.White else Color.Transparent, RoundedCornerShape(8.dp))
+                    .onFocusChanged { focused = it.isFocused || it.hasFocus }
+                    .focusable()
+                    .clickable { onSelectGroup(group) },
+                contentAlignment = Alignment.Center
             ) {
-                items(visibleGroups) { group ->
-                    var focused by remember(group, selectedGroup) {
-                        mutableStateOf(false)
-                    }
-
-                    val selected = group == selectedGroup
-                    val active = selected || focused
-
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .onFocusChanged { focusState ->
-                                focused = focusState.isFocused
-                            }
-                            .onKeyEvent { event ->
-                                if (
-                                    event.type == KeyEventType.KeyDown &&
-                                    (
-                                        event.key == Key.DirectionCenter ||
-                                            event.key == Key.Enter ||
-                                            event.key == Key.NumPadEnter
-                                    )
-                                ) {
-                                    onSelectGroup(group)
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                            .focusable()
-                            .clickable { onSelectGroup(group) },
-                        color = if (active) {
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.95f)
-                        } else {
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
-                        },
-                        border = BorderStroke(
-                            if (active) 2.dp else 1.dp,
-                            if (active) {
-                                MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.95f)
-                            } else {
-                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f)
-                            }
-                        ),
-                        shape = RoundedCornerShape(999.dp),
-                        shadowElevation = if (focused) 8.dp else 0.dp
-                    ) {
-                        Text(
-                            text = group,
-                            style = MaterialTheme.typography.titleSmall,
-                            color = if (active) {
-                                MaterialTheme.colorScheme.onPrimary
-                            } else {
-                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.90f)
-                            },
-                            fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold,
-                            maxLines = 2,
-                            modifier = Modifier.padding(horizontal = 18.dp, vertical = 13.dp)
-                        )
-                    }
-                }
+                Text(
+                    text = group,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 20.dp)
+                )
             }
         }
     }
@@ -3371,14 +3303,14 @@ fun NetflixLandscapeCard(channel: Channel, onClick: () -> Unit) {
     ) {
         if (!channel.logoUrl.isNullOrBlank() && channel.logoUrl != "-") {
             AsyncImage(model = ImageRequest.Builder(LocalContext.current).data(channel.logoUrl).crossfade(true).build(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().alpha(0.4f).blur(12.dp))
-            AsyncImage(model = ImageRequest.Builder(LocalContext.current).data(channel.logoUrl).crossfade(true).build(), contentDescription = channel.name, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().padding(12.dp))
+            AsyncImage(model = ImageRequest.Builder(LocalContext.current).data(channel.logoUrl).crossfade(true).build(), contentDescription = channel.name, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().padding(bottom = 36.dp, top = 8.dp, start = 8.dp, end = 8.dp))
         } else {
             androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize().padding(8.dp), contentAlignment = Alignment.Center) {
                 androidx.compose.material3.Text(channel.name, color = Color.White, fontSize = 16.sp, textAlign = TextAlign.Center, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
             }
         }
-        androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.9f)), startY = 50f)))
-        androidx.compose.material3.Text(text = channel.name, color = Color.White, fontSize = 14.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.align(Alignment.BottomStart).padding(12.dp))
+        androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxWidth().height(36.dp).align(Alignment.BottomCenter).background(Color(0xFF09090B).copy(alpha = 0.95f)))
+        androidx.compose.material3.Text(text = channel.name, color = Color.White, fontSize = 13.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp, start = 8.dp, end = 8.dp))
         if (isFocused) androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha=0.15f)))
     }
 }

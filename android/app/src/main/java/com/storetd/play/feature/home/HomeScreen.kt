@@ -107,7 +107,7 @@ fun HomeScreen(
                     model = ImageRequest.Builder(context).data(bgUrl).crossfade(true).build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize().alpha(0.4f).blur(70.dp)
+                    modifier = Modifier.fillMaxSize().alpha(0.4f).blur(16.dp)
                 )
             }
         }
@@ -330,7 +330,7 @@ fun LandscapeCard(name: String, logoUrl: String?, onFocused: () -> Unit, onClick
             // Capa 1: Fondo difuminado para rellenar los bordes negros
             AsyncImage(model = ImageRequest.Builder(LocalContext.current).data(logoUrl).crossfade(true).build(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().blur(12.dp).alpha(0.4f))
             // Capa 2: Logo original con ContentScale.Fit para que no se recorte nada
-            AsyncImage(model = ImageRequest.Builder(LocalContext.current).data(logoUrl).crossfade(true).build(), contentDescription = name, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().padding(12.dp))
+            AsyncImage(model = ImageRequest.Builder(LocalContext.current).data(logoUrl).crossfade(true).build(), contentDescription = name, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().padding(bottom = 36.dp, top = 8.dp, start = 8.dp, end = 8.dp))
         } else {
             Box(modifier = Modifier.fillMaxSize().padding(8.dp), contentAlignment = Alignment.Center) {
                 Text(name, color = Color.White, fontSize = 14.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
@@ -338,8 +338,8 @@ fun LandscapeCard(name: String, logoUrl: String?, onFocused: () -> Unit, onClick
         }
         
         // Degradado inferior para proteger la visibilidad del título
-        Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.9f)), startY = 80f)))
-        Text(text = name, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.align(Alignment.BottomStart).padding(12.dp))
+        Box(modifier = Modifier.fillMaxWidth().height(36.dp).align(Alignment.BottomCenter).background(Color(0xFF09090B).copy(alpha = 0.95f)))
+        Text(text = name, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp, start = 8.dp, end = 8.dp))
 
         if (isFocused) Box(modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha=0.15f)))
     }
