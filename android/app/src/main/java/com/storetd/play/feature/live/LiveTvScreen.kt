@@ -91,6 +91,20 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.aspectRatio
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Color
 
 private data class SeriesFolder(
     val key: String,
@@ -506,14 +520,42 @@ fun LiveTvScreen(
         }
     }
 
-    BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .navigationBarsPadding()
-            .padding(20.dp)
+        BoxWithConstraints(
+        modifier = Modifier.fillMaxSize().background(Color(0xFF09090B))
     ) {
-        val isCompact = maxWidth < 700.dp
+        val boxMaxWidth = maxWidth
+        val isCompact = boxMaxWidth < 700.dp
+        androidx.compose.runtime.LaunchedEffect(isCompact) { LiveTvBgState.isCompact = isCompact }
+        
+        Crossfade(targetState = LiveTvBgState.currentBgUrl, animationSpec = tween(700), label = "bgFade") { bgUrl ->
+            if (!bgUrl.isNullOrBlank() && bgUrl != "-") {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current).data(bgUrl).crossfade(true).build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize().alpha(0.35f).blur(70.dp)
+                )
+            }
+        }
+        
+        androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize().background(
+            Brush.verticalGradient(
+                colors = listOf(Color.Transparent, Color(0xFF09090B).copy(alpha = 0.85f), Color(0xFF09090B)),
+                startY = 0f, endY = 1000f
+            )
+        ))
+        androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize().background(
+            Brush.horizontalGradient(
+                colors = listOf(Color(0xFF09090B).copy(alpha = 0.95f), Color.Transparent),
+                startX = 0f, endX = 800f
+            )
+        ))
+
+        androidx.compose.foundation.layout.Box(
+            modifier = Modifier.fillMaxSize().navigationBarsPadding().padding(20.dp)
+        ) {
+            val maxWidth = boxMaxWidth
+            val isCompact = boxMaxWidth < 700.dp
         val usingLazyBackendContent =
             contentMode == ContentMode.Series || contentMode == ContentMode.Movies
 
@@ -749,6 +791,7 @@ fun LiveTvScreen(
     }
 }
 
+    }
 private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
     state: LiveTvUiState,
     contentMode: ContentMode,
@@ -833,24 +876,18 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
             }
 
             if (movieSearchText.isBlank()) {
-                itemsIndexed(lazyMovieCategories) { index, category ->
-                    MovieCategoryLiteRow(
-                        category = category,
-                        requestInitialFocus =
-                            selectedMovieCategoryKey == null &&
-                                !showLazySearch &&
-                                (
-                                    category.key == lastMovieCategoryFocusKey ||
-                                        (
-                                            (
-                                                lastMovieCategoryFocusKey == null ||
-                                                    lazyMovieCategories.none { it.key == lastMovieCategoryFocusKey }
-                                            ) && index == 0
-                                        )
-                                ),
-                        onOpen = { onSelectMovieCategory(category.key) }
-                    )
+                val cols = if (LiveTvBgState.isCompact) 2 else 4
+            val chunked = lazyMovieCategories.chunked(cols)
+            items(chunked) { rowItems ->
+                Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    rowItems.forEach { category ->
+                        androidx.compose.foundation.layout.Box(modifier = Modifier.weight(1f)) {
+                            NetflixCategoryCard(title = category.title, onClick = { onSelectMovieCategory(category.key) })
+                        }
+                    }
+                    repeat(cols - rowItems.size) { Spacer(modifier = Modifier.weight(1f)) }
                 }
+            }
             } else {
                 if (isLazyMovieSearchLoading) {
                     item {
@@ -868,18 +905,18 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                     }
                 }
 
-                itemsIndexed(visibleMovieResults) { index, movie ->
-                    ChannelRow(
-                        channel = movie,
-                        currentProgram = null,
-                        nextProgram = null,
-                        requestInitialFocus = false,
-                        onSkipNext = visibleMovieResults.getOrNull(index + 1)?.let { nextMovie ->
-                            { onPlay(nextMovie, visibleMovieResults) }
-                        },
-                        onPlay = { onPlay(movie, visibleMovieResults) }
-                    )
+                val cols = if (LiveTvBgState.isCompact) 3 else 6
+            val chunked = visibleMovieResults.chunked(cols)
+            items(chunked) { rowItems ->
+                Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    rowItems.forEach { movie ->
+                        androidx.compose.foundation.layout.Box(modifier = Modifier.weight(1f)) {
+                            NetflixMovieCard(channel = movie, onClick = { onPlay(movie, visibleMovieResults) })
+                        }
+                    }
+                    repeat(cols - rowItems.size) { Spacer(modifier = Modifier.weight(1f)) }
                 }
+            }
             }
         } else {
             item {
@@ -889,17 +926,17 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                 )
             }
 
-            itemsIndexed(lazyMovieItems) { index, movie ->
-                ChannelRow(
-                    channel = movie,
-                    currentProgram = null,
-                    nextProgram = null,
-                    requestInitialFocus = index == 0,
-                    onSkipNext = lazyMovieItems.getOrNull(index + 1)?.let { nextMovie ->
-                        { onPlay(nextMovie, lazyMovieItems) }
-                    },
-                    onPlay = { onPlay(movie, lazyMovieItems) }
-                )
+            val cols = if (LiveTvBgState.isCompact) 3 else 6
+            val chunked = lazyMovieItems.chunked(cols)
+            items(chunked) { rowItems ->
+                Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    rowItems.forEach { movie ->
+                        androidx.compose.foundation.layout.Box(modifier = Modifier.weight(1f)) {
+                            NetflixMovieCard(channel = movie, onClick = { onPlay(movie, lazyMovieItems) })
+                        }
+                    }
+                    repeat(cols - rowItems.size) { Spacer(modifier = Modifier.weight(1f)) }
+                }
             }
         }
 
@@ -968,15 +1005,18 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
             }
 
             if (selectedGroupKey.isNullOrBlank() && seriesSearchText.isBlank()) {
-                itemsIndexed(sourceGroups) { index, groupInfo ->
-                    SeriesSourceGroupRow(
-                        groupName = groupInfo.second,
-                        seriesCount = groupInfo.third,
-                        requestInitialFocus = !showLazySearch && index == 0,
-                        focusToken = "series-source-groups|${selectedGroupKey ?: ""}|$seriesSearchText|${sourceGroups.size}",
-                        onOpen = { onSelectSeriesGroup(groupInfo.first) }
-                    )
+                val cols = if (LiveTvBgState.isCompact) 2 else 4
+            val chunked = sourceGroups.chunked(cols)
+            items(chunked) { rowItems ->
+                Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    rowItems.forEach { groupInfo ->
+                        androidx.compose.foundation.layout.Box(modifier = Modifier.weight(1f)) {
+                            NetflixCategoryCard(title = groupInfo.second, onClick = { onSelectSeriesGroup(groupInfo.first) })
+                        }
+                    }
+                    repeat(cols - rowItems.size) { Spacer(modifier = Modifier.weight(1f)) }
                 }
+            }
             } else {
                 if (visibleSeriesFolders.isEmpty()) {
                     item {
@@ -988,25 +1028,18 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                     }
                 }
 
-                itemsIndexed(visibleSeriesFolders) { index, folder ->
-                    SeriesFolderLiteRow(
-                        folder = folder,
-                        requestInitialFocus =
-                            selectedSeriesKey == null &&
-                                !showLazySearch &&
-                                (
-                                    folder.key == lastSeriesFocusKey ||
-                                        (
-                                            (
-                                                lastSeriesFocusKey == null ||
-                                                    visibleSeriesFolders.none { it.key == lastSeriesFocusKey }
-                                            ) && index == 0
-                                        )
-                                ),
-                        focusToken = "series-folders|${selectedGroupKey ?: ""}|$seriesSearchText|${visibleSeriesFolders.size}|${lastSeriesFocusKey ?: ""}",
-                        onOpen = { onSelectSeries(folder.key) }
-                    )
+                val cols = if (LiveTvBgState.isCompact) 3 else 6
+            val chunked = visibleSeriesFolders.chunked(cols)
+            items(chunked) { rowItems ->
+                Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    rowItems.forEach { folder ->
+                        androidx.compose.foundation.layout.Box(modifier = Modifier.weight(1f)) {
+                            NetflixFolderCard(title = folder.title, onClick = { onSelectSeries(folder.key) })
+                        }
+                    }
+                    repeat(cols - rowItems.size) { Spacer(modifier = Modifier.weight(1f)) }
                 }
+            }
             }
         } else {
             item {
@@ -1017,18 +1050,17 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                 )
             }
 
-            itemsIndexed(lazySeriesEpisodes) { index, episode ->
-                ChannelRow(
-                    channel = episode,
-                    currentProgram = null,
-                    nextProgram = null,
-                    requestInitialFocus = index == 0,
-                    focusToken = "series-episodes|${selectedFolder.key}|${lazySeriesEpisodes.size}",
-                    onSkipNext = lazySeriesEpisodes.getOrNull(index + 1)?.let { nextEpisode ->
-                        { onPlay(nextEpisode, lazySeriesEpisodes) }
-                    },
-                    onPlay = { onPlay(episode, lazySeriesEpisodes) }
-                )
+            val cols = if (LiveTvBgState.isCompact) 2 else 4
+            val chunked = lazySeriesEpisodes.chunked(cols)
+            items(chunked) { rowItems ->
+                Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    rowItems.forEach { episode ->
+                        androidx.compose.foundation.layout.Box(modifier = Modifier.weight(1f)) {
+                            NetflixLandscapeCard(channel = episode, onClick = { onPlay(episode, lazySeriesEpisodes) })
+                        }
+                    }
+                    repeat(cols - rowItems.size) { Spacer(modifier = Modifier.weight(1f)) }
+                }
             }
         }
 
@@ -1036,16 +1068,32 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
     }
 
     if (contentMode != ContentMode.Series) {
-        itemsIndexed(state.visibleChannels) { index, channel ->
-            ChannelRow(
-                channel = channel,
-                currentProgram = null,
-                nextProgram = null,
-                onSkipNext = state.visibleChannels.getOrNull(index + 1)?.let { nextChannel ->
-                    { onPlay(nextChannel, state.visibleChannels) }
-                },
-                onPlay = { onPlay(channel, state.visibleChannels) }
-            )
+        if (contentMode == ContentMode.Movies) {
+            val cols = if (LiveTvBgState.isCompact) 3 else 6
+            val chunked = state.visibleChannels.chunked(cols)
+            items(chunked) { rowItems ->
+                Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    rowItems.forEach { channel ->
+                        androidx.compose.foundation.layout.Box(modifier = Modifier.weight(1f)) {
+                            NetflixMovieCard(channel = channel, onClick = { onPlay(channel, state.visibleChannels) })
+                        }
+                    }
+                    repeat(cols - rowItems.size) { Spacer(modifier = Modifier.weight(1f)) }
+                }
+            }
+        } else {
+            val cols = if (LiveTvBgState.isCompact) 2 else 4
+            val chunked = state.visibleChannels.chunked(cols)
+            items(chunked) { rowItems ->
+                Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    rowItems.forEach { channel ->
+                        androidx.compose.foundation.layout.Box(modifier = Modifier.weight(1f)) {
+                            NetflixLandscapeCard(channel = channel, onClick = { onPlay(channel, state.visibleChannels) })
+                        }
+                    }
+                    repeat(cols - rowItems.size) { Spacer(modifier = Modifier.weight(1f)) }
+                }
+            }
         }
         return
     }
@@ -1062,11 +1110,17 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
         }
 
 
-        items(folders) { folder ->
-            SeriesFolderRow(
-                folder = folder,
-                onOpen = { onSelectSeries(folder.key) }
-            )
+        val cols = if (LiveTvBgState.isCompact) 3 else 6
+        val chunked = folders.chunked(cols)
+        items(chunked) { rowItems ->
+            Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                rowItems.forEach { folder ->
+                    androidx.compose.foundation.layout.Box(modifier = Modifier.weight(1f)) {
+                        NetflixSeriesPosterCard(title = folder.title, logoUrl = folder.logoUrl, onClick = { onSelectSeries(folder.key) })
+                    }
+                }
+                repeat(cols - rowItems.size) { Spacer(modifier = Modifier.weight(1f)) }
+            }
         }
     } else {
         item {
@@ -1076,16 +1130,17 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
             )
         }
 
-        itemsIndexed(selectedFolder.episodes) { index, episode ->
-            ChannelRow(
-                channel = episode,
-                currentProgram = null,
-                nextProgram = null,
-                onSkipNext = selectedFolder.episodes.getOrNull(index + 1)?.let { nextEpisode ->
-                    { onPlay(nextEpisode, selectedFolder.episodes) }
-                },
-                onPlay = { onPlay(episode, selectedFolder.episodes) }
-            )
+        val cols = if (LiveTvBgState.isCompact) 2 else 4
+        val chunked = selectedFolder.episodes.chunked(cols)
+        items(chunked) { rowItems ->
+            Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                rowItems.forEach { episode ->
+                    androidx.compose.foundation.layout.Box(modifier = Modifier.weight(1f)) {
+                        NetflixLandscapeCard(channel = episode, onClick = { onPlay(episode, selectedFolder.episodes) })
+                    }
+                }
+                repeat(cols - rowItems.size) { Spacer(modifier = Modifier.weight(1f)) }
+            }
         }
     }
 }
@@ -3196,4 +3251,159 @@ private fun formatLiveEpgTime(value: Long): String {
     return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(value))
 
 
+}
+
+
+object LiveTvBgState {
+    var currentBgUrl by androidx.compose.runtime.mutableStateOf<String?>(null)
+    var isCompact by androidx.compose.runtime.mutableStateOf(false)
+}
+
+
+@Composable
+fun NetflixMovieCard(channel: Channel, onClick: () -> Unit) {
+    var isFocused by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    val scale by animateFloatAsState(if (isFocused) 1.08f else 1f, label = "scale")
+
+    androidx.compose.foundation.layout.Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(0.66f)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .zIndex(if (isFocused) 1f else 0f)
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+            .border(3.dp, if (isFocused) Color.White else Color.Transparent, androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+            .background(Color(0xFF18181B))
+            .onFocusChanged { 
+                isFocused = it.isFocused || it.hasFocus
+                if (isFocused) LiveTvBgState.currentBgUrl = channel.logoUrl
+            }
+            .clickable { onClick() }
+    ) {
+        if (!channel.logoUrl.isNullOrBlank() && channel.logoUrl != "-") {
+            AsyncImage(model = ImageRequest.Builder(LocalContext.current).data(channel.logoUrl).crossfade(true).build(), contentDescription = channel.name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        } else {
+            androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize().padding(8.dp), contentAlignment = Alignment.Center) {
+                androidx.compose.material3.Text(channel.name, color = Color.White, fontSize = 13.sp, textAlign = TextAlign.Center, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+            }
+        }
+        if (isFocused) androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha=0.15f)))
+    }
+}
+
+@Composable
+fun NetflixSeriesPosterCard(title: String, logoUrl: String?, onClick: () -> Unit) {
+    var isFocused by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    val scale by animateFloatAsState(if (isFocused) 1.08f else 1f, label = "scale")
+
+    androidx.compose.foundation.layout.Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(0.66f)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .zIndex(if (isFocused) 1f else 0f)
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+            .border(3.dp, if (isFocused) Color.White else Color.Transparent, androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+            .background(Color(0xFF18181B))
+            .onFocusChanged { 
+                isFocused = it.isFocused || it.hasFocus
+                if (isFocused) LiveTvBgState.currentBgUrl = logoUrl
+            }
+            .clickable { onClick() }
+    ) {
+        if (!logoUrl.isNullOrBlank() && logoUrl != "-") {
+            AsyncImage(model = ImageRequest.Builder(LocalContext.current).data(logoUrl).crossfade(true).build(), contentDescription = title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        } else {
+            androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize().padding(8.dp), contentAlignment = Alignment.Center) {
+                androidx.compose.material3.Text(title, color = Color.White, fontSize = 13.sp, textAlign = TextAlign.Center, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+            }
+        }
+        if (isFocused) androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha=0.15f)))
+    }
+}
+
+@Composable
+fun NetflixFolderCard(title: String, onClick: () -> Unit) {
+    var isFocused by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    val scale by animateFloatAsState(if (isFocused) 1.08f else 1f, label = "scale")
+
+    androidx.compose.foundation.layout.Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(0.66f)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .zIndex(if (isFocused) 1f else 0f)
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+            .border(3.dp, if (isFocused) Color.White else Color.Transparent, androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+            .background(Color(0xFF27272A))
+            .onFocusChanged { 
+                isFocused = it.isFocused || it.hasFocus
+                if (isFocused) LiveTvBgState.currentBgUrl = null
+            }
+            .clickable { onClick() }
+    ) {
+        androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize().padding(8.dp), contentAlignment = Alignment.Center) {
+            androidx.compose.material3.Text(title, color = Color.White, fontSize = 15.sp, textAlign = TextAlign.Center, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+        }
+        if (isFocused) androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha=0.15f)))
+    }
+}
+
+@Composable
+fun NetflixLandscapeCard(channel: Channel, onClick: () -> Unit) {
+    var isFocused by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    val scale by animateFloatAsState(if (isFocused) 1.05f else 1f, label = "scale")
+
+    androidx.compose.foundation.layout.Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(1.77f)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .zIndex(if (isFocused) 1f else 0f)
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+            .border(3.dp, if (isFocused) Color.White else Color.Transparent, androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+            .background(Color(0xFF18181B))
+            .onFocusChanged { 
+                isFocused = it.isFocused || it.hasFocus
+                if (isFocused) LiveTvBgState.currentBgUrl = channel.logoUrl
+            }
+            .clickable { onClick() }
+    ) {
+        if (!channel.logoUrl.isNullOrBlank() && channel.logoUrl != "-") {
+            AsyncImage(model = ImageRequest.Builder(LocalContext.current).data(channel.logoUrl).crossfade(true).build(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().alpha(0.4f).blur(12.dp))
+            AsyncImage(model = ImageRequest.Builder(LocalContext.current).data(channel.logoUrl).crossfade(true).build(), contentDescription = channel.name, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().padding(12.dp))
+        } else {
+            androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize().padding(8.dp), contentAlignment = Alignment.Center) {
+                androidx.compose.material3.Text(channel.name, color = Color.White, fontSize = 16.sp, textAlign = TextAlign.Center, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+            }
+        }
+        androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.9f)), startY = 50f)))
+        androidx.compose.material3.Text(text = channel.name, color = Color.White, fontSize = 14.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.align(Alignment.BottomStart).padding(12.dp))
+        if (isFocused) androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha=0.15f)))
+    }
+}
+
+@Composable
+fun NetflixCategoryCard(title: String, onClick: () -> Unit) {
+    var isFocused by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    val scale by animateFloatAsState(if (isFocused) 1.05f else 1f, label = "scale")
+
+    androidx.compose.foundation.layout.Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(80.dp)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .zIndex(if (isFocused) 1f else 0f)
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+            .border(3.dp, if (isFocused) Color.White else Color.Transparent, androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+            .background(if (isFocused) Color(0xFFE50914) else Color(0xFF27272A))
+            .onFocusChanged { 
+                isFocused = it.isFocused || it.hasFocus
+                if (isFocused) LiveTvBgState.currentBgUrl = null
+            }
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        androidx.compose.material3.Text(text = title, color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.padding(12.dp))
+    }
 }
