@@ -757,7 +757,7 @@ private fun TvHomeCard(
                 }
             }
             .border(
-                width = if (focused) 4.dp else 1.dp,
+                width = 4.dp,
                 color = if (focused) {
                     MaterialTheme.colorScheme.primary
                 } else {

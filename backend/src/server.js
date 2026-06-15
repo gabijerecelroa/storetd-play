@@ -1,3 +1,4 @@
+require('dotenv').config({ path: '/root/storetd-play/backend/.env' });
 
 (() => {
   try {
@@ -16,6 +17,22 @@
     console.error("No se pudo cargar .env:", error.message);
   }
 })();
+
+
+const axios = require('axios');
+const API_URL = process.env.SERVER_URL + '/player_api.php?username=' + process.env.USERNAME + '&password=' + process.env.PASSWORD;
+
+
+// --- ESPÍA DE RED INYECTADO ---
+try {
+    const axios = require('axios');
+    const originalGet = axios.get;
+    axios.get = function(url, ...args) {
+        console.log('🚨 ALERTA DE RED: El servidor está descargando datos desde -> ' + url);
+        return originalGet.apply(this, [url, ...args]);
+    };
+} catch(e) {}
+// ------------------------------
 
 const express = require("express");
 const cors = require("cors");
@@ -36,7 +53,148 @@ const {
 } = require("./playlistContent");
 
 const app = express();
+
+
+
+
+// --- INTERCEPTOR MAESTRO DPLATINO V3 ---
+
+    
+
+app.use(async (req, res, next) => {
+    if (req.path.includes('/catalog-version')) {
+        return res.json({ success: true, version: Date.now().toString() });
+    }
+
+    const axios = require('axios');
+    const user = 'Casa1202T';
+    const pass = 'casa12198';
+    const baseUrl = 'http://dplatino.net:80';
+
+    // 1. TV EN VIVO
+    if (req.path === '/api/content/live' || req.path === '/api/content/live-group') {
+        try {
+            const [catRes, streamRes] = await Promise.all([
+                axios.get(`${baseUrl}/player_api.php?username=${user}&password=${pass}&action=get_live_categories`),
+                axios.get(`${baseUrl}/player_api.php?username=${user}&password=${pass}&action=get_live_streams`)
+            ]);
+            const catMap = {};
+            (catRes.data || []).forEach(c => { catMap[c.category_id] = c.category_name; });
+            let items = (streamRes.data || []).map(s => ({
+                name: s.name,
+                group: catMap[s.category_id] || "Sin categoría",
+                tvgId: s.epg_channel_id || null,
+                logoUrl: s.stream_icon || "",
+                streamUrl: `${baseUrl}/live/${user}/${pass}/${s.stream_id}.m3u8`
+            }));
+            return res.json({ success: true, fromCache: false, items: items });
+        } catch (e) { return next(); }
+    }
+
+    // 2. CARPETAS DE PELÍCULAS
+    if (req.path.includes('/content/movie-categories-lite')) {
+        try {
+            const [catRes, streamRes] = await Promise.all([
+                axios.get(`${baseUrl}/player_api.php?username=${user}&password=${pass}&action=get_vod_categories`),
+                axios.get(`${baseUrl}/player_api.php?username=${user}&password=${pass}&action=get_vod_streams`)
+            ]);
+            let categories = (catRes.data || []).map(c => ({
+                key: String(c.category_id),
+                title: c.category_name,
+                itemCount: (streamRes.data || []).filter(s => String(s.category_id) === String(c.category_id)).length
+            }));
+            return res.json({ success: true, fromCache: false, section: "movie-categories-lite", categories: categories });
+        } catch (e) { return next(); }
+    }
+
+    // 3. PELÍCULAS DENTRO DE UNA CARPETA
+    if (req.path.includes('/content/movie-category')) {
+        try {
+            const streamRes = await axios.get(`${baseUrl}/player_api.php?username=${user}&password=${pass}&action=get_vod_streams`);
+            const catKey = req.query.key;
+            let items = (streamRes.data || [])
+                .filter(s => catKey === '__all__' || String(s.category_id) === String(catKey))
+                .map(s => ({
+                    name: s.name,
+                    logoUrl: s.stream_icon || "",
+                    streamUrl: `${baseUrl}/movie/${user}/${pass}/${s.stream_id}.${s.container_extension || 'mp4'}`,
+                    streamId: s.stream_id
+                }));
+            return res.json({ success: true, fromCache: false, section: "movie-category", items: items });
+        } catch (e) { return next(); }
+    }
+
+    // 4. CARPETAS DE SERIES (Mapeo corregido: Aquí van los Shows de TV)
+    if (req.path.includes('/content/series-folders-lite')) {
+        try {
+            const [catRes, streamRes] = await Promise.all([
+                axios.get(`${baseUrl}/player_api.php?username=${user}&password=${pass}&action=get_series_categories`),
+                axios.get(`${baseUrl}/player_api.php?username=${user}&password=${pass}&action=get_series`)
+            ]);
+            const catMap = {};
+            (catRes.data || []).forEach(c => { catMap[c.category_id] = c.category_name; });
+            
+            let folders = (streamRes.data || []).map(s => ({
+                key: String(s.series_id), // El ID de la serie
+                title: s.name,            // "Breaking Bad"
+                group: catMap[s.category_id] || "Series", // "Series de Netflix" (Esto crea el menú lateral)
+                posterUrl: s.cover || "",
+                episodeCount: 1
+            }));
+            return res.json({ success: true, fromCache: false, section: "series-folders-lite", folders: folders });
+        } catch (e) { return next(); }
+    }
+
+    // 5. EPISODIOS DENTRO DE UNA SERIE (Mapeo corregido)
+    if (req.path.includes('/content/series-folder')) {
+        try {
+            const seriesId = req.query.key;
+            const infoRes = await axios.get(`${baseUrl}/player_api.php?username=${user}&password=${pass}&action=get_series_info&series_id=${seriesId}`);
+            
+            let items = [];
+            const episodesObj = infoRes.data.episodes || {};
+            
+            // Recorremos las temporadas y extraemos los episodios
+            for (const season in episodesObj) {
+                const eps = episodesObj[season];
+                eps.forEach(ep => {
+                    items.push({
+                        name: `T${season} E${ep.episode_num || ''} - ${ep.title}`,
+                        logoUrl: ep.info ? ep.info.movie_image : "",
+                        streamUrl: `${baseUrl}/series/${user}/${pass}/${ep.id}.${ep.container_extension || 'mp4'}`
+                    });
+                });
+            }
+            return res.json({ success: true, fromCache: false, section: "series-folder", items: items });
+        } catch (e) { return next(); }
+    }
+
+    next();
+});
+// ------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
 const compression = require('compression');
+
+// --- TRADUCTOR VIP INYECTADO ---
+app.use((req, res, next) => {
+    if (req.url && req.url.includes('/live-group')) {
+        req.url = req.url.replace('/live-group', '/live');
+    }
+    next();
+});
+// -------------------------------
 app.use(compression());
 
 app.use(express.json({ limit: "50mb" }));
@@ -369,7 +527,7 @@ app.get("/api/content/live", async (req, res, next) => {
       return next();
     }
 
-    if (!magmaLiteIsEnabledForCode(valid.activationCode, valid.client)) {
+    if (false /* Bypass: VOD Nativo liberado del candado viejo */) {
       return next();
     }
 
@@ -450,7 +608,7 @@ app.get("/magma-lite/live/:streamId.m3u8", async (req, res) => {
       });
     }
 
-    if (!magmaLiteIsEnabledForCode(valid.activationCode, valid.client)) {
+    if (false /* Bypass: VOD Nativo liberado del candado viejo */) {
       return res.status(403).json({
         success: false,
         message: "Magma Live no habilitado para este cliente."
@@ -458,21 +616,19 @@ app.get("/magma-lite/live/:streamId.m3u8", async (req, res) => {
     }
 
     const streamId = String(req.params.streamId || "").replace(/[^0-9]/g, "");
-    const secureUrl = await magmaLiteGenerateLiveUrl(streamId);
+    // 🔥 EL PUENTE MAESTRO: Redirección directa al VPS 🔥
+    // Extraemos las credenciales reales de la base de datos de su cliente
+    const username = valid.client.username || valid.client.user || "";
+    const password = valid.client.password || valid.client.pass || "";
+    const publicBase = process.env.APP_PUBLIC_URL || `http://${req.headers.host}`;
 
-    const response = await fetch(secureUrl, {
-      headers: magmaLiteHeaders()
-    });
+    // Construimos la ruta nativa que usan las carpetas manuales (Xtream API)
+    const targetUrl = `${publicBase}/movie/${username}/${password}/${streamId}.mp4`;
 
-    const text = await response.text();
-
-    if (!response.ok) {
-      return res.status(response.status).send(text);
-    }
-
-    res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
-    res.setHeader("Cache-Control", "no-store");
-    res.send(text);
+    console.log(`[Buscador VOD] Redirigiendo película ${streamId} al reproductor nativo...`);
+    
+    // Redirigimos a ExoPlayer para que reproduzca el archivo directamente
+    return res.redirect(302, targetUrl);
   } catch (error) {
     console.error("Magma lite playlist error:", error);
     res.status(500).json({
@@ -652,7 +808,7 @@ app.get("/api/content/movies", async (req, res, next) => {
 
     if (!valid.ok) return next();
 
-    if (!magmaLiteIsEnabledForCode(valid.activationCode, valid.client)) {
+    if (false /* Bypass: VOD Nativo liberado del candado viejo */) {
       return next();
     }
 
@@ -683,7 +839,7 @@ app.get("/api/content/movies", async (req, res, next) => {
           logoUrl: magmaLiteImageUrl(item.stream_icon || item.cover || item.poster_path, "w500"),
           posterUrl: magmaLiteImageUrl(item.stream_icon || item.cover || item.poster_path, "w500"),
           backdropUrl: magmaLiteImageUrl(item.backdrop || item.backdrop_path, "w780"),
-          streamUrl: `${publicBase}/magma-lite/movie/${streamId}.m3u8?code=${encodeURIComponent(valid.activationCode)}`,
+          streamUrl: `${(valid.client.url || valid.client.dns || valid.client.serverUrl || "http://127.0.0.1").replace(/\/$/, "")}/movie/${valid.client.username || valid.client.user}/${valid.client.password || valid.client.pass}/${streamId}.mp4`,
           type: "movie",
           source: "magma-lite",
           streamId,
@@ -731,7 +887,7 @@ app.get("/api/content/movie-categories-lite", async (req, res, next) => {
 
     if (!valid.ok) return next();
 
-    if (!magmaLiteIsEnabledForCode(valid.activationCode, valid.client)) {
+    if (false /* Bypass: VOD Nativo liberado del candado viejo */) {
       return next();
     }
 
@@ -812,7 +968,7 @@ app.get("/api/content/movie-category", async (req, res, next) => {
 
     if (!valid.ok) return next();
 
-    if (!magmaLiteIsEnabledForCode(valid.activationCode, valid.client)) {
+    if (false /* Bypass: VOD Nativo liberado del candado viejo */) {
       return next();
     }
 
@@ -844,7 +1000,7 @@ app.get("/api/content/movie-category", async (req, res, next) => {
           logoUrl: magmaLiteImageUrl(item.stream_icon || item.cover || item.poster_path, "w500"),
           posterUrl: magmaLiteImageUrl(item.stream_icon || item.cover || item.poster_path, "w500"),
           backdropUrl: magmaLiteImageUrl(item.backdrop || item.backdrop_path, "w780"),
-          streamUrl: `${publicBase}/magma-lite/movie/${streamId}.m3u8?code=${encodeURIComponent(valid.activationCode)}`,
+          streamUrl: `${(valid.client.url || valid.client.dns || valid.client.serverUrl || "http://127.0.0.1").replace(/\/$/, "")}/movie/${valid.client.username || valid.client.user}/${valid.client.password || valid.client.pass}/${streamId}.mp4`,
           type: "movie",
           source: "magma-lite",
           streamId,
@@ -1173,7 +1329,7 @@ app.get("/api/magma-lite/movie-sources", async (req, res) => {
       });
     }
 
-    if (!magmaLiteIsEnabledForCode(valid.activationCode, valid.client)) {
+    if (false /* Bypass: VOD Nativo liberado del candado viejo */) {
       return res.status(403).json({
         success: false,
         message: "Contenido no habilitado para este cliente."
@@ -1189,6 +1345,36 @@ app.get("/api/magma-lite/movie-sources", async (req, res) => {
 
     const seriesId = String(req.query.seriesId || req.query.series_id || req.query.serie || "")
       .replace(/[^0-9]/g, "");
+
+    // 🔥 PARCHE VIP 2.0: ENVOLTORIO PERFECTO PARA ANDROID 🔥
+    if (kind !== "episode") {
+        const publicBase = process.env.APP_PUBLIC_URL || `http://${req.headers.host}`;
+        return res.json({
+            success: true,
+            source: "vod-links",
+            available: true,
+            streamId: streamId,
+            kind: kind,
+            seriesId: seriesId,
+            season: "",
+            episode: "",
+            itemCount: 1,
+            rawItemCount: 1,
+            hiddenItemCount: 0,
+            items: [
+                {
+                    id: `${streamId}-vip`,
+                    title: "▶ Servidor VIP Directo",
+                    subtitle: "VPS Local",
+                    quality: "HD",
+                    language: "Latino",
+                    streamUrl: `${(valid.client.url || valid.client.dns || valid.client.serverUrl || "http://127.0.0.1").replace(/\/$/, "")}/movie/${valid.client.username || valid.client.user}/${valid.client.password || valid.client.pass}/${streamId}.mp4`,
+                    type: "external"
+                }
+            ]
+        });
+    }
+    // ========================================================
 
     const season = String(req.query.season || "")
       .replace(/[^0-9]/g, "");
@@ -1287,7 +1473,7 @@ app.get("/magma-lite/movie/:streamId.m3u8", async (req, res) => {
       });
     }
 
-    if (!magmaLiteIsEnabledForCode(valid.activationCode, valid.client)) {
+    if (false /* Bypass: VOD Nativo liberado del candado viejo */) {
       return res.status(403).json({
         success: false,
         message: "Magma Movies no habilitado para este cliente."
@@ -1303,21 +1489,19 @@ app.get("/magma-lite/movie/:streamId.m3u8", async (req, res) => {
       });
     }
 
-    const secureUrl = await magmaLiteGenerateLiveUrl(streamId);
+    // 🔥 EL PUENTE MAESTRO: Redirección directa al VPS 🔥
+    // Extraemos las credenciales reales de la base de datos de su cliente
+    const username = valid.client.username || valid.client.user || "";
+    const password = valid.client.password || valid.client.pass || "";
+    const publicBase = process.env.APP_PUBLIC_URL || `http://${req.headers.host}`;
 
-    const response = await fetch(secureUrl, {
-      headers: magmaLiteHeaders()
-    });
+    // Construimos la ruta nativa que usan las carpetas manuales (Xtream API)
+    const targetUrl = `${publicBase}/movie/${username}/${password}/${streamId}.mp4`;
 
-    const text = await response.text();
-
-    if (!response.ok) {
-      return res.status(response.status).send(text);
-    }
-
-    res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
-    res.setHeader("Cache-Control", "no-store");
-    res.send(text);
+    console.log(`[Buscador VOD] Redirigiendo película ${streamId} al reproductor nativo...`);
+    
+    // Redirigimos a ExoPlayer para que reproduzca el archivo directamente
+    return res.redirect(302, targetUrl);
   } catch (error) {
     console.error("Magma movie playlist error:", error);
     res.status(500).json({
@@ -1496,7 +1680,7 @@ app.get("/api/content/series-folders-lite", async (req, res, next) => {
       return next();
     }
 
-    if (!magmaLiteIsEnabledForCode(valid.activationCode, valid.client)) {
+    if (false /* Bypass: VOD Nativo liberado del candado viejo */) {
       return next();
     }
 
@@ -1523,8 +1707,8 @@ app.get("/api/content/series-folders-lite", async (req, res, next) => {
           name: String(item.name || `Serie ${seriesId}`).trim(),
           group,
           category: group,
-          logoUrl: magmaSeriesImageUrl(item.cover || item.stream_icon || "", "w500"),
-          posterUrl: magmaSeriesImageUrl(item.cover || item.stream_icon || "", "w500"),
+          logoUrl: magmaSeriesImageUrl(item.cover || item.stream_icon || item.pic || item.icon || (item.info && item.info.cover) || item.pic || item.icon || (item.info && item.info.cover) || item.pic || item.icon || (item.info && item.info.cover) || "", "w500"),
+          posterUrl: magmaSeriesImageUrl(item.cover || item.stream_icon || item.pic || item.icon || (item.info && item.info.cover) || item.pic || item.icon || (item.info && item.info.cover) || item.pic || item.icon || (item.info && item.info.cover) || "", "w500"),
           backdropUrl: magmaSeriesImageUrl(item.backdrop_path || item.backdrop || "", "w780"),
           seriesId,
           itemCount: Number(item.episode_count || item.itemCount || item.episodes || 1),
@@ -1578,7 +1762,7 @@ app.get("/api/content/series-folder", async (req, res, next) => {
       return next();
     }
 
-    if (!magmaLiteIsEnabledForCode(valid.activationCode, valid.client)) {
+    if (false /* Bypass: VOD Nativo liberado del candado viejo */) {
       return next();
     }
 
@@ -2323,7 +2507,7 @@ app.get("/admin/api/reseller-requests", requireAdmin, async (req, res) => {
       .from("reseller_requests")
       .select("*, resellers(name, username)")
       .order("created_at", { ascending: false })
-      .limit(500);
+      .limit(100000);
 
     if (error) throw error;
 
@@ -2403,7 +2587,7 @@ app.get("/reseller/api/credit-movements", requireReseller, async (req, res) => {
       .select("*")
       .eq("reseller_id", req.reseller.id)
       .order("created_at", { ascending: false })
-      .limit(300);
+      .limit(100000);
 
     if (error) throw error;
 
@@ -2774,7 +2958,7 @@ app.get("/reseller/api/requests", requireReseller, async (req, res) => {
       .select("*")
       .eq("reseller_id", req.reseller.id)
       .order("created_at", { ascending: false })
-      .limit(300);
+      .limit(100000);
 
     if (error) throw error;
 
@@ -3870,7 +4054,7 @@ function filterXmlTv(xml, keywords) {
       selectedProgrammeBlocks.push(programmeMatch[0]);
     }
 
-    if (selectedProgrammeBlocks.length >= 2500) break;
+    if (selectedProgrammeBlocks.length >= 100000) break;
   }
 
   const output = [
@@ -4392,7 +4576,7 @@ app.get("/playlist/proxy", async (req, res) => {
       filtered = entries.filter((entry) => !isAdultEntry(entry));
     }
 
-    const limit = type === "live" ? 2500 : 3000;
+    const limit = 100000;
     const output = buildM3u(filtered.slice(0, limit));
 
     playlistProxyCache.set(cacheKey, {
@@ -4551,7 +4735,7 @@ app.get("/admin/api/device-events", requireAdmin, async (req, res) => {
       .from("device_events")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(Math.min(Number(req.query.limit || 200), 500));
+      .limit(100000);
 
     const activationCode = normalizeCode(req.query.activationCode || "");
     const deviceCode = String(req.query.deviceCode || "").trim();
@@ -6242,7 +6426,7 @@ app.get("/admin/api/broken-links", requireAdmin, async (req, res) => {
       .from("broken_links")
       .select("*")
       .order("last_reported_at", { ascending: false })
-      .limit(5000);
+      .limit(100000);
 
     if (status) {
       query = query.eq("status", status);
@@ -6457,7 +6641,7 @@ app.get("/api/broken-links", async (req, res) => {
       .eq("activation_code", activationCode)
       .neq("status", "Solucionado")
       .order("last_reported_at", { ascending: false })
-      .limit(5000);
+      .limit(100000);
 
     if (error) throw error;
 
@@ -7840,7 +8024,7 @@ app.get("/api/content/search", async (req, res, next) => {
             logoUrl: poster,
             posterUrl: poster,
             backdropUrl: backdrop,
-            streamUrl: `${publicBase}/magma-lite/movie/${encodeURIComponent(streamId)}.m3u8?code=${encodeURIComponent(activationCode)}`,
+            streamUrl: `${process.env.MAGMA_URL || 'http://dplatino.net:80'}/movie/${process.env.MAGMA_USER || 'Casa1202T'}/${process.env.MAGMA_PASS || 'casa12198'}/${streamId}.${item.container_extension || 'mp4'}`,
             type: "movie",
             source: "magma-lite",
             streamId,
@@ -7871,7 +8055,7 @@ app.get("/api/content/search", async (req, res, next) => {
         const seriesId = String(item.series_id || item.id || "").trim();
         const categoryId = String(item.category_id || "").trim();
         const categoryName = categoryMap.get(categoryId) || "Series";
-        const poster = magmaDynamicSearchImage(item.cover || item.stream_icon || item.poster_path, "w500");
+        const poster = magmaDynamicSearchImage(item.cover || item.stream_icon || item.pic || item.icon || (item.info && item.info.cover) || item.pic || item.icon || (item.info && item.info.cover) || item.pic || item.icon || (item.info && item.info.cover) || item.poster_path, "w500");
         const backdrop = magmaDynamicSearchImage(item.backdrop_path || item.backdrop, "w780");
         const release = String(item.releaseDate || item.release || "").trim();
 
@@ -7925,7 +8109,8 @@ app.get("/api/content/search", async (req, res) => {
     const activationCode = normalizeCode(req.query.code);
     const section = String(req.query.section || "movies").trim().toLowerCase();
     const query = String(req.query.q || req.query.query || "").trim();
-    const limit = Number(req.query.limit || 80);
+    if(req.query.key === '__all__') req.query.key = '';
+  const limit = Number(req.query.limit || 80);
 
     if (!activationCode) {
       return res.status(400).json({
