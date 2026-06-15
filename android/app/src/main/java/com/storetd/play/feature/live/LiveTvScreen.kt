@@ -1642,7 +1642,7 @@ private fun TvCategoryChip(
                     MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f)
                 },
                 shape = shape
-            )
+),
             .clickable(enabled = enabled) { onClick() },
         color = if (focused) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)
@@ -2498,7 +2498,7 @@ private fun SeriesFolderRow(
                     MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
                 },
                 shape = shape
-            )
+),
             .clip(shape)
             .clickable { onOpen() },
         colors = CardDefaults.cardColors(
@@ -2734,7 +2734,7 @@ private fun ChannelRow(
                     MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
                 },
                 shape = shape
-            )
+),
         colors = CardDefaults.cardColors(
             containerColor = if (active) {
                 MaterialTheme.colorScheme.primary.copy(alpha = 0.24f)
