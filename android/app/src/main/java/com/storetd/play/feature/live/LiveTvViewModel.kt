@@ -433,6 +433,7 @@ class LiveTvViewModel(
         if (loadInProgress) return
 
         loadInProgress = true
+        _uiState.value = _uiState.value.copy(isLoading = true)
 
         val currentBeforeLoad = _uiState.value
         val hasVisibleCache = currentBeforeLoad.channels.isNotEmpty()
@@ -555,6 +556,7 @@ class LiveTvViewModel(
         if (loadInProgress) return
 
         loadInProgress = true
+        _uiState.value = _uiState.value.copy(isLoading = true)
 
         val currentBeforeLoad = _uiState.value
         val hasVisibleCache = currentBeforeLoad.channels.isNotEmpty()
