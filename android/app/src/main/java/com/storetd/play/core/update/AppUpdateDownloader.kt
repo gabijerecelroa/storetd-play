@@ -209,17 +209,35 @@ object AppUpdateDownloader {
             return
         }
 
-        val apkUri = manager.getUriForDownloadedFile(downloadId)
+        var apkFile: java.io.File? = null
+        val query = android.app.DownloadManager.Query().setFilterById(downloadId)
+        manager.query(query)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val uriIndex = cursor.getColumnIndex(android.app.DownloadManager.COLUMN_LOCAL_URI)
+                if (uriIndex >= 0) {
+                    val localUriString = cursor.getString(uriIndex)
+                    if (localUriString != null) {
+                        apkFile = java.io.File(android.net.Uri.parse(localUriString).path)
+                    }
+                }
+            }
+        }
 
-        if (apkUri == null) {
-            Toast.makeText(context, "No se encontró el APK descargado.", Toast.LENGTH_LONG).show()
+        if (apkFile == null || !apkFile!!.exists()) {
+            android.widget.Toast.makeText(context, "Error: No se pudo ubicar el archivo APK físico.", android.widget.Toast.LENGTH_LONG).show()
             return
         }
 
-        val installIntent = Intent(Intent.ACTION_VIEW)
+        val apkUri = androidx.core.content.FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.provider",
+            apkFile!!
+        )
+
+        val installIntent = android.content.Intent(android.content.Intent.ACTION_VIEW)
             .setDataAndType(apkUri, "application/vnd.android.package-archive")
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
 
         try {
             context.startActivity(installIntent)

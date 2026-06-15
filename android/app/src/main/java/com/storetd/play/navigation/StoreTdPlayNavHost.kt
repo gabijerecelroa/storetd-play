@@ -1,5 +1,12 @@
 package com.storetd.play.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.background
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -16,6 +23,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
@@ -251,7 +259,23 @@ fun checkAccountStatus() {
 
     GlobalAppUpdateGate(enabled = LocalAccount.isActivated(context))
 
-    NavHost(navController = navController, startDestination = startDestination) {
+    
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+    val showSideMenu = currentRoute in listOf(Routes.Home, Routes.LiveTv, Routes.Movies, Routes.Series, Routes.Favorites, Routes.History, Routes.Account, Routes.Settings, Routes.Support, Routes.Epg)
+
+    Box(
+        modifier = Modifier.fillMaxSize()
+            .background(Brush.horizontalGradient(
+                colors = listOf(Color(0xFF000000), Color(0xFF09090B))
+            ))
+    ) {
+        Row(modifier = Modifier.fillMaxSize()) {
+            if (showSideMenu) {
+                com.storetd.play.ui.components.PremiumSideMenu(navController = navController, currentRoute = currentRoute)
+            }
+            Box(modifier = Modifier.weight(1f)) {
+                NavHost(navController = navController, startDestination = startDestination) {
         composable(Routes.Activation) {
             ActivationScreen(
                 onActivate = { customerName, activationCode, status, expiresAt, playlistUrl, epgUrl, maxDevices, deviceCount ->
@@ -290,6 +314,13 @@ fun checkAccountStatus() {
                 onOpenSeries = { navController.navigate(Routes.Series) },
                 onOpenFavorites = { navController.navigate(Routes.Favorites) },
                 onOpenHistory = { navController.navigate(Routes.History) },
+                onOpenVodDetail = { item ->
+                    val encName = android.net.Uri.encode(item.name)
+                    val encUrl = android.net.Uri.encode(item.streamUrl)
+                    val encGroup = android.net.Uri.encode(item.group)
+                    val encLogo = if (item.logoUrl.isNullOrBlank() || item.logoUrl == "-") "-" else android.net.Uri.encode(item.logoUrl!!)
+                    navController.navigate("${Routes.VodDetail}/$encName/$encUrl/$encGroup/$encLogo")
+                },
                 onOpenContinueItem = { item ->
                     PlayerSession.setQueue(
                         channels = listOf(item),
@@ -500,7 +531,7 @@ fun checkAccountStatus() {
 
                         navController.navigate("${Routes.Player}/$encName/$encUrl/$encGroup/$encLogo")
                     } else {
-                        navController.navigate("${Routes.WebPlayer}/$encName/$encUrl/$encGroup/$encLogo")
+                        navController.navigate("${Routes.Player}/$encName/$encUrl/$encGroup/$encLogo")
                     }
                 },
                 onBack = { navController.popBackStack() }
@@ -589,6 +620,9 @@ composable(
 
         composable(Routes.Settings) {
             SettingsScreen(onBack = { navController.popBackStack() })
+        }
+    }
+            }
         }
     }
 }

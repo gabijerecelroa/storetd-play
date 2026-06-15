@@ -1,176 +1,48 @@
 package com.storetd.play.feature.home
 
-import com.storetd.play.core.network.AppUpdateInfo
-import com.storetd.play.core.network.AppUpdateApi
-import com.storetd.play.core.update.AppUpdateDownloader
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.Button
-import androidx.compose.material3.AlertDialog
-import android.net.Uri
-import android.content.Intent
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.input.key.type
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
-import com.storetd.play.R
-import com.storetd.play.core.storage.LocalAccount
-import com.storetd.play.core.storage.LocalSettings
-import com.storetd.play.core.storage.LocalLibrary
-import com.storetd.play.core.preload.PlaylistPreloader
-import com.storetd.play.ui.components.premiumStoreTdBackground
-import android.content.Context
-import com.storetd.play.core.storage.PlaybackProgressStore
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.LinearProgressIndicator
-import com.storetd.play.core.storage.SavedChannel
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.runtime.rememberCoroutineScope
-import com.storetd.play.core.cache.PlaylistDiskCache
-import com.storetd.play.core.cache.PlaylistMemoryCache
+import androidx.compose.material3.Text
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import com.storetd.play.feature.live.LiveTvViewModel
-import com.storetd.play.core.network.OptimizedContentApi
+
 import com.storetd.play.core.model.Channel
-import com.storetd.play.feature.live.ContentMode
-
-private data class HomeAction(
-    val title: String,
-    val subtitle: String,
-    val badge: String,
-    val onClick: () -> Unit
-)
-
-
-
-private data class ContinueWatchingItem(
-    val streamUrl: String,
-    val title: String,
-    val group: String,
-    val positionMs: Long,
-    val durationMs: Long,
-    val percent: Int,
-    val updatedAtMs: Long
-)
-
-private data class ContinueWatchingSummary(
-    val count: Int,
-    val topTitle: String?,
-    val topPercent: Int
-)
-
-private fun loadContinueWatchingSummary(context: Context): ContinueWatchingSummary {
-    val items = PlaybackProgressStore
-        .unfinished(context)
-        .sortedByDescending { it.updatedAtMs }
-
-    val first = items.firstOrNull()
-
-    return ContinueWatchingSummary(
-        count = items.size,
-        topTitle = first?.title,
-        topPercent = first?.percent ?: 0
-    )
-}
-
-
-private fun loadContinueWatchingItems(context: Context): List<ContinueWatchingItem> {
-    return PlaybackProgressStore
-        .unfinished(context)
-        .sortedByDescending { it.updatedAtMs }
-        .take(10)
-        .map {
-            ContinueWatchingItem(
-                streamUrl = it.streamUrl,
-                title = it.title,
-                group = it.group,
-                positionMs = it.positionMs,
-                durationMs = it.durationMs,
-                percent = it.percent,
-                updatedAtMs = it.updatedAtMs
-            )
-        }
-}
-
-
-private fun formatContentSyncStatus(context: Context): String {
-    val lastSuccessAt = LocalSettings.getContentSyncSuccessAt(context)
-    val message = LocalSettings.getContentSyncMessage(context).ifBlank {
-        "Sin sincronización confirmada"
-    }
-
-    if (lastSuccessAt <= 0L) {
-        return message
-    }
-
-    val elapsedMinutes = ((System.currentTimeMillis() - lastSuccessAt) / 60000L)
-        .coerceAtLeast(0L)
-
-    val age = when {
-        elapsedMinutes < 1L -> "recién"
-        elapsedMinutes == 1L -> "hace 1 minuto"
-        elapsedMinutes < 60L -> "hace $elapsedMinutes minutos"
-        elapsedMinutes < 120L -> "hace 1 hora"
-        elapsedMinutes < 1440L -> "hace ${elapsedMinutes / 60L} horas"
-        elapsedMinutes < 2880L -> "ayer"
-        else -> "hace ${elapsedMinutes / 1440L} días"
-    }
-
-    return "$message ($age)"
-}
-
+import com.storetd.play.core.network.OptimizedContentApi
+import com.storetd.play.core.storage.LocalAccount
+import com.storetd.play.core.storage.LocalLibrary
+import com.storetd.play.core.storage.SavedChannel
 
 @Composable
 fun HomeScreen(
@@ -179,7 +51,8 @@ fun HomeScreen(
     onOpenSeries: () -> Unit,
     onOpenFavorites: () -> Unit,
     onOpenHistory: () -> Unit,
-    onOpenContinueItem: (SavedChannel) -> Unit = { onOpenHistory() },
+    onOpenContinueItem: (SavedChannel) -> Unit,
+    onOpenVodDetail: (SavedChannel) -> Unit = {},
     onOpenEpg: () -> Unit,
     onOpenAccount: () -> Unit,
     onOpenSupport: () -> Unit,
@@ -187,632 +60,287 @@ fun HomeScreen(
     config: Any? = null
 ) {
     val context = LocalContext.current
+    var isLoading by remember { mutableStateOf(true) }
 
-    val lifecycleOwner = LocalLifecycleOwner.current
-    val account = LocalAccount.getAccount(context)
-    val customerName = account.customerName.ifBlank { "cliente" }
+    var history by remember { mutableStateOf<List<SavedChannel>>(emptyList()) }
+    var estrenos by remember { mutableStateOf<List<Channel>>(emptyList()) }
+    var peliculasVistas by remember { mutableStateOf<List<Channel>>(emptyList()) }
+    var seriesDestacadas by remember { mutableStateOf<List<Channel>>(emptyList()) }
 
-    val refreshScope = rememberCoroutineScope()
-    var globalRefreshRunning by remember { mutableStateOf(false) }
-    var globalRefreshMessage by remember { mutableStateOf<String?>(null) }
-    var syncStatusText by remember { mutableStateOf(formatContentSyncStatus(context)) }
+    var heroTitle by remember { mutableStateOf("STORE TD PLAY") }
+    var heroSubtitle by remember { mutableStateOf("El mejor entretenimiento para tu familia") }
+    var currentBgUrl by remember { mutableStateOf<String?>(null) }
 
-    // Home sync status resume observer
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                syncStatusText = formatContentSyncStatus(context)
-            }
-        }
+    LaunchedEffect(Unit) {
+        history = LocalLibrary.history(context).take(15)
 
-        lifecycleOwner.lifecycle.addObserver(observer)
+        withContext(Dispatchers.IO) {
+            try {
+                val acc = LocalAccount.getAccount(context)
+                val code = acc.activationCode
 
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
+                // 1. CARGAMOS PELÍCULAS
+                val mCats = OptimizedContentApi.loadMovieCategoriesLite(code)
+                if (mCats.isNotEmpty()) {
+                    val estCat = mCats.find { it.title.contains("estreno", true) || it.title.contains("nuevo", true) || it.title.contains("202", true) } ?: mCats.firstOrNull()
+                    if (estCat != null) estrenos = OptimizedContentApi.loadMovieCategoryItems(code, estCat.key).filter { !it.logoUrl.isNullOrBlank() && it.logoUrl != "-" }.take(20)
+
+                    val popCat = mCats.find { it.title.contains("popular", true) || it.title.contains("top", true) || it.title.contains("vista", true) } ?: mCats.getOrNull(1) ?: mCats.firstOrNull()
+                    if (popCat != null && popCat.key != estCat?.key) peliculasVistas = OptimizedContentApi.loadMovieCategoryItems(code, popCat.key).filter { !it.logoUrl.isNullOrBlank() && it.logoUrl != "-" }.take(20)
+                }
+
+                // 2. CARGAMOS LAS SERIES RECOMENDADAS
+                val sCats = OptimizedContentApi.loadSeriesFoldersAsChannels(code)
+                if (sCats.isNotEmpty()) {
+                    seriesDestacadas = sCats.filter { !it.logoUrl.isNullOrBlank() && it.logoUrl != "-" }.take(20)
+                }
+
+            } catch(e: Exception) { e.printStackTrace() } finally { isLoading = false }
         }
     }
 
-    fun refreshAllContentFromHome() {
-        if (globalRefreshRunning) return
-
-        val playlistUrl = account.playlistUrl.trim()
-        val activationCode = account.activationCode.trim()
-
-        if (playlistUrl.isBlank()) {
-            globalRefreshMessage = "No hay lista asignada para actualizar"
-            return
-        }
-
-        if (activationCode.isBlank()) {
-            globalRefreshMessage = "No hay código de activación para actualizar"
-            return
-        }
-
-        globalRefreshRunning = true
-        globalRefreshMessage = "Enviando actualización..."
-        LocalSettings.markContentSyncStarted(context.applicationContext)
-        syncStatusText = formatContentSyncStatus(context)
-
-        refreshScope.launch {
-            val started = withContext(Dispatchers.IO) {
-                runCatching {
-                    OptimizedContentApi.refreshContent(
-                        activationCode = activationCode,
-                        async = true
-                    )
-                }.getOrDefault(false)
-            }
-
-            if (started) {
-                globalRefreshMessage = "Actualización enviada. Puede tardar unos segundos."
-                LocalSettings.markContentSyncSuccess(
-                    context = context.applicationContext,
-                    message = "Actualización enviada al backend."
+    Box(modifier = Modifier.fillMaxSize().background(Color(0xFF09090B))) {
+        // MOTOR CINEMÁTICO: Fondo Difuminado Dinámico Animado
+        Crossfade(targetState = currentBgUrl, animationSpec = tween(700), label = "bgFade") { bgUrl ->
+            if (!bgUrl.isNullOrBlank() && bgUrl != "-") {
+                AsyncImage(
+                    model = ImageRequest.Builder(context).data(bgUrl).crossfade(true).build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize().alpha(0.4f).blur(16.dp)
                 )
-                syncStatusText = formatContentSyncStatus(context)
+            }
+        }
+        
+        // Degradados oscuros para que el texto y los pósters resalten perfecto
+        Box(modifier = Modifier.fillMaxSize().background(
+            Brush.verticalGradient(
+                colors = listOf(Color.Transparent, Color(0xFF09090B).copy(alpha = 0.85f), Color(0xFF09090B)),
+                startY = 0f,
+                endY = 1000f
+            )
+        ))
+        Box(modifier = Modifier.fillMaxSize().background(
+            Brush.horizontalGradient(
+                colors = listOf(Color(0xFF09090B).copy(alpha = 0.9f), Color.Transparent),
+                startX = 0f,
+                endX = 800f
+            )
+        ))
 
-                // Limpia caché local para que al entrar a cada sección pida datos nuevos.
-                withContext(Dispatchers.IO) {
-                    PlaylistMemoryCache.clear(playlistUrl)
-                    PlaylistDiskCache.clear(context.applicationContext, playlistUrl)
+        if (isLoading && history.isEmpty() && estrenos.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color(0xFFE50914)) }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(top = 42.dp, bottom = 60.dp)
+            ) {
+                item {
+                    var isHeroFocused by remember { mutableStateOf(false) }
 
-                    ContentMode.values().forEach { mode ->
-                        PlaylistDiskCache.clear(
-                            context = context.applicationContext,
-                            url = LiveTvViewModel.sectionCacheKey(playlistUrl, mode)
-                        )
-                    }
-                }
-
-                // Limpieza en segundo plano: no bloquea el Home.
-                refreshScope.launch {
-                    delay(30000)
-
-                    withContext(Dispatchers.IO) {
-                        val optimizedSections = runCatching {
-                            OptimizedContentApi.loadAllSections(activationCode)
-                        }.getOrDefault(emptyMap())
-
-                        val validUrls = optimizedSections
-                            .values
-                            .flatten()
-                            .map { it.streamUrl.trim() }
-                            .filter { it.isNotBlank() }
-                            .toSet()
-
-                        if (validUrls.isNotEmpty()) {
-                            LocalLibrary.cleanupMissingUrls(
-                                context = context.applicationContext,
-                                validUrls = validUrls
-                            )
-
-                            PlaybackProgressStore.cleanupMissingUrls(
-                                context = context.applicationContext,
-                                validUrls = validUrls
-                            )
-
-                            val allItems = optimizedSections.values.flatten()
-
-                            if (allItems.isNotEmpty()) {
-                                PlaylistMemoryCache.save(playlistUrl, allItems)
-                                PlaylistDiskCache.save(
-                                    context = context.applicationContext,
-                                    url = playlistUrl,
-                                    channels = allItems
-                                )
-
-                                LiveTvViewModel.saveSectionDiskCaches(
-                                    context = context.applicationContext,
-                                    url = playlistUrl,
-                                    channels = allItems,
-                                    hideAdultContent = true
-                                )
-
-                                withContext(Dispatchers.Default) {
-                                    LiveTvViewModel.warmScreenStateCaches(
-                                        url = playlistUrl,
-                                        channels = allItems
-                                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 48.dp)
+                            .height(240.dp)
+                            .graphicsLayer {
+                                val s = if (isHeroFocused) 1.02f else 1f
+                                scaleX = s
+                                scaleY = s
+                            }
+                            .clip(RoundedCornerShape(16.dp))
+                            .border(3.dp, if (isHeroFocused) Color.White else Color.Transparent, RoundedCornerShape(16.dp))
+                            .background(if (isHeroFocused) Color.White.copy(alpha=0.1f) else Color.Transparent)
+                            .onFocusChanged {
+                                isHeroFocused = it.isFocused || it.hasFocus
+                                if (isHeroFocused) {
+                                    heroTitle = "STORE TD PLAY"
+                                    heroSubtitle = "El mejor entretenimiento para tu familia"
+                                    currentBgUrl = null
                                 }
                             }
+                            .clickable { onOpenMovies() }
+                    ) {
+                        Column(modifier = Modifier.align(Alignment.BottomStart).padding(32.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(if (heroTitle == "STORE TD PLAY") "🎬 BIENVENIDO" else "▶ SELECCIÓN ACTUAL", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                            Text(heroTitle, color = Color.White, fontSize = 44.sp, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 46.sp)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(heroSubtitle, color = Color.LightGray, fontSize = 16.sp)
                         }
                     }
                 }
-            } else {
-                globalRefreshMessage = "No se pudo iniciar la actualización."
-                LocalSettings.markContentSyncFailed(
-                    context = context.applicationContext,
-                    message = "No se pudo iniciar la actualización."
-                )
-                syncStatusText = formatContentSyncStatus(context)
-            }
 
-            delay(2500)
-            globalRefreshRunning = false
-            globalRefreshMessage = null
-        }
-    }
-
-    var continueSummary by remember {
-        mutableStateOf(loadContinueWatchingSummary(context))
-    }
-
-    var continueItems by remember {
-        mutableStateOf(loadContinueWatchingItems(context))
-    }
-
-
-    LaunchedEffect(Unit) {
-        continueSummary = loadContinueWatchingSummary(context)
-        continueItems = loadContinueWatchingItems(context)
-    }
-
-    val recentTitle = if (continueSummary.count > 0) {
-        "Continuar viendo"
-    } else {
-        "Últimos vistos"
-    }
-
-    val recentDescription = if (continueSummary.count > 0) {
-        buildString {
-            append(
-                if (continueSummary.count == 1) {
-                    "1 pendiente"
-                } else {
-                    "${continueSummary.count} pendientes"
-                }
-            )
-
-            if (continueSummary.topPercent > 0) {
-                append(" · ${continueSummary.topPercent}%")
-            }
-
-            if (!continueSummary.topTitle.isNullOrBlank()) {
-                append(" · ")
-                append(continueSummary.topTitle!!.take(22))
-            }
-        }
-    } else {
-        "Continúa donde quedaste"
-    }
-
-
-    LaunchedEffect(account.activationCode, account.playlistUrl) {
-        val playlistUrl = account.playlistUrl.trim()
-
-        if (playlistUrl.isNotBlank()) {
-            val diskCached = withContext(Dispatchers.IO) {
-                val cached = PlaylistDiskCache.load(context.applicationContext, playlistUrl)
-
-                if (cached.isNotEmpty()) {
-                    PlaylistMemoryCache.save(playlistUrl, cached)
-                    LiveTvViewModel.saveSectionDiskCaches(
-                        context = context.applicationContext,
-                        url = playlistUrl,
-                        channels = cached
-                    )
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 48.dp, vertical = 24.dp).horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        QuickButton("📺 TV en Vivo", onFocused = { heroTitle = "TV en Vivo"; heroSubtitle = "Mirá los canales en directo"; currentBgUrl = null }) { onOpenLiveTv() }
+                        QuickButton("🎬 Películas", onFocused = { heroTitle = "Películas"; heroSubtitle = "Explorá todo nuestro catálogo"; currentBgUrl = null }) { onOpenMovies() }
+                        QuickButton("🍿 Series", onFocused = { heroTitle = "Series"; heroSubtitle = "Tus temporadas favoritas"; currentBgUrl = null }) { onOpenSeries() }
+                        QuickButton("❤️ Favoritos", onFocused = { heroTitle = "Favoritos"; heroSubtitle = "Tu contenido guardado"; currentBgUrl = null }) { onOpenFavorites() }
+                    }
                 }
 
-                cached
-            }
+                if (history.isNotEmpty()) item { 
+                    CarouselSectionSaved("⏱️ Continuar Viendo", history, onFocused = { 
+                        heroTitle = it.name; heroSubtitle = "Presioná OK para reproducir"; currentBgUrl = it.logoUrl 
+                    }) { onOpenContinueItem(it) } 
+                }
 
-            if (diskCached.isNotEmpty()) {
-                withContext(Dispatchers.Default) {
-                    LiveTvViewModel.warmScreenStateCaches(
-                        url = playlistUrl,
-                        channels = diskCached
-                    )
+                if (estrenos.isNotEmpty()) item { 
+                    CarouselSection("🔥 Estrenos y Recomendados", estrenos, onFocused = { 
+                        heroTitle = it.name; heroSubtitle = "Película Recomendada"; currentBgUrl = it.logoUrl 
+                    }) { ch -> onOpenVodDetail(SavedChannel(ch.id, ch.name, ch.streamUrl, ch.logoUrl, ch.group ?: "Peliculas", null)) } 
+                }
+                
+                if (seriesDestacadas.isNotEmpty()) item {
+                    CarouselSection("🍿 Series Recomendadas", seriesDestacadas, onFocused = { 
+                        heroTitle = it.name; heroSubtitle = "Presioná OK para elegir temporada y capítulo"; currentBgUrl = it.logoUrl 
+                    }) { ch -> onOpenVodDetail(SavedChannel(ch.id, ch.name, ch.streamUrl, ch.logoUrl, ch.group ?: "Series", null)) }
+                }
+
+                if (peliculasVistas.isNotEmpty()) item { 
+                    CarouselSection("⭐ Películas Populares", peliculasVistas, onFocused = { 
+                        heroTitle = it.name; heroSubtitle = "Película Destacada"; currentBgUrl = it.logoUrl 
+                    }) { ch -> onOpenVodDetail(SavedChannel(ch.id, ch.name, ch.streamUrl, ch.logoUrl, ch.group ?: "Peliculas", null)) } 
                 }
             }
         }
     }
+}
 
-    val actions = listOf(
-        HomeAction("TV en vivo", "Canales, categorías y zapping", "LIVE", onOpenLiveTv),
-        HomeAction("Películas", "Cine y contenido VOD", "VOD", onOpenMovies),
-        HomeAction("Series", "Temporadas, carpetas y capítulos", "SERIES", onOpenSeries),
-        HomeAction("Guía EPG", "Programación actual", "GUÍA", onOpenEpg),
-        HomeAction("Favoritos", "Tus contenidos guardados", "FAV", onOpenFavorites),
-        HomeAction(recentTitle, recentDescription, "HIST", onOpenHistory),
-        HomeAction("Mi cuenta", "Estado, vencimiento y dispositivo", "CUENTA", onOpenAccount),
-        HomeAction("Configuración", "Caché, PIN parental y ajustes", "AJUSTES", onOpenSettings),
-        HomeAction("Soporte", "Ayuda y contacto", "HELP", onOpenSupport)
-    )
+@Composable
+fun QuickButton(text: String, onFocused: () -> Unit, onClick: () -> Unit) {
+    var isFocused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(if (isFocused) 1.05f else 1f, label = "scale")
 
-    BoxWithConstraints(
+    val bgColor = if (isFocused) Color.White else Color(0xFF27272A).copy(alpha = 0.8f)
+    val textColor = if (isFocused) Color.Black else Color.White
+
+    Box(
         modifier = Modifier
-            .fillMaxSize()
-            .premiumStoreTdBackground()
-            .navigationBarsPadding()
-            .padding(24.dp)
-    ) {
-        val isTvWide = maxWidth >= 700.dp
-
-        if (isTvWide) {
-            HomeGlobalRefreshCard(
-                isRefreshing = globalRefreshRunning,
-                message = globalRefreshMessage,
-                onRefresh = { refreshAllContentFromHome() },
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 10.dp, end = 8.dp)
-                    .fillMaxWidth(0.34f)
-            )
-        }
-
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
-        ) {
-            Column {
-                Image(
-                    painter = painterResource(id = R.drawable.ic_storetd_logo),
-                    contentDescription = "StoreTD Play",
-                    modifier = Modifier.size(if (isTvWide) 64.dp else 54.dp)
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = "StoreTD Play",
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Text(
-                    text = "Bienvenido $customerName",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.86f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Text(
-                    text = "Elegí una sección con el control remoto",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.92f)
-                )
-
-                Text(
-                    text = syncStatusText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                if (!isTvWide) {
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    HomeGlobalRefreshCard(
-                        isRefreshing = globalRefreshRunning,
-                        message = globalRefreshMessage,
-                        onRefresh = { refreshAllContentFromHome() }
-                    )
-                }
+            .width(160.dp)
+            .height(55.dp)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .clip(RoundedCornerShape(8.dp))
+            .border(3.dp, if (isFocused) Color.White else Color.Transparent, RoundedCornerShape(8.dp))
+            .background(bgColor)
+            .onFocusChanged {
+                isFocused = it.isFocused || it.hasFocus
+                if (isFocused) onFocused()
             }
-
-            if (continueItems.isNotEmpty()) {
-                ContinueWatchingRail(
-                    items = continueItems,
-                    onOpenContinueItem = onOpenContinueItem
-                )
-            }
-
-            if (isTvWide) {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
-                    modifier = Modifier.weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(18.dp)
-                ) {
-                    items(actions) { action ->
-                        TvHomeCard(
-                            action = action,
-                            requestInitialFocus = action.title == "TV en vivo",
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    items(actions.size) { index ->
-                        TvHomeCard(
-                            action = actions[index],
-                            requestInitialFocus = index == 0,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                }
-            }
-
-            Text(
-                text = "StoreTD Play · Reproductor privado para contenido autorizado",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.62f)
-            )
-        }
-    }
-
-
-
-
-
-}
-
-
-
-@Composable
-private fun HomeGlobalRefreshCard(
-    isRefreshing: Boolean,
-    message: String?,
-    onRefresh: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier
-            .clickable(enabled = !isRefreshing) { onRefresh() },
-        color = MaterialTheme.colorScheme.primary.copy(alpha = if (isRefreshing) 0.72f else 0.95f),
-        shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.35f)
-        ),
-        shadowElevation = 8.dp
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 22.dp, vertical = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (isRefreshing) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    strokeWidth = 3.dp
-                )
-            }
-
-            Column(
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = if (isRefreshing) "Actualizando contenido" else "Actualizar contenido",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Text(
-                    text = message ?: "Recarga TV en vivo, películas y series desde el Home.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.86f)
-                )
-            }
-        }
-    }
-}
-
-
-
-@Composable
-private fun ContinueWatchingRail(
-    items: List<ContinueWatchingItem>,
-    onOpenContinueItem: (SavedChannel) -> Unit
-) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Continuar viendo",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onBackground,
-                fontWeight = FontWeight.Bold
-            )
-
-            Text(
-                text = "${items.size} pendiente${if (items.size == 1) "" else "s"}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.68f)
-            )
-        }
-
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            items(
-                items = items.take(6),
-                key = { it.streamUrl }
-            ) { item ->
-                ContinueWatchingCard(
-                    item = item,
-                    onClick = {
-                        onOpenContinueItem(
-                            SavedChannel(
-                                id = item.streamUrl.hashCode().toString(),
-                                name = item.title,
-                                streamUrl = item.streamUrl,
-                                logoUrl = null,
-                                group = item.group,
-                                tvgId = null
-                            )
-                        )
-                    }
-                )
-            }
-        }
-    }
-}
-
-
-
-
-
-
-
-@Composable
-private fun ContinueWatchingCard(
-    item: ContinueWatchingItem,
-    onClick: () -> Unit
-) {
-    val progressFraction = if (item.durationMs > 0L) {
-        (item.positionMs.toFloat() / item.durationMs.toFloat()).coerceIn(0f, 1f)
-    } else {
-        0f
-    }
-
-    Surface(
-        modifier = Modifier
-            .width(238.dp)
-            .height(82.dp)
             .clickable { onClick() },
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
-        shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f)
-        ),
-        shadowElevation = 4.dp
+        contentAlignment = Alignment.Center
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column {
-                Text(
-                    text = item.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+        Text(text, color = textColor, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+    }
+}
 
-                Text(
-                    text = "${item.percent}% visto · ${item.group}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+@Composable
+fun CarouselSection(title: String, items: List<Channel>, onFocused: (Channel) -> Unit, onClick: (Channel) -> Unit) {
+    Column(modifier = Modifier.padding(top = 12.dp, bottom = 16.dp)) {
+        Text(title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 48.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+        LazyRow(contentPadding = PaddingValues(horizontal = 48.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            // EL SECRETO PARA ELIMINAR EL TEMBLOR: key = { it.id }
+            items(items, key = { it.id }) { item -> 
+                MovieCard(item.name, item.logoUrl, onFocused = { onFocused(item) }) { onClick(item) } 
             }
-
-            LinearProgressIndicator(
-                progress = { progressFraction },
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)
-            )
         }
     }
 }
 
-
-
-
-
-
-
 @Composable
-private fun TvHomeCard(
-    action: HomeAction,
-    requestInitialFocus: Boolean = false,
-    modifier: Modifier = Modifier
-) {
-    var focused by remember { mutableStateOf(false) }
-    val focusRequester = remember { FocusRequester() }
-    val shape = RoundedCornerShape(24.dp)
-
-    if (requestInitialFocus) {
-        LaunchedEffect(Unit) {
-            runCatching { focusRequester.requestFocus() }
-        }
-    }
-
-    Surface(
-        modifier = modifier
-            .height(154.dp)
-            .focusRequester(focusRequester)
-            .onFocusChanged { focused = it.isFocused || it.hasFocus }
-            .onPreviewKeyEvent { event ->
-                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                when (event.key) {
-                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
-                        action.onClick()
-                        true
-                    }
-                    else -> false
+fun CarouselSectionSaved(title: String, items: List<SavedChannel>, onFocused: (SavedChannel) -> Unit, onClick: (SavedChannel) -> Unit) {
+    Column(modifier = Modifier.padding(top = 12.dp, bottom = 16.dp)) {
+        Text(title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 48.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+        LazyRow(contentPadding = PaddingValues(horizontal = 48.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            // EL SECRETO PARA ELIMINAR EL TEMBLOR: key = { it.id }
+            items(items, key = { it.id }) { item -> 
+                val url = item.streamUrl.lowercase()
+                val group = (item.group ?: "").lowercase()
+                
+                // Inteligencia de formato: Si detecta que es TV, muestra un rectangulo horizontal 16:9
+                val isLiveTv = url.contains("/live/") || url.contains("m3uts") || url.contains("tvclub") || group.contains("tv") || group.contains("vivo")
+                
+                if (isLiveTv) {
+                    LandscapeCard(item.name, item.logoUrl, onFocused = { onFocused(item) }) { onClick(item) } 
+                } else {
+                    MovieCard(item.name, item.logoUrl, onFocused = { onFocused(item) }) { onClick(item) } 
                 }
             }
-            .border(
-                width = if (focused) 4.dp else 1.dp,
-                color = if (focused) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f)
-                },
-                shape = shape
-            )
-            .focusable()
-            .clickable { action.onClick() },
-        color = if (focused) {
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
-        } else {
-            MaterialTheme.colorScheme.surfaceVariant
-        },
-        shadowElevation = if (focused) 14.dp else 5.dp,
-        tonalElevation = if (focused) 8.dp else 2.dp,
-        shape = shape,
-        border = BorderStroke(
-            1.dp,
-            if (focused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(7.dp)
-        ) {
-            Surface(
-                color = MaterialTheme.colorScheme.background.copy(alpha = 0.36f),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(
-                    text = action.badge,
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                )
+        }
+    }
+}
+
+@Composable
+fun MovieCard(name: String, logoUrl: String?, onFocused: () -> Unit, onClick: () -> Unit) {
+    var isFocused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(if (isFocused) 1.08f else 1f, label = "scale")
+
+    Box(
+        modifier = Modifier
+            .width(140.dp)
+            .height(210.dp)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .zIndex(if (isFocused) 1f else 0f)
+            .clip(RoundedCornerShape(10.dp))
+            .border(3.dp, if (isFocused) Color.White else Color.Transparent, RoundedCornerShape(10.dp))
+            .background(Color(0xFF18181B))
+            .onFocusChanged {
+                isFocused = it.isFocused || it.hasFocus
+                if (isFocused) onFocused()
             }
+            .clickable { onClick() }
+    ) {
+        if (!logoUrl.isNullOrBlank() && logoUrl != "-") {
+            AsyncImage(model = ImageRequest.Builder(LocalContext.current).data(logoUrl).crossfade(true).build(), contentDescription = name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        } else {
+            Box(modifier = Modifier.fillMaxSize().padding(8.dp), contentAlignment = Alignment.Center) {
+                Text(name, color = Color.White, fontSize = 13.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
+            }
+        }
+        if (isFocused) Box(modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha=0.15f)))
+    }
+}
 
-            Text(
-                text = action.title,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+@Composable
+fun LandscapeCard(name: String, logoUrl: String?, onFocused: () -> Unit, onClick: () -> Unit) {
+    var isFocused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(if (isFocused) 1.08f else 1f, label = "scale")
 
-            Text(
-                text = action.subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.80f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )        }
+    Box(
+        modifier = Modifier
+            .width(240.dp)
+            .height(135.dp) // Diseño 16:9 perfecto para logos de TV
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .zIndex(if (isFocused) 1f else 0f)
+            .clip(RoundedCornerShape(10.dp))
+            .border(3.dp, if (isFocused) Color.White else Color.Transparent, RoundedCornerShape(10.dp))
+            .background(Color(0xFF18181B))
+            .onFocusChanged {
+                isFocused = it.isFocused || it.hasFocus
+                if (isFocused) onFocused()
+            }
+            .clickable { onClick() }
+    ) {
+        if (!logoUrl.isNullOrBlank() && logoUrl != "-") {
+            // Capa 1: Fondo difuminado para rellenar los bordes negros
+            AsyncImage(model = ImageRequest.Builder(LocalContext.current).data(logoUrl).crossfade(true).build(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().blur(12.dp).alpha(0.4f))
+            // Capa 2: Logo original con ContentScale.Fit para que no se recorte nada
+            AsyncImage(model = ImageRequest.Builder(LocalContext.current).data(logoUrl).crossfade(true).build(), contentDescription = name, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().padding(bottom = 36.dp, top = 8.dp, start = 8.dp, end = 8.dp))
+        } else {
+            Box(modifier = Modifier.fillMaxSize().padding(8.dp), contentAlignment = Alignment.Center) {
+                Text(name, color = Color.White, fontSize = 14.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
+            }
+        }
+        
+        // Degradado inferior para proteger la visibilidad del título
+        Box(modifier = Modifier.fillMaxWidth().height(36.dp).align(Alignment.BottomCenter).background(Color(0xFF09090B).copy(alpha = 0.95f)))
+        Text(text = name, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp, start = 8.dp, end = 8.dp))
+
+        if (isFocused) Box(modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha=0.15f)))
     }
 }
