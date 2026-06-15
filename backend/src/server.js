@@ -1523,8 +1523,8 @@ app.get("/api/content/series-folders-lite", async (req, res, next) => {
           name: String(item.name || `Serie ${seriesId}`).trim(),
           group,
           category: group,
-          logoUrl: magmaSeriesImageUrl(item.cover || item.stream_icon || "", "w500"),
-          posterUrl: magmaSeriesImageUrl(item.cover || item.stream_icon || "", "w500"),
+          logoUrl: magmaSeriesImageUrl(item.cover || item.stream_icon || item.pic || item.icon || (item.info && item.info.cover) || "", "w500"),
+          posterUrl: magmaSeriesImageUrl(item.cover || item.stream_icon || item.pic || item.icon || (item.info && item.info.cover) || "", "w500"),
           backdropUrl: magmaSeriesImageUrl(item.backdrop_path || item.backdrop || "", "w780"),
           seriesId,
           itemCount: Number(item.episode_count || item.itemCount || item.episodes || 1),
@@ -7871,7 +7871,7 @@ app.get("/api/content/search", async (req, res, next) => {
         const seriesId = String(item.series_id || item.id || "").trim();
         const categoryId = String(item.category_id || "").trim();
         const categoryName = categoryMap.get(categoryId) || "Series";
-        const poster = magmaDynamicSearchImage(item.cover || item.stream_icon || item.poster_path, "w500");
+        const poster = magmaDynamicSearchImage(item.cover || item.stream_icon || item.pic || item.icon || (item.info && item.info.cover) || item.poster_path, "w500");
         const backdrop = magmaDynamicSearchImage(item.backdrop_path || item.backdrop, "w780");
         const release = String(item.releaseDate || item.release || "").trim();
 
