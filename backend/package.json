@@ -8,9 +8,11 @@
     "start": "node src/server.js"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.49.1",
+    "@supabase/supabase-js": "^2.107.0",
+    "axios": "^1.17.0",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
     "express": "^4.19.2"
   }
 }

@@ -1443,7 +1443,6 @@ private fun ContentControls(
                             else -> false
                         }
                     }
-                    .focusable()
                     .clickable { onRefresh() }
             }
 
@@ -1564,7 +1563,6 @@ private fun CategoryRow(
                                     false
                                 }
                             }
-                            .focusable()
                             .clickable { onSelectGroup(group) },
                         color = if (active) {
                             MaterialTheme.colorScheme.primary.copy(alpha = 0.95f)
@@ -1572,7 +1570,7 @@ private fun CategoryRow(
                             MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
                         },
                         border = BorderStroke(
-                            if (active) 2.dp else 1.dp,
+                            2.dp,
                             if (active) {
                                 MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.95f)
                             } else {
@@ -1635,7 +1633,7 @@ private fun TvCategoryChip(
                 }
             }
             .border(
-                width = if (active) 3.dp else 1.dp,
+                width = 3.dp,
                 color = if (focused) {
                     MaterialTheme.colorScheme.primary
                 } else if (selected) {
@@ -1645,7 +1643,6 @@ private fun TvCategoryChip(
                 },
                 shape = shape
             )
-            .focusable()
             .clickable(enabled = enabled) { onClick() },
         color = if (focused) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)
@@ -1872,7 +1869,6 @@ private fun MovieCategoryLiteRow(
                     false
                 }
             }
-            .focusable()
             .clickable { onOpen() },
         color = if (active) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)
@@ -1881,7 +1877,7 @@ private fun MovieCategoryLiteRow(
         },
         shape = RoundedCornerShape(30.dp),
         border = BorderStroke(
-            width = if (active) 3.dp else 1.dp,
+            width = 3.dp,
             color = if (active) {
                 MaterialTheme.colorScheme.primary.copy(alpha = 0.95f)
             } else {
@@ -2080,7 +2076,6 @@ private fun SeriesSourceGroupRow(
                     false
                 }
             }
-            .focusable()
             .clickable { onOpen() },
         color = if (isFocused) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)
@@ -2089,7 +2084,7 @@ private fun SeriesSourceGroupRow(
         },
         shape = RoundedCornerShape(30.dp),
         border = BorderStroke(
-            width = if (isFocused) 3.dp else 1.dp,
+            width = 3.dp,
             color = if (isFocused) {
                 MaterialTheme.colorScheme.primary.copy(alpha = 0.95f)
             } else {
@@ -2283,7 +2278,6 @@ private fun SeriesFolderLiteRow(
                     false
                 }
             }
-            .focusable()
             .clickable { onOpen() },
         color = if (isFocused) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)
@@ -2292,7 +2286,7 @@ private fun SeriesFolderLiteRow(
         },
         shape = RoundedCornerShape(30.dp),
         border = BorderStroke(
-            width = if (isFocused) 3.dp else 1.dp,
+            width = 3.dp,
             color = if (isFocused) {
                 MaterialTheme.colorScheme.primary.copy(alpha = 0.95f)
             } else {
@@ -2497,7 +2491,7 @@ private fun SeriesFolderRow(
                 }
             }
             .border(
-                width = if (focused) 4.dp else 1.dp,
+                width = 4.dp,
                 color = if (focused) {
                     MaterialTheme.colorScheme.primary
                 } else {
@@ -2506,7 +2500,6 @@ private fun SeriesFolderRow(
                 shape = shape
             )
             .clip(shape)
-            .focusable()
             .clickable { onOpen() },
         colors = CardDefaults.cardColors(
             containerColor = if (focused) {
@@ -2734,7 +2727,7 @@ private fun ChannelRow(
                 }
             }
             .border(
-                width = if (active) 3.dp else 1.dp,
+                width = 3.dp,
                 color = if (active) {
                     MaterialTheme.colorScheme.primary.copy(alpha = 0.95f)
                 } else {
@@ -2742,7 +2735,6 @@ private fun ChannelRow(
                 },
                 shape = shape
             )
-            .focusable(),
         colors = CardDefaults.cardColors(
             containerColor = if (active) {
                 MaterialTheme.colorScheme.primary.copy(alpha = 0.24f)

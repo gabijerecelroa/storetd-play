@@ -1384,7 +1384,13 @@ async function getXtreamEpisodesForSeriesFolder(folder) {
 }
 
 async function refreshXtreamContentCacheForClient({ activationCode, refreshSection, shouldRefresh }) {
-  const playlistUrl = xtreamSourceUrlMasked();
+  
+    // --- BYPASS MAESTRO: IGNORAR SUPABASE Y FORZAR DPLATINO ---
+    if (playlistUrl && (playlistUrl.includes('github') || playlistUrl.includes('prtvpremium'))) {
+        playlistUrl = process.env.XTREAM_LIVE_API_URL || 'http://dplatino.net:80/get.php?username=Casa1202T&password=casa12198&type=m3u_plus&output=ts';
+    }
+    
+    let playlistUrl = xtreamSourceUrlMasked();
   const counts = {};
   const tasks = [];
 
