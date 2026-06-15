@@ -891,7 +891,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                                                     lazyMovieCategories.none { it.key == lastMovieCategoryFocusKey }
                                             ) && index == 0
                                         )
-                                ),
+        )
                         onOpen = { onSelectMovieCategory(category.key) }
                     )
                 }
@@ -1046,7 +1046,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                                                     visibleSeriesFolders.none { it.key == lastSeriesFocusKey }
                                             ) && index == 0
                                         )
-                                ),
+        )
                         focusToken = "series-folders|${selectedGroupKey ?: ""}|$seriesSearchText|${visibleSeriesFolders.size}|${lastSeriesFocusKey ?: ""}",
                         onOpen = { onSelectSeries(folder.key) }
                     )
@@ -1186,7 +1186,7 @@ private fun PremiumHeroPanel(
         border = BorderStroke(
             1.dp,
             MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
-        ),
+        )
         shadowElevation = 10.dp
     ) {
         Row(
@@ -1285,7 +1285,7 @@ private fun PremiumSectionHeader(
         border = BorderStroke(
             1.dp,
             MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
-        ),
+        )
         shadowElevation = 8.dp
     ) {
         Row(
@@ -1385,7 +1385,7 @@ private fun ContentControls(
         border = BorderStroke(
             1.dp,
             MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.18f)
-        ),
+        )
         shadowElevation = 4.dp
     ) {
         Row(
@@ -1576,7 +1576,7 @@ private fun CategoryRow(
                             } else {
                                 MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f)
                             }
-                        ),
+        )
                         shape = RoundedCornerShape(999.dp),
                         shadowElevation = if (focused) 8.dp else 0.dp
                     ) {
@@ -1642,7 +1642,7 @@ private fun TvCategoryChip(
                     MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f)
                 },
                 shape = shape
-),
+        )
             .clickable(enabled = enabled) { onClick() },
         color = if (focused) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)
@@ -1749,7 +1749,7 @@ private fun LazySearchHeader(
         border = BorderStroke(
             1.dp,
             MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-        ),
+        )
         shadowElevation = 3.dp
     ) {
         Column(
@@ -1883,7 +1883,7 @@ private fun MovieCategoryLiteRow(
             } else {
                 MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)
             }
-        ),
+        )
         shadowElevation = if (active) 14.dp else 4.dp
     ) {
         Row(
@@ -1974,7 +1974,7 @@ private fun MovieCategoryHeader(
         border = BorderStroke(
             1.dp,
             MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)
-        ),
+        )
         shadowElevation = 5.dp
     ) {
         Row(
@@ -2090,7 +2090,7 @@ private fun SeriesSourceGroupRow(
             } else {
                 MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)
             }
-        ),
+        )
         shadowElevation = if (isFocused) 14.dp else 4.dp
     ) {
         Row(
@@ -2179,7 +2179,7 @@ private fun SeriesSourceGroupHeader(
         border = BorderStroke(
             1.dp,
             MaterialTheme.colorScheme.secondary.copy(alpha = 0.28f)
-        ),
+        )
         shadowElevation = 5.dp
     ) {
         Row(
@@ -2292,7 +2292,7 @@ private fun SeriesFolderLiteRow(
             } else {
                 MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)
             }
-        ),
+        )
         shadowElevation = if (isFocused) 14.dp else 4.dp
     ) {
         Row(
@@ -2396,7 +2396,7 @@ private fun OriginalSeriesFolderLiteHeader(
         border = BorderStroke(
             1.dp,
             MaterialTheme.colorScheme.secondary.copy(alpha = 0.28f)
-        ),
+        )
         shadowElevation = 5.dp
     ) {
         Row(
@@ -2498,7 +2498,7 @@ private fun SeriesFolderRow(
                     MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
                 },
                 shape = shape
-),
+        )
             .clip(shape)
             .clickable { onOpen() },
         colors = CardDefaults.cardColors(
@@ -2507,10 +2507,10 @@ private fun SeriesFolderRow(
             } else {
                 MaterialTheme.colorScheme.surfaceVariant
             }
-        ),
+        )
         elevation = CardDefaults.cardElevation(
             defaultElevation = if (focused) 12.dp else 4.dp
-        ),
+        )
         shape = shape
     ) {
         Row(
@@ -2571,7 +2571,7 @@ private fun SeriesFolderRow(
                 border = BorderStroke(
                     1.dp,
                     MaterialTheme.colorScheme.primary.copy(alpha = 0.70f)
-                ),
+        )
                 shape = RoundedCornerShape(999.dp)
             ) {
                 Text(
@@ -2734,14 +2734,14 @@ private fun ChannelRow(
                     MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
                 },
                 shape = shape
-),
+        )
         colors = CardDefaults.cardColors(
             containerColor = if (active) {
                 MaterialTheme.colorScheme.primary.copy(alpha = 0.24f)
             } else {
                 MaterialTheme.colorScheme.surface.copy(alpha = 0.64f)
             }
-        ),
+        )
         shape = shape,
         elevation = CardDefaults.cardElevation(
             defaultElevation = if (active) 14.dp else 4.dp
