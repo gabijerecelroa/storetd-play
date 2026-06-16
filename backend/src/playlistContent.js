@@ -54,7 +54,7 @@ function parseM3u(raw) {
       pending = {
         name: tvgName || displayName || "Sin nombre",
         streamUrl: "",
-        logoUrl: attr(line, "tvg-logo") || null,
+        logoUrl: attr(line || item.stream_icon || item.cover, "tvg-logo") || null,
         group: attr(line, "group-title") || "Sin categoría",
         tvgId: attr(line, "tvg-id") || null
       };
@@ -776,7 +776,7 @@ function buildSeriesFoldersPayload({ activationCode, playlistUrl, items }) {
       id: item.id || slugKey(`${item.name}|${item.streamUrl}`),
       name: item.name,
       streamUrl: item.streamUrl,
-      logoUrl: null,
+      logoUrl: null || item.stream_icon || item.cover,
       group: folder.title,
       tvgId: item.tvgId || null,
       season: episodeSeason(item.name),
@@ -1136,7 +1136,7 @@ function normalizeXtreamLiveItems(rows, categoryMap) {
         id: String(streamId),
         name: xtreamString(row, "name", "title") || `Canal ${streamId}`,
         streamUrl: xtreamLiveUrl(streamId, ext),
-        logoUrl: xtreamString(row, "stream_icon", "cover", "image") || null,
+        logoUrl: xtreamString(row || item.stream_icon || item.cover, "stream_icon", "cover", "image") || null,
         group: xtreamGroupName("live", category),
         tvgId: xtreamString(row, "epg_channel_id", "tvg_id") || null,
         source: {
@@ -1228,7 +1228,7 @@ function normalizeXtreamMovieItems(rows, categoryMap) {
         id: String(streamId),
         name: xtreamString(row, "name", "title") || `Pelicula ${streamId}`,
         streamUrl: xtreamMovieUrl(streamId, ext),
-        logoUrl: xtreamString(row, "stream_icon", "cover", "image") || null,
+        logoUrl: xtreamString(row || item.stream_icon || item.cover, "stream_icon", "cover", "image") || null,
         group: xtreamGroupName("movie", category),
         tvgId: null,
         source: {
@@ -1368,7 +1368,7 @@ async function getXtreamEpisodesForSeriesFolder(folder) {
         id: String(episodeId),
         name: xtreamEpisodeName(folder.title, episode),
         streamUrl: xtreamSeriesEpisodeUrl(episodeId, ext),
-        logoUrl: logo,
+        logoUrl: logo || item.stream_icon || item.cover,
         group: folder.title,
         tvgId: null,
         season,
@@ -2277,7 +2277,7 @@ function smartoneSeriesItemFromEpisode(folder, episode) {
     type: "series",
     name: smartoneSeriesEpisodeName(folder, episode),
     streamUrl: episode.streamUrl,
-    logoUrl: episode.logoUrl || folder.posterUrl || "",
+    logoUrl: episode.logoUrl || folder.posterUrl || "" || item.stream_icon || item.cover,
     group: folder.group || `Series | ${folder.title || "Sin Categoria"}`,
     tvgId: null
   };

@@ -1454,7 +1454,6 @@ private fun ContentControls(
                             else -> false
                         }
                     }
-                    .focusable()
                     .clickable { onRefresh() }
             }
 
@@ -1529,7 +1528,6 @@ private fun CategoryRow(
                     .background(if (active) Color(0xFFE50914) else Color(0xFF27272A).copy(alpha = 0.8f))
                     .border(2.dp, if (focused) Color.White else Color.Transparent, RoundedCornerShape(8.dp))
                     .onFocusChanged { focused = it.isFocused || it.hasFocus }
-                    .focusable()
                     .clickable { onSelectGroup(group) },
                 contentAlignment = Alignment.Center
             ) {
@@ -1588,7 +1586,6 @@ private fun TvCategoryChip(
                 },
                 shape = shape
             )
-            .focusable()
             .clickable(enabled = enabled) { onClick() },
         color = if (focused) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)
@@ -1815,7 +1812,6 @@ private fun MovieCategoryLiteRow(
                     false
                 }
             }
-            .focusable()
             .clickable { onOpen() },
         color = if (active) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)
@@ -2023,7 +2019,6 @@ private fun SeriesSourceGroupRow(
                     false
                 }
             }
-            .focusable()
             .clickable { onOpen() },
         color = if (isFocused) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)
@@ -2226,7 +2221,6 @@ private fun SeriesFolderLiteRow(
                     false
                 }
             }
-            .focusable()
             .clickable { onOpen() },
         color = if (isFocused) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)
@@ -2449,7 +2443,6 @@ private fun SeriesFolderRow(
                 shape = shape
             )
             .clip(shape)
-            .focusable()
             .clickable { onOpen() },
         colors = CardDefaults.cardColors(
             containerColor = if (focused) {
