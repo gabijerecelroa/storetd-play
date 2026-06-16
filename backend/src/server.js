@@ -38,6 +38,8 @@ const {
 const app = express();
 const compression = require('compression');
 app.use(compression());
+app.use((req, res, next) => { if(req.url.includes("live-group")) { req.url = req.url.replace("live-group", "live"); } next(); });
+
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));

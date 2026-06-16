@@ -1481,7 +1481,7 @@ private fun ContentControls(
             }
 
 Surface(
-                modifier = Modifier.clickable { onBack() },
+                modifier = Modifier.focusable(true).clickable { onBack() },
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.34f),
                 shape = RoundedCornerShape(999.dp),
                 border = BorderStroke(
@@ -1734,7 +1734,7 @@ private fun LazySearchHeader(
                 }
 
                 Surface(
-                    modifier = Modifier.clickable { onToggleSearch() },
+                    modifier = Modifier.focusable(true).clickable { onToggleSearch() },
                     color = if (showSearch) {
                         MaterialTheme.colorScheme.primary
                     } else {
@@ -1964,7 +1964,7 @@ private fun MovieCategoryHeader(
             }
 
             Surface(
-                modifier = Modifier.clickable { onBack() },
+                modifier = Modifier.focusable(true).clickable { onBack() },
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
                 shape = RoundedCornerShape(999.dp),
                 border = BorderStroke(
@@ -2170,7 +2170,7 @@ private fun SeriesSourceGroupHeader(
             }
 
             Surface(
-                modifier = Modifier.clickable { onBack() },
+                modifier = Modifier.focusable(true).clickable { onBack() },
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
                 shape = RoundedCornerShape(999.dp),
                 border = BorderStroke(
@@ -2388,7 +2388,7 @@ private fun OriginalSeriesFolderLiteHeader(
             }
 
             Surface(
-                modifier = Modifier.clickable { onBack() },
+                modifier = Modifier.focusable(true).clickable { onBack() },
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
                 shape = RoundedCornerShape(999.dp),
                 border = BorderStroke(

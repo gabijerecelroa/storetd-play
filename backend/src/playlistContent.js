@@ -1384,7 +1384,7 @@ async function getXtreamEpisodesForSeriesFolder(folder) {
 }
 
 async function refreshXtreamContentCacheForClient({ activationCode, refreshSection, shouldRefresh }) {
-  const playlistUrl = xtreamSourceUrlMasked();
+  var playlistUrl = xtreamSourceUrlMasked();
   const counts = {};
   const tasks = [];
 
