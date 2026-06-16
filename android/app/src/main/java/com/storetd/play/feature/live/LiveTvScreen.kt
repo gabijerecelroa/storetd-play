@@ -530,6 +530,7 @@ fun LiveTvScreen(
         Crossfade(targetState = LiveTvBgState.currentBgUrl, animationSpec = tween(700), label = "bgFade") { bgUrl ->
             if (!bgUrl.isNullOrBlank() && bgUrl != "-") {
                 AsyncImage(
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                     model = ImageRequest.Builder(LocalContext.current).data(bgUrl).crossfade(true).build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
