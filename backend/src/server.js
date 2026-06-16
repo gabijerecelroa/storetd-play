@@ -49,14 +49,11 @@ app.use((req, res, next) => {
                     if (json && json.items && Array.isArray(json.items)) {
                         
                         // 1. EL MACHETEADOR (Cortamos de raíz a 40 para matar el temblor y la lentitud)
-                        const limit = parseInt(req.query.limit);
-                        if (!isNaN(limit) && limit > 0 && json.items.length > limit) {
-                            json.items = json.items.slice(0, limit);
-                        }
+                        
                         
                         // 2. EL CLONADOR (Forzamos la imagen para que aparezcan los pósters de series)
                         json.items = json.items.map(item => {
-                            let img = item.cover || item.logoUrl || item.stream_icon || item.icon || item.poster || "";
+                            let img = item.cover || item.logoUrl || item.stream_icon || item.icon || item.poster || ""; if(img.startsWith("http://image.tmdb.org")) img = img.replace("http://", "https://");
                             item.cover = img;
                             item.poster = img;
                             item.logoUrl = img;

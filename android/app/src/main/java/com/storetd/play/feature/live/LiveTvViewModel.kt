@@ -756,7 +756,7 @@ class LiveTvViewModel(
     }
 
     companion object {
-        private const val MAX_VISIBLE_ITEMS = 40
+        private const val MAX_VISIBLE_ITEMS = 800
         private const val MAX_SCREEN_CACHE = 12
 
         private val screenStateCache = LinkedHashMap<String, LiveTvUiState>()
