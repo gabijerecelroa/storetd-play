@@ -364,6 +364,11 @@ fun PlayerScreen(
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 isBuffering = playbackState == Player.STATE_BUFFERING
+                if (playbackState == Player.STATE_ENDED) {
+                    player.seekToDefaultPosition()
+                    player.prepare()
+                    player.play()
+                }
 
                 if (playbackState == Player.STATE_READY) {
                     hasStreamReachedReady = true
@@ -409,6 +414,9 @@ fun PlayerScreen(
 
                 shouldAutoRetryPlayback = shouldAutoRetryForPlaybackError(error)
                 errorMessage = friendlyError
+                player.seekToDefaultPosition()
+                player.prepare()
+                player.play()
 
                 reconnectMessage = if (shouldAutoRetryPlayback) {
                     "Detectamos un problema de reproducción."
