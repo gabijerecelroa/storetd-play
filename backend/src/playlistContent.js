@@ -761,6 +761,7 @@ function buildSeriesFoldersPayload({ activationCode, playlistUrl, items }) {
         title,
         group: item.group || "Series",
         logoUrl: item.cover || item.stream_icon || item.logoUrl || null,
+        posterUrl: item.cover || item.stream_icon || item.logoUrl || null,
         episodeCount: 0,
         episodes: []
       });
@@ -770,6 +771,7 @@ function buildSeriesFoldersPayload({ activationCode, playlistUrl, items }) {
 
     if (!folder.logoUrl && (item.cover || item.stream_icon || item.logoUrl)) {
       folder.logoUrl = item.cover || item.stream_icon || item.logoUrl;
+      folder.posterUrl = item.cover || item.stream_icon || item.logoUrl;
     }
 
     folder.episodes.push({
@@ -777,6 +779,7 @@ function buildSeriesFoldersPayload({ activationCode, playlistUrl, items }) {
       name: item.name,
       streamUrl: item.streamUrl,
       logoUrl: item.cover || item.stream_icon || item.logoUrl || null,
+        posterUrl: item.cover || item.stream_icon || item.logoUrl || null,
       group: folder.title,
       tvgId: item.tvgId || null,
       season: episodeSeason(item.name),
@@ -1130,23 +1133,32 @@ function normalizeXtreamLiveItems(rows, categoryMap) {
 
       const categoryId = xtreamString(row, "category_id");
       const category = xtreamCategoryName(categoryMap, categoryId, "Sin Categoria");
-      // 🔥 LA ADUANA VIP: FILTRO ESTRICTO DE CATEGORIAS
+
+      // 🔥 LA ADUANA V4: PURIFICADOR DE EMOJIS Y ACENTOS
+      const cleanCat = String(category)
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9 ]/g, " ")
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .trim();
+
       const allowedKeywords = [
-          "paraguay", "gran hermano", "argentina", "copa libertadores",
-          "eventos premium", "espn", "fox", "movistar", "24/7",
-          "cinema", "cine premium", "infantil", "musica",
-          "música", "latinos", "ufc", "zona latina", "mundial", "d$port",
-          "dsport", "deportes"
+        "paraguay", "gran hermano", "argentina", "libertadores",
+        "eventos", "espn", "fox", "movistar", "24 7", "cinema", "cine",
+        "infantil", "musica", "latino", "ufc", "zona", "mundial",
+        "d port", "dsport", "deporte", "pelicula", "premium"
       ];
-      const categoryNormalized = String(category).toLowerCase();
+
       let isAllowed = false;
       for (const kw of allowedKeywords) {
-          if (categoryNormalized.includes(kw)) {
-              isAllowed = true;
-              break;
-          }
+        if (cleanCat.includes(kw)) {
+          isAllowed = true;
+          break;
+        }
       }
-      if (!isAllowed) return null; // Destruye el canal en la aduana
+
+      if (!isAllowed) return null;
+
       const ext = xtreamString(row, "container_extension") || "ts";
 
       return {
@@ -1154,7 +1166,7 @@ function normalizeXtreamLiveItems(rows, categoryMap) {
         name: xtreamString(row, "name", "title") || `Canal ${streamId}`,
         streamUrl: xtreamLiveUrl(streamId, ext),
         logoUrl: xtreamString(row, "stream_icon", "cover", "image") || null,
-        group: xtreamGroupName("live", category),
+        group: xtreamGroupName("live", category), // El nombre con emojis se mantiene para la TV
         tvgId: xtreamString(row, "epg_channel_id", "tvg_id") || null,
         source: {
           provider: "xtream",
@@ -1165,7 +1177,6 @@ function normalizeXtreamLiveItems(rows, categoryMap) {
     })
     .filter(Boolean);
 }
-
 
 function xtreamCategoryIds(row) {
   return String(row?.category_id || "")
