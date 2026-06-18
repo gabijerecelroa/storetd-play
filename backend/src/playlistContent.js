@@ -54,7 +54,7 @@ function parseM3u(raw) {
       pending = {
         name: tvgName || displayName || "Sin nombre",
         streamUrl: "",
-        logoUrl: attr(line || item.stream_icon || item.cover, "tvg-logo") || null,
+        logoUrl: attr(line, "tvg-logo") || null,
         group: attr(line, "group-title") || "Sin categoría",
         tvgId: attr(line, "tvg-id") || null
       };
@@ -760,7 +760,7 @@ function buildSeriesFoldersPayload({ activationCode, playlistUrl, items }) {
         key,
         title,
         group: item.group || "Series",
-        posterUrl: item.logoUrl || null,
+        logoUrl: item.cover || item.stream_icon || item.logoUrl || null,
         episodeCount: 0,
         episodes: []
       });
@@ -768,15 +768,15 @@ function buildSeriesFoldersPayload({ activationCode, playlistUrl, items }) {
 
     const folder = foldersMap.get(key);
 
-    if (!folder.posterUrl && item.logoUrl) {
-      folder.posterUrl = item.logoUrl;
+    if (!folder.logoUrl && (item.cover || item.stream_icon || item.logoUrl)) {
+      folder.logoUrl = item.cover || item.stream_icon || item.logoUrl;
     }
 
     folder.episodes.push({
       id: item.id || slugKey(`${item.name}|${item.streamUrl}`),
       name: item.name,
       streamUrl: item.streamUrl,
-      logoUrl: null || item.stream_icon || item.cover,
+      logoUrl: item.cover || item.stream_icon || item.logoUrl || null,
       group: folder.title,
       tvgId: item.tvgId || null,
       season: episodeSeason(item.name),
@@ -1136,7 +1136,7 @@ function normalizeXtreamLiveItems(rows, categoryMap) {
         id: String(streamId),
         name: xtreamString(row, "name", "title") || `Canal ${streamId}`,
         streamUrl: xtreamLiveUrl(streamId, ext),
-        logoUrl: xtreamString(row || item.stream_icon || item.cover, "stream_icon", "cover", "image") || null,
+        logoUrl: xtreamString(row, "stream_icon", "cover", "image") || null,
         group: xtreamGroupName("live", category),
         tvgId: xtreamString(row, "epg_channel_id", "tvg_id") || null,
         source: {
@@ -1228,7 +1228,7 @@ function normalizeXtreamMovieItems(rows, categoryMap) {
         id: String(streamId),
         name: xtreamString(row, "name", "title") || `Pelicula ${streamId}`,
         streamUrl: xtreamMovieUrl(streamId, ext),
-        logoUrl: xtreamString(row || item.stream_icon || item.cover, "stream_icon", "cover", "image") || null,
+        logoUrl: xtreamString(row, "stream_icon", "cover", "image") || null,
         group: xtreamGroupName("movie", category),
         tvgId: null,
         source: {
