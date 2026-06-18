@@ -1130,6 +1130,23 @@ function normalizeXtreamLiveItems(rows, categoryMap) {
 
       const categoryId = xtreamString(row, "category_id");
       const category = xtreamCategoryName(categoryMap, categoryId, "Sin Categoria");
+      // 🔥 LA ADUANA VIP: FILTRO ESTRICTO DE CATEGORIAS
+      const allowedKeywords = [
+          "paraguay", "gran hermano", "argentina", "copa libertadores",
+          "eventos premium", "espn", "fox", "movistar", "24/7",
+          "cinema", "cine premium", "infantil", "musica",
+          "música", "latinos", "ufc", "zona latina", "mundial", "d$port",
+          "dsport", "deportes"
+      ];
+      const categoryNormalized = String(category).toLowerCase();
+      let isAllowed = false;
+      for (const kw of allowedKeywords) {
+          if (categoryNormalized.includes(kw)) {
+              isAllowed = true;
+              break;
+          }
+      }
+      if (!isAllowed) return null; // Destruye el canal en la aduana
       const ext = xtreamString(row, "container_extension") || "ts";
 
       return {
