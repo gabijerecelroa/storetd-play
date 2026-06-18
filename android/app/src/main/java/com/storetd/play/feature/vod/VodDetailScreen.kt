@@ -117,19 +117,19 @@ fun VodDetailScreen(
             val activationCode = account.activationCode.trim()
 
             val loadedSources = withContext(Dispatchers.IO) {
-                OptimizedContentApi.loadMagmaMovieSources(
+                emptyList<Nothing>() /* OptimizedContentApi.loadMagmaMovieSources(
                     activationCode = activationCode,
                     streamId = streamId,
                     kind = extractUrlQueryParam(streamUrl, "kind"),
                     seriesId = extractUrlQueryParam(streamUrl, "seriesId"),
                     season = extractUrlQueryParam(streamUrl, "season"),
                     episode = extractUrlQueryParam(streamUrl, "episode")
-                )
+                ) */
             }
 
-            if (loadedSources.isNotEmpty()) {
+            if (true) {
                 // 🔥 EL TOQUE MAESTRO: AUTO-PLAY INMEDIATO
-                onPlay(loadedSources.first().streamUrl)
+                onPlay(streamUrl)
             } else {
                 // Solo mostramos error si no hay enlaces
                 sourceMessage = "Esta película no está disponible en este momento. Probá otra opción."
@@ -141,7 +141,7 @@ fun VodDetailScreen(
         // MAGMA_FRESH_SOURCE_SELECTOR_END
     }
 
-    if (showSourceDialog) {
+    if (false) /* 🔥 POPUP MAGMA AMPUTADO */ {
         AlertDialog(
             onDismissRequest = { showSourceDialog = false },
             title = {
