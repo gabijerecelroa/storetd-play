@@ -1148,11 +1148,13 @@ function normalizeXtreamLiveItems(rows, categoryMap) {
         .replace(/\s+/g, " ")
         .trim();
 
+            // 🎯 FRANCOTIRADOR V6: MATCH EXACTO
       const allowedKeywords = [
-        "paraguay", "gran hermano", "argent", "libertadores",
-        "eventos", "espn", "fox", "movistar", "24", "7", "cinema", "cine",
-        "infantil", "music", "latino", "ufc", "zona", "mundial",
-        "port", "deport", "pelicula", "premium", "arg", "nacional", "local", "liga", "mexic"
+        "paraguay vip", "gran hermano", "deportes argentina", "argentina", "argentlna",
+        "eventos premium", "espn", "fox sports", "movistar",
+        "24 7 pelicula", "cinema vip", "cine premium", "24 7 infantil", "24 7 premium",
+        "musica", "4k movistar", "fox one", "latinos premium", "ufc",
+        "zona latina", "mundial 2026", "dsport", "d port", "infantiles premium"
       ];
 
       let isAllowed = false;
