@@ -111,6 +111,7 @@ private data class SeriesFolder(
     val title: String,
     val group: String,
     val logoUrl: String?,
+    val posterUrl: String? = null,
     val episodes: List<Channel>
 )
 
@@ -2460,9 +2461,10 @@ private fun SeriesFolderRow(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
         ) {
-            if (!folder.logoUrl.isNullOrBlank()) {
+            val imageToUse = folder.posterUrl ?: folder.logoUrl
+            if (!imageToUse.isNullOrBlank()) {
                 Image(
-                    painter = rememberAsyncImagePainter(folder.logoUrl),
+                    painter = rememberAsyncImagePainter(imageToUse),
                     contentDescription = folder.title,
                     modifier = Modifier.size(64.dp)
                 )
