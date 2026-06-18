@@ -2460,10 +2460,9 @@ private fun SeriesFolderRow(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
         ) {
-            val imageToUse = folder.posterUrl ?: folder.logoUrl
-            if (!imageToUse.isNullOrBlank()) {
+            if (!folder.logoUrl.isNullOrBlank()) {
                 Image(
-                    painter = rememberAsyncImagePainter(imageToUse),
+                    painter = rememberAsyncImagePainter(folder.logoUrl),
                     contentDescription = folder.title,
                     modifier = Modifier.size(64.dp)
                 )
