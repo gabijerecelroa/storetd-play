@@ -2873,7 +2873,8 @@ private fun buildSeriesFolders(channels: List<Channel>): List<SeriesFolder> {
                 title = title,
                 group = first.group.ifBlank { title },
                 logoUrl = posterUrl,
-                episodes = episodes
+            posterUrl = posterUrl,
+            episodes = episodes
             )
         }
         .sortedBy { it.title.lowercase(Locale.getDefault()) }
