@@ -1135,6 +1135,12 @@ function normalizeXtreamLiveItems(rows, categoryMap) {
       const category = xtreamCategoryName(categoryMap, categoryId, "Sin Categoria");
 
       // 🔥 LA ADUANA V4: PURIFICADOR DE EMOJIS Y ACENTOS
+      // CHIVATO DE CATEGORIAS
+      if (!global.radiografia) global.radiografia = new Set();
+      if (!global.radiografia.has(category)) {
+        console.log('CATEGORIA ENCONTRADA: ' + category);
+        global.radiografia.add(category);
+      }
       const cleanCat = String(category)
         .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
         .replace(/[^a-zA-Z0-9 ]/g, " ")
@@ -1143,10 +1149,10 @@ function normalizeXtreamLiveItems(rows, categoryMap) {
         .trim();
 
       const allowedKeywords = [
-        "paraguay", "gran hermano", "argentina", "libertadores",
-        "eventos", "espn", "fox", "movistar", "24 7", "cinema", "cine",
-        "infantil", "musica", "latino", "ufc", "zona", "mundial",
-        "d port", "dsport", "deporte", "pelicula", "premium", "arg", " ar ", "🇦🇷", "nacional", "local"
+        "paraguay", "gran hermano", "argent", "libertadores",
+        "eventos", "espn", "fox", "movistar", "24", "7", "cinema", "cine",
+        "infantil", "music", "latino", "ufc", "zona", "mundial",
+        "port", "deport", "pelicula", "premium", "arg", "nacional", "local", "liga", "mexic"
       ];
 
       let isAllowed = false;
