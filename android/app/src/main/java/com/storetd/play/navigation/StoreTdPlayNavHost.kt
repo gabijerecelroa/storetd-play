@@ -209,7 +209,7 @@ fun checkAccountStatus() {
 
 
     fun navigateAndClear(route: String) {
-        navController.navigate(route) {
+        navController.navigate(route) { launchSingleTop = true } {
             popUpTo(0) {
                 inclusive = true
             }
@@ -309,17 +309,17 @@ fun checkAccountStatus() {
 
         composable(Routes.Home) {
             HomeScreen(
-                onOpenLiveTv = { navController.navigate(Routes.LiveTv) },
-                onOpenMovies = { navController.navigate(Routes.Movies) },
-                onOpenSeries = { navController.navigate(Routes.Series) },
-                onOpenFavorites = { navController.navigate(Routes.Favorites) },
-                onOpenHistory = { navController.navigate(Routes.History) },
+                onOpenLiveTv = { navController.navigate(Routes.LiveTv) { launchSingleTop = true } },
+                onOpenMovies = { navController.navigate(Routes.Movies) { launchSingleTop = true } },
+                onOpenSeries = { navController.navigate(Routes.Series) { launchSingleTop = true } },
+                onOpenFavorites = { navController.navigate(Routes.Favorites) { launchSingleTop = true } },
+                onOpenHistory = { navController.navigate(Routes.History) { launchSingleTop = true } },
                 onOpenVodDetail = { item ->
                     val encName = android.net.Uri.encode(item.name)
                     val encUrl = android.net.Uri.encode(item.streamUrl)
                     val encGroup = android.net.Uri.encode(item.group)
                     val encLogo = if (item.logoUrl.isNullOrBlank() || item.logoUrl == "-") "-" else android.net.Uri.encode(item.logoUrl!!)
-                    navController.navigate("${Routes.VodDetail}/$encName/$encUrl/$encGroup/$encLogo")
+                    navController.navigate("${Routes.VodDetail}/$encName/$encUrl/$encGroup/$encLogo") { launchSingleTop = true }
                 },
                 onOpenContinueItem = { item ->
                     PlayerSession.setQueue(
@@ -331,10 +331,10 @@ fun checkAccountStatus() {
                         "player/${Uri.encode(item.name)}/${Uri.encode(item.streamUrl)}/${Uri.encode(item.group)}/${Uri.encode(item.logoUrl.orEmpty())}"
                     )
                 },
-                onOpenEpg = { navController.navigate(Routes.Epg) },
-                onOpenAccount = { navController.navigate(Routes.Account) },
-                onOpenSupport = { navController.navigate(Routes.Support) },
-                onOpenSettings = { navController.navigate(Routes.Settings) },
+                onOpenEpg = { navController.navigate(Routes.Epg) { launchSingleTop = true } },
+                onOpenAccount = { navController.navigate(Routes.Account) { launchSingleTop = true } },
+                onOpenSupport = { navController.navigate(Routes.Support) { launchSingleTop = true } },
+                onOpenSettings = { navController.navigate(Routes.Settings) { launchSingleTop = true } },
                 config = appConfig
             )
         }
@@ -390,9 +390,9 @@ fun checkAccountStatus() {
 
                             LocalLibrary.addHistory(context, saved)
 
-                            navController.navigate("${Routes.Player}/$encName/$encUrl/$encGroup/$encLogo")
+                            navController.navigate("${Routes.Player}/$encName/$encUrl/$encGroup/$encLogo") { launchSingleTop = true }
                         } else {
-                            navController.navigate("${Routes.VodDetail}/$encName/$encUrl/$encGroup/$encLogo")
+                            navController.navigate("${Routes.VodDetail}/$encName/$encUrl/$encGroup/$encLogo") { launchSingleTop = true }
                         }
                     }
                 }
@@ -439,9 +439,9 @@ fun checkAccountStatus() {
 
                             LocalLibrary.addHistory(context, saved)
 
-                            navController.navigate("${Routes.Player}/$encName/$encUrl/$encGroup/$encLogo")
+                            navController.navigate("${Routes.Player}/$encName/$encUrl/$encGroup/$encLogo") { launchSingleTop = true }
                         } else {
-                            navController.navigate("${Routes.VodDetail}/$encName/$encUrl/$encGroup/$encLogo")
+                            navController.navigate("${Routes.VodDetail}/$encName/$encUrl/$encGroup/$encLogo") { launchSingleTop = true }
                         }
                     }
                 }
@@ -490,7 +490,7 @@ fun checkAccountStatus() {
 
                     LocalLibrary.addHistory(context, selectedSaved)
 
-                    navController.navigate("${Routes.Player}/$encName/$encUrl/$encGroup/$encLogo") {
+                    navController.navigate("${Routes.Player}/$encName/$encUrl/$encGroup/$encLogo") { launchSingleTop = true } {
                         launchSingleTop = true
                     }
                 }
@@ -529,9 +529,9 @@ fun checkAccountStatus() {
 
                         LocalLibrary.addHistory(context, selectedSaved)
 
-                        navController.navigate("${Routes.Player}/$encName/$encUrl/$encGroup/$encLogo")
+                        navController.navigate("${Routes.Player}/$encName/$encUrl/$encGroup/$encLogo") { launchSingleTop = true }
                     } else {
-                        navController.navigate("${Routes.Player}/$encName/$encUrl/$encGroup/$encLogo")
+                        navController.navigate("${Routes.Player}/$encName/$encUrl/$encGroup/$encLogo") { launchSingleTop = true }
                     }
                 },
                 onBack = { navController.popBackStack() }
