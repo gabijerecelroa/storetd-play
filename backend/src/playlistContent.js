@@ -1146,12 +1146,12 @@ function normalizeXtreamLiveItems(rows, categoryMap) {
         "paraguay", "gran hermano", "argentina", "libertadores",
         "eventos", "espn", "fox", "movistar", "24 7", "cinema", "cine",
         "infantil", "musica", "latino", "ufc", "zona", "mundial",
-        "d port", "dsport", "deporte", "pelicula", "premium"
+        "d port", "dsport", "deporte", "pelicula", "premium", "arg", " ar ", "🇦🇷", "nacional", "local"
       ];
 
       let isAllowed = false;
       for (const kw of allowedKeywords) {
-        if (cleanCat.includes(kw)) {
+        if (cleanCat.includes(kw) || String(category).toLowerCase().includes(kw)) {
           isAllowed = true;
           break;
         }
