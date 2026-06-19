@@ -1,8 +1,5 @@
 package com.storetd.play.feature.live
 
-
-import android.util.Log
-
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.zIndex
 import com.storetd.play.feature.vod.SeriesTmdbHeader
@@ -114,7 +111,6 @@ private data class SeriesFolder(
     val title: String,
     val group: String,
     val logoUrl: String?,
-    val posterUrl: String? = null,
     val episodes: List<Channel>
 )
 
@@ -1120,14 +1116,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
             Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 rowItems.forEach { folder ->
                     androidx.compose.foundation.layout.Box(modifier = Modifier.weight(1f)) {
-");
-            writer.close();
-            e.printStackTrace();
-        }
-                    Log.d("PosterDebug", "SeriesGrid → title=" + folder.title + " | posterUrl=" + folder.posterUrl + " | logoUrl=" + folder.logoUrl)
-                    NetflixSeriesPosterCard(
-                    title = folder.title,
-                    logoUrl = folder.posterUrl ?: folder.logoUrl, onClick = { onSelectSeries(folder.key) })
+                        NetflixSeriesPosterCard(title = folder.title, logoUrl = folder.logoUrl, onClick = { onSelectSeries(folder.key) })
                     }
                 }
                 repeat(cols - rowItems.size) { Spacer(modifier = Modifier.weight(1f)) }
@@ -2471,10 +2460,9 @@ private fun SeriesFolderRow(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
         ) {
-            val imageToUse = folder.posterUrl ?: folder.logoUrl
-            if (!imageToUse.isNullOrBlank()) {
+            if (!folder.logoUrl.isNullOrBlank()) {
                 Image(
-                    painter = rememberAsyncImagePainter(imageToUse),
+                    painter = rememberAsyncImagePainter(folder.logoUrl),
                     contentDescription = folder.title,
                     modifier = Modifier.size(64.dp)
                 )
@@ -2863,17 +2851,10 @@ private fun buildSeriesFolders(channels: List<Channel>): List<SeriesFolder> {
                 return@mapNotNull null
             }
 
-            val posterUrl = PremiumContentSessionCache.getSeriesFolders(folderKey)
-                    ?.firstOrNull { !it.posterUrl.isNullOrBlank() }
-                    ?.posterUrl
-                    ?: groupedEpisodes.firstOrNull { !it.logoUrl.isNullOrBlank() }?.logoUrl
-                    ?: first.logoUrl
-");
-            writer.close();
-            e.printStackTrace();
-        }
-
-
+            val posterUrl = groupedEpisodes
+                .firstOrNull { !it.logoUrl.isNullOrBlank() }
+                ?.logoUrl
+                ?: first.logoUrl
 
             val episodes = groupedEpisodes
                 .distinctBy {
@@ -2890,8 +2871,7 @@ private fun buildSeriesFolders(channels: List<Channel>): List<SeriesFolder> {
                 title = title,
                 group = first.group.ifBlank { title },
                 logoUrl = posterUrl,
-            posterUrl = posterUrl,
-            episodes = episodes
+                episodes = episodes
             )
         }
         .sortedBy { it.title.lowercase(Locale.getDefault()) }
