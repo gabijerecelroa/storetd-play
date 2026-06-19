@@ -1,5 +1,7 @@
 package com.storetd.play.feature.live
 
+import android.util.Log
+
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.zIndex
 import com.storetd.play.feature.vod.SeriesTmdbHeader
@@ -2853,10 +2855,11 @@ private fun buildSeriesFolders(channels: List<Channel>): List<SeriesFolder> {
                 return@mapNotNull null
             }
 
-            val posterUrl = groupedEpisodes
-                .firstOrNull { !it.logoUrl.isNullOrBlank() }
-                ?.logoUrl
+            val posterUrl = first.posterUrl?.takeIf { it.isNotBlank() }
+                ?: groupedEpisodes.firstOrNull { !it.posterUrl.isNullOrBlank() }?.posterUrl
+                ?: groupedEpisodes.firstOrNull { !it.logoUrl.isNullOrBlank() }?.logoUrl
                 ?: first.logoUrl
+
 
             val episodes = groupedEpisodes
                 .distinctBy {
