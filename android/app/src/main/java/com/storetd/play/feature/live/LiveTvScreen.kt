@@ -55,6 +55,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -159,11 +160,11 @@ fun LiveTvScreen(
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
 
-    var selectedSeriesKey by remember(contentMode) { mutableStateOf<String?>(null) }
-    var selectedSeriesGroup by remember(contentMode) { mutableStateOf<String?>(null) }
-    var selectedMovieCategoryKey by remember(contentMode) { mutableStateOf<String?>(null) }
-    var lastSeriesFocusKey by remember(contentMode) { mutableStateOf<String?>(null) }
-    var lastMovieCategoryFocusKey by remember(contentMode) { mutableStateOf<String?>(null) }
+    var selectedSeriesKey by rememberSaveable(contentMode) { mutableStateOf<String?>(null) }
+    var selectedSeriesGroup by rememberSaveable(contentMode) { mutableStateOf<String?>(null) }
+    var selectedMovieCategoryKey by rememberSaveable(contentMode) { mutableStateOf<String?>(null) }
+    var lastSeriesFocusKey by rememberSaveable(contentMode) { mutableStateOf<String?>(null) }
+    var lastMovieCategoryFocusKey by rememberSaveable(contentMode) { mutableStateOf<String?>(null) }
     var showLazySearch by remember(contentMode) { mutableStateOf(false) }
     var lazySearchQuery by remember(contentMode) { mutableStateOf("") }
     var lazyRefreshToken by remember(contentMode) { mutableStateOf(0) }
