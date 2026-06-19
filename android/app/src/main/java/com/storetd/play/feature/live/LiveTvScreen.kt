@@ -115,6 +115,17 @@ private data class SeriesFolder(
     val episodes: List<Channel>
 )
 
+
+object LiveTvUiState {
+    var selectedSeriesKey = mutableStateOf<String?>(null)
+    var selectedSeriesGroup = mutableStateOf<String?>(null)
+    var selectedMovieCategoryKey = mutableStateOf<String?>(null)
+    var lastSeriesFocusKey = mutableStateOf<String?>(null)
+    var lastMovieCategoryFocusKey = mutableStateOf<String?>(null)
+    var lazySeriesEpisodes = mutableStateOf<List<Channel>>(emptyList())
+    var lazyMovieItems = mutableStateOf<List<Channel>>(emptyList())
+}
+
 private object PremiumContentSessionCache {
     val seriesEpisodesMap = mutableMapOf<String, List<Channel>>()
 
@@ -181,11 +192,11 @@ fun LiveTvScreen(
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
 
-    var selectedSeriesKey by rememberSaveable(contentMode) { mutableStateOf<String?>(null) }
-    var selectedSeriesGroup by rememberSaveable(contentMode) { mutableStateOf<String?>(null) }
-    var selectedMovieCategoryKey by rememberSaveable(contentMode) { mutableStateOf<String?>(null) }
-    var lastSeriesFocusKey by rememberSaveable(contentMode) { mutableStateOf<String?>(null) }
-    var lastMovieCategoryFocusKey by rememberSaveable(contentMode) { mutableStateOf<String?>(null) }
+    var selectedSeriesKey by LiveTvUiState.selectedSeriesKey
+    var selectedSeriesGroup by LiveTvUiState.selectedSeriesGroup
+    var selectedMovieCategoryKey by LiveTvUiState.selectedMovieCategoryKey
+    var lastSeriesFocusKey by LiveTvUiState.lastSeriesFocusKey
+    var lastMovieCategoryFocusKey by LiveTvUiState.lastMovieCategoryFocusKey
     var showLazySearch by remember(contentMode) { mutableStateOf(false) }
     var lazySearchQuery by remember(contentMode) { mutableStateOf("") }
     var lazyRefreshToken by remember(contentMode) { mutableStateOf(0) }
@@ -194,9 +205,7 @@ fun LiveTvScreen(
     var lazySeriesFolders by remember(contentMode) {
         mutableStateOf<List<OptimizedContentApi.SeriesFolderLite>>(emptyList())
     }
-    var lazySeriesEpisodes by remember(contentMode, selectedSeriesKey) {
-        mutableStateOf<List<Channel>>(PremiumContentSessionCache.getEpisodes(selectedSeriesKey))
-    }
+    var lazySeriesEpisodes by LiveTvUiState.lazySeriesEpisodes
 
     LaunchedEffect(lazySeriesEpisodes, selectedSeriesKey) {
         if (lazySeriesEpisodes.isNotEmpty() && selectedSeriesKey != null) {
@@ -210,9 +219,7 @@ fun LiveTvScreen(
     var lazyMovieCategories by remember(contentMode) {
         mutableStateOf<List<OptimizedContentApi.MovieCategoryLite>>(emptyList())
     }
-    var lazyMovieItems by remember(contentMode, selectedMovieCategoryKey) {
-        mutableStateOf<List<Channel>>(emptyList())
-    }
+    var lazyMovieItems by LiveTvUiState.lazyMovieItems
     var lazyMovieSearchItems by remember(contentMode) {
         mutableStateOf<List<Channel>>(emptyList())
     }
@@ -325,7 +332,13 @@ fun LiveTvScreen(
         viewModel.refreshPlaylist(context)
     }
 
+    
+    var lastBackPressTime by remember { mutableStateOf(0L) }
     BackHandler(enabled = true) {
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastBackPressTime < 1000) return@BackHandler
+        lastBackPressTime = currentTime
+
         when {
             selectedSeriesKey != null -> {
                 selectedSeriesKey = null
@@ -2879,11 +2892,11 @@ private fun buildSeriesFolders(channels: List<Channel>): List<SeriesFolder> {
                 return@mapNotNull null
             }
 
-            val validEp = groupedEpisodes.firstOrNull { !it.logoUrl.isNullOrBlank() && !it.logoUrl.equals("null", ignoreCase = true) }
+            val validEp = groupedEpisodes.firstOrNull { !it.logoUrl.isNullOrBlank() && it.logoUrl.length > 5 && !it.logoUrl.equals("null", ignoreCase = true) }
             val cachePoster = PremiumContentSessionCache.getSeriesPoster(folderKey, title)
-            val posterUrl = cachePoster?.takeIf { !it.equals("null", ignoreCase = true) }
+            val posterUrl = cachePoster?.takeIf { it.length > 5 && !it.equals("null", ignoreCase = true) }
                 ?: validEp?.logoUrl
-                ?: first.logoUrl?.takeIf { !it.equals("null", ignoreCase = true) }
+                ?: first.logoUrl?.takeIf { it.length > 5 && !it.equals("null", ignoreCase = true) }
 
             val episodes = groupedEpisodes
                 .distinctBy {
