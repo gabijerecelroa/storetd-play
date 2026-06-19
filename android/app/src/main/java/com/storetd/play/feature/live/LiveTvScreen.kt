@@ -258,16 +258,16 @@ fun LiveTvScreen(
                     }
                 }.getOrDefault(false)
 
-                selectedSeriesKey = null
-                selectedMovieCategoryKey = null
-                lastSeriesFocusKey = null
-                lastMovieCategoryFocusKey = null
-                showLazySearch = false
-                lazySearchQuery = ""
-                lazySeriesFolders = emptyList()
-                lazySeriesEpisodes = emptyList()
-                lazyMovieCategories = emptyList()
-                lazyMovieItems = emptyList()
+                // 🔥 ESCUDO ANTI-AMNESIA: Protegemos la memoria para no sacar al usuario de la serie
+                if (selectedSeriesKey == null && selectedMovieCategoryKey == null && !showLazySearch) {
+                    lastSeriesFocusKey = null
+                    lastMovieCategoryFocusKey = null
+                    lazySearchQuery = ""
+                    lazySeriesFolders = emptyList()
+                    lazySeriesEpisodes = emptyList()
+                    lazyMovieCategories = emptyList()
+                    lazyMovieItems = emptyList()
+                }
 
                 lazyRefreshToken += 1
                 if (refreshed) {
@@ -2879,9 +2879,11 @@ private fun buildSeriesFolders(channels: List<Channel>): List<SeriesFolder> {
                 return@mapNotNull null
             }
 
-            val posterUrl = PremiumContentSessionCache.getSeriesPoster(folderKey, title)
-                ?: groupedEpisodes.firstOrNull { !it.logoUrl.isNullOrBlank() }?.logoUrl
-                ?: first.logoUrl
+            val validEp = groupedEpisodes.firstOrNull { !it.logoUrl.isNullOrBlank() && !it.logoUrl.equals("null", ignoreCase = true) }
+            val cachePoster = PremiumContentSessionCache.getSeriesPoster(folderKey, title)
+            val posterUrl = cachePoster?.takeIf { !it.equals("null", ignoreCase = true) }
+                ?: validEp?.logoUrl
+                ?: first.logoUrl?.takeIf { !it.equals("null", ignoreCase = true) }
 
             val episodes = groupedEpisodes
                 .distinctBy {
