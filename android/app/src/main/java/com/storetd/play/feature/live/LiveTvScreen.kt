@@ -1119,7 +1119,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
             Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 rowItems.forEach { folder ->
                     androidx.compose.foundation.layout.Box(modifier = Modifier.weight(1f)) {
-                        NetflixSeriesPosterCard(
+                        Log.d("PosterDebug", "UI NetflixSeriesPosterCard → title='\( {folder.title}', posterUrl=' \){folder.posterUrl}', logoUrl='\( {folder.logoUrl}', usando=' \){folder.posterUrl ?: folder.logoUrl}'")
+                    NetflixSeriesPosterCard(
                     title = folder.title,
                     logoUrl = folder.posterUrl ?: folder.logoUrl, onClick = { onSelectSeries(folder.key) })
                     }
@@ -2862,6 +2863,8 @@ private fun buildSeriesFolders(channels: List<Channel>): List<SeriesFolder> {
                     ?.posterUrl
                     ?: groupedEpisodes.firstOrNull { !it.logoUrl.isNullOrBlank() }?.logoUrl
                     ?: first.logoUrl
+
+            Log.d("PosterDebug", "buildSeriesFolders → folderKey='\( folderKey', posterFromCache=' \){PremiumContentSessionCache.getSeriesFolders(folderKey)?.firstOrNull()?.posterUrl}', finalPosterUrl='$posterUrl'")
 
 
             val episodes = groupedEpisodes
