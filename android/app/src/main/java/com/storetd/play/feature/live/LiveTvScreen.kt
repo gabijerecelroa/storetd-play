@@ -133,6 +133,14 @@ private object PremiumContentSessionCache {
         }
     }
 
+    fun getSeriesPoster(targetKey: String): String? {
+        for (list in seriesFolders.values) {
+            val found = list.find { it.key == targetKey }
+            if (found != null) return found.posterUrl
+        }
+        return null
+    }
+
     fun getMovieCategories(key: String): List<OptimizedContentApi.MovieCategoryLite>? =
         movieCategories[key]?.takeIf { it.isNotEmpty() }
 
@@ -2852,9 +2860,8 @@ private fun buildSeriesFolders(channels: List<Channel>): List<SeriesFolder> {
                 return@mapNotNull null
             }
 
-            val posterUrl = groupedEpisodes
-                .firstOrNull { !it.logoUrl.isNullOrBlank() }
-                ?.logoUrl
+            val posterUrl = PremiumContentSessionCache.getSeriesPoster(folderKey)
+                ?: groupedEpisodes.firstOrNull { !it.logoUrl.isNullOrBlank() }?.logoUrl
                 ?: first.logoUrl
 
             val episodes = groupedEpisodes
