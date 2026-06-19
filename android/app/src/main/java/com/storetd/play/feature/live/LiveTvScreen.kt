@@ -1119,7 +1119,9 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
             Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 rowItems.forEach { folder ->
                     androidx.compose.foundation.layout.Box(modifier = Modifier.weight(1f)) {
-                        NetflixSeriesPosterCard(title = folder.title, logoUrl = folder.logoUrl, onClick = { onSelectSeries(folder.key) })
+                        NetflixSeriesPosterCard(
+                    title = folder.title,
+                    logoUrl = folder.posterUrl ?: folder.logoUrl, onClick = { onSelectSeries(folder.key) })
                     }
                 }
                 repeat(cols - rowItems.size) { Spacer(modifier = Modifier.weight(1f)) }
