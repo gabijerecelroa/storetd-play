@@ -1,5 +1,9 @@
 package com.storetd.play.feature.live
 
+import java.io.File
+import java.io.FileWriter
+import java.io.IOException
+
 import android.util.Log
 
 import androidx.compose.ui.draw.scale
@@ -1119,7 +1123,15 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
             Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 rowItems.forEach { folder ->
                     androidx.compose.foundation.layout.Box(modifier = Modifier.weight(1f)) {
-                    Log.d("PosterDebug", "UI -> title=" + folder.title + " | posterUrl=" + folder.posterUrl + " | logoUrl=" + folder.logoUrl)
+                    try {
+            File logFile = new File("/sdcard/Download/poster_debug.txt");
+            FileWriter writer = new FileWriter(logFile, true);
+            writer.append("PosterDebug: " + System.currentTimeMillis() + " | " + "buildSeriesFolders or UI log here
+");
+            writer.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
                     NetflixSeriesPosterCard(
                     title = folder.title,
                     logoUrl = folder.posterUrl ?: folder.logoUrl, onClick = { onSelectSeries(folder.key) })
@@ -2863,7 +2875,15 @@ private fun buildSeriesFolders(channels: List<Channel>): List<SeriesFolder> {
                     ?.posterUrl
                     ?: groupedEpisodes.firstOrNull { !it.logoUrl.isNullOrBlank() }?.logoUrl
                     ?: first.logoUrl
-            Log.d("PosterDebug", "buildSeriesFolders -> finalPosterUrl=" + posterUrl)
+            try {
+            File logFile = new File("/sdcard/Download/poster_debug.txt");
+            FileWriter writer = new FileWriter(logFile, true);
+            writer.append("PosterDebug: " + System.currentTimeMillis() + " | " + "buildSeriesFolders or UI log here
+");
+            writer.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
 
 
