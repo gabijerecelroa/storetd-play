@@ -1124,6 +1124,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
             writer.close();
             e.printStackTrace();
         }
+                    Log.d("PosterDebug", "SeriesGrid → title=" + folder.title + " | posterUrl=" + folder.posterUrl + " | logoUrl=" + folder.logoUrl)
                     NetflixSeriesPosterCard(
                     title = folder.title,
                     logoUrl = folder.posterUrl ?: folder.logoUrl, onClick = { onSelectSeries(folder.key) })
