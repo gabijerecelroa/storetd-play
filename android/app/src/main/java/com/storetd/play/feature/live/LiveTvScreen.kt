@@ -2857,9 +2857,10 @@ private fun buildSeriesFolders(channels: List<Channel>): List<SeriesFolder> {
                 return@mapNotNull null
             }
 
-            val posterUrl = groupedEpisodes
-                    .firstOrNull { !it.logoUrl.isNullOrBlank() }
-                    ?.logoUrl
+            val posterUrl = PremiumContentSessionCache.getSeriesFolders(folderKey)
+                    ?.firstOrNull { !it.posterUrl.isNullOrBlank() }
+                    ?.posterUrl
+                    ?: groupedEpisodes.firstOrNull { !it.logoUrl.isNullOrBlank() }?.logoUrl
                     ?: first.logoUrl
 
 
