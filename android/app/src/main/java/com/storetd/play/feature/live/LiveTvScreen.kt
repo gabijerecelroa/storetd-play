@@ -116,6 +116,15 @@ private data class SeriesFolder(
 )
 
 private object PremiumContentSessionCache {
+    val seriesEpisodesMap = mutableMapOf<String, List<Channel>>()
+
+    fun saveEpisodes(key: String, eps: List<Channel>) {
+        if (key.isNotBlank()) seriesEpisodesMap[key] = eps
+    }
+
+    fun getEpisodes(key: String?): List<Channel> {
+        return seriesEpisodesMap[key ?: ""] ?: emptyList()
+    }
     private val seriesFolders = mutableMapOf<String, List<OptimizedContentApi.SeriesFolderLite>>()
     private val movieCategories = mutableMapOf<String, List<OptimizedContentApi.MovieCategoryLite>>()
 
@@ -133,10 +142,14 @@ private object PremiumContentSessionCache {
         }
     }
 
-    fun getSeriesPoster(targetKey: String): String? {
+    fun getSeriesPoster(targetKey: String, targetTitle: String): String? {
         for (list in seriesFolders.values) {
-            val found = list.find { it.key == targetKey }
-            if (found != null) return found.posterUrl
+            val found = list.find { 
+                it.key == targetKey || 
+                it.key.startsWith(targetKey) || 
+                it.title.equals(targetTitle, ignoreCase = true) 
+            }
+            if (found != null && !found.posterUrl.isNullOrBlank()) return found.posterUrl
         }
         return null
     }
@@ -182,7 +195,13 @@ fun LiveTvScreen(
         mutableStateOf<List<OptimizedContentApi.SeriesFolderLite>>(emptyList())
     }
     var lazySeriesEpisodes by remember(contentMode, selectedSeriesKey) {
-        mutableStateOf<List<Channel>>(emptyList())
+        mutableStateOf<List<Channel>>(PremiumContentSessionCache.getEpisodes(selectedSeriesKey))
+    }
+
+    LaunchedEffect(lazySeriesEpisodes, selectedSeriesKey) {
+        if (lazySeriesEpisodes.isNotEmpty() && selectedSeriesKey != null) {
+            PremiumContentSessionCache.saveEpisodes(selectedSeriesKey!!, lazySeriesEpisodes)
+        }
     }
     var isLazySeriesLoading by remember(contentMode, selectedSeriesKey) {
         mutableStateOf(false)
@@ -2860,7 +2879,7 @@ private fun buildSeriesFolders(channels: List<Channel>): List<SeriesFolder> {
                 return@mapNotNull null
             }
 
-            val posterUrl = PremiumContentSessionCache.getSeriesPoster(folderKey)
+            val posterUrl = PremiumContentSessionCache.getSeriesPoster(folderKey, title)
                 ?: groupedEpisodes.firstOrNull { !it.logoUrl.isNullOrBlank() }?.logoUrl
                 ?: first.logoUrl
 
