@@ -2852,9 +2852,8 @@ private fun buildSeriesFolders(channels: List<Channel>): List<SeriesFolder> {
                 return@mapNotNull null
             }
 
-            val posterUrl = groupedEpisodes
-                .firstOrNull { !it.logoUrl.isNullOrBlank() }
-                ?.logoUrl
+            val posterUrl = lazySeriesFolders.firstOrNull { it.key == folderKey }?.posterUrl
+                ?: groupedEpisodes.firstOrNull { !it.logoUrl.isNullOrBlank() }?.logoUrl
                 ?: first.logoUrl
 
             val episodes = groupedEpisodes
