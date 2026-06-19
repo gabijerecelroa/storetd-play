@@ -1,8 +1,5 @@
 package com.storetd.play.feature.live
 
-import java.io.File
-import java.io.FileWriter
-import java.io.IOException
 
 import android.util.Log
 
@@ -1123,13 +1120,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
             Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 rowItems.forEach { folder ->
                     androidx.compose.foundation.layout.Box(modifier = Modifier.weight(1f)) {
-                    try {
-            File logFile = new File("/sdcard/Download/poster_debug.txt");
-            FileWriter writer = new FileWriter(logFile, true);
-            writer.append("PosterDebug: " + System.currentTimeMillis() + " | " + "buildSeriesFolders or UI log here
 ");
             writer.close();
-        } catch (IOException e) {
             e.printStackTrace();
         }
                     NetflixSeriesPosterCard(
@@ -2875,13 +2867,8 @@ private fun buildSeriesFolders(channels: List<Channel>): List<SeriesFolder> {
                     ?.posterUrl
                     ?: groupedEpisodes.firstOrNull { !it.logoUrl.isNullOrBlank() }?.logoUrl
                     ?: first.logoUrl
-            try {
-            File logFile = new File("/sdcard/Download/poster_debug.txt");
-            FileWriter writer = new FileWriter(logFile, true);
-            writer.append("PosterDebug: " + System.currentTimeMillis() + " | " + "buildSeriesFolders or UI log here
 ");
             writer.close();
-        } catch (IOException e) {
             e.printStackTrace();
         }
 
