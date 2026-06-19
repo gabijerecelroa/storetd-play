@@ -2855,8 +2855,7 @@ private fun buildSeriesFolders(channels: List<Channel>): List<SeriesFolder> {
                 return@mapNotNull null
             }
 
-            val posterUrl = first.posterUrl?.takeIf { it.isNotBlank() }
-                ?: groupedEpisodes.firstOrNull { !it.posterUrl.isNullOrBlank() }?.posterUrl
+            val posterUrl = groupedEpisodes.firstOrNull { !it.posterUrl.isNullOrBlank() }?.posterUrl
                 ?: groupedEpisodes.firstOrNull { !it.logoUrl.isNullOrBlank() }?.logoUrl
                 ?: first.logoUrl
 
