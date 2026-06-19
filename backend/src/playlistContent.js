@@ -1877,6 +1877,11 @@ async function getSeriesFoldersLite({ activationCode, autoRefresh = true }) {
 
   const payload = result.payload || {};
 
+  console.log("[BACKEND] getSeriesFoldersLite → activationCode:", activationCode);
+  console.log("[BACKEND] getSeriesFoldersLite → folders count:", Array.isArray(payload?.folders) ? payload.folders.length : 0);
+  if (Array.isArray(payload?.folders) && payload.folders.length > 0) {
+    console.log("[BACKEND] Primer folder posterUrl:", payload.folders[0].posterUrl || "SIN POSTER");
+  }
   if (shouldPreserveXtreamSeriesFolders(payload)) {
     const sourceFolders = Array.isArray(payload.folders) ? payload.folders : [];
 
