@@ -301,15 +301,19 @@ fun PlayerScreen(
             .setLoadErrorHandlingPolicy(loadErrorPolicy)
 
         // 3. BUFFER PACIENTE: Como sabemos que el servidor no nos echa, le decimos que junte hasta 5 MINUTOS de video cuando el internet ande bien.
+        // 🚀 MOTOR BUFFER ESTILO TELEVIZO (Adaptable)
+        val tempUiManager = context.getSystemService(android.content.Context.UI_MODE_SERVICE) as android.app.UiModeManager
+        val isLowRamBox = tempUiManager.currentModeType == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION || 
+                          android.os.Build.MODEL.contains("Box", true) || android.os.Build.BRAND.contains("Dinax", true) ||
+                          android.os.Build.MANUFACTURER.contains("Rockchip", true) || android.os.Build.VERSION.SDK_INT < 26
+
+        val maxB = if (isLowRamBox) 45_000 else 120_000 // 45s Cajas Chinas vs 2 Minutos para Alta Gama (Televizo)
+        val minB = if (isLowRamBox) 15_000 else 30_000
+        val rebB = if (isLowRamBox) 3_000 else 5_000
+
         val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
-            .setBufferDurationsMs(
-                15_000,   // Min: 15 seg
-                45_000,   // Max: 45 seg (Anti-Colapso RAM TV Box)
-                1_500,    // Arranca casi al instante
-                3_000     // Si hay corte severo, junta 3s para arrancar
-            )
             .setPrioritizeTimeOverSizeThresholds(true)
-            .setTargetBufferBytes(128 * 1024 * 1024) // 128 MB dedicados solo a tu tranquilidad
+            .setBufferDurationsMs(minB, maxB, 1_500, rebB)
             .build()
 
         // 🛟 SALVAVIDAS DE HARDWARE: Si el chip de video del TV colapsa, usa decodificación por software
@@ -339,7 +343,15 @@ fun PlayerScreen(
             .setLoadControl(loadControl)
             .build()
             .apply {
-                setMediaItem(MediaItem.fromUri(currentChannel.streamUrl))
+                setMediaItem(androidx.media3.common.MediaItem.Builder()
+                    .setUri(currentChannel.streamUrl)
+                    .setLiveConfiguration(
+                        androidx.media3.common.MediaItem.LiveConfiguration.Builder()
+                            .setMaxPlaybackSpeed(1.02f) // Acelera imperceptiblemente si se atrasa mucho para evitar cortes
+                            .setTargetOffsetMs(10000)   // Escudo anti-cortes de 10 segundos de reserva
+                            .build()
+                    )
+                    .build())
                 prepare()
                 playWhenReady = true
             }
@@ -471,7 +483,15 @@ fun PlayerScreen(
         player.stop()
         player.clearMediaItems()
         player.seekTo(0) // Vaciado forzoso del chip físico
-        player.setMediaItem(MediaItem.fromUri(currentChannel.streamUrl))
+        player.setMediaItem(androidx.media3.common.MediaItem.Builder()
+                    .setUri(currentChannel.streamUrl)
+                    .setLiveConfiguration(
+                        androidx.media3.common.MediaItem.LiveConfiguration.Builder()
+                            .setMaxPlaybackSpeed(1.02f) // Acelera imperceptiblemente si se atrasa mucho para evitar cortes
+                            .setTargetOffsetMs(10000)   // Escudo anti-cortes de 10 segundos de reserva
+                            .build()
+                    )
+                    .build())
         player.prepare()
         player.playWhenReady = true
     }
@@ -967,6 +987,18 @@ fun PlayerScreen(
                 modifier = Modifier.fillMaxSize(),
                 factory = {
                     PlayerView(it).apply {
+                    // 🧠 DETECTOR INTELIGENTE DE HARDWARE GRÁFICO
+                    val uiManager = context.getSystemService(android.content.Context.UI_MODE_SERVICE) as android.app.UiModeManager
+                    val isTvBox = uiManager.currentModeType == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION || 
+                                  android.os.Build.MODEL.contains("Box", true) || 
+                                  android.os.Build.BRAND.contains("Dinax", true) ||
+                                  android.os.Build.MANUFACTURER.contains("Rockchip", true)
+
+                    surfaceType = if (isTvBox) {
+                        androidx.media3.ui.PlayerView.SURFACE_TYPE_TEXTURE_VIEW // Modo Tractor para Dinax
+                    } else {
+                        androidx.media3.ui.PlayerView.SURFACE_TYPE_SURFACE_VIEW // Modo Nativo Rápido para Celulares
+                    }
                         keepScreenOn = true
                         useController = false
                         resizeMode = videoResizeMode.media3Mode
