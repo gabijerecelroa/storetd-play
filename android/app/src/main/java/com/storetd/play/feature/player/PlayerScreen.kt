@@ -329,21 +329,6 @@ fun PlayerScreen(
                         .getDecoderInfos(mimeType, requireSecureDecoder, requireTunnelingDecoder)
                         .toMutableList()
 
-                    // 🔥 MODO TELEVIZO: Prioriza procesador de software (Cura pantalla verde y congelamientos)
-                    decoders.sortByDescending { it.name.startsWith("OMX.google.") || it.name.startsWith("c2.android.") || it.name.contains("sw", ignoreCase = true) }
-                    return decoders
-                }
-            })
-            .setMediaCodecSelector(object : androidx.media3.exoplayer.mediacodec.MediaCodecSelector {
-                override fun getDecoderInfos(
-                    mimeType: String,
-                    requireSecureDecoder: Boolean,
-                    requireTunnelingDecoder: Boolean
-                ): List<androidx.media3.exoplayer.mediacodec.MediaCodecInfo> {
-                    val decoders = androidx.media3.exoplayer.mediacodec.MediaCodecSelector.DEFAULT
-                        .getDecoderInfos(mimeType, requireSecureDecoder, requireTunnelingDecoder)
-                        .toMutableList()
-
                     // 🔥 MODO SEGURO PARA TV EN VIVO: Priorizar decodificadores por software (CPU)
                     // Evita pantallazos verdes y macroblocking en canales entrelazados (América, Telefe)
                     decoders.sortByDescending { it.name.startsWith("OMX.google.") || it.name.startsWith("c2.android.") || it.name.contains("sw", ignoreCase = true) }
