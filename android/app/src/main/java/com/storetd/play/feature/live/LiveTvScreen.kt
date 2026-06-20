@@ -117,6 +117,17 @@ private data class SeriesFolder(
 
 
 object GlobalPlayMemory {
+    val stolenPosters = androidx.compose.runtime.mutableStateMapOf<String, String>()
+
+    fun saveStolenPoster(title: String, url: String) {
+        if (url.isNotBlank() && url.length > 10 && !url.equals("null", ignoreCase = true)) {
+            stolenPosters[title.trim().lowercase()] = url
+        }
+    }
+
+    fun getStolenPoster(title: String): String? {
+        return stolenPosters[title.trim().lowercase()]
+    }
     var selectedSeriesKey = androidx.compose.runtime.mutableStateOf<String?>(null)
     var selectedSeriesGroup = androidx.compose.runtime.mutableStateOf<String?>(null)
     var selectedMovieCategoryKey = androidx.compose.runtime.mutableStateOf<String?>(null)
@@ -3277,8 +3288,20 @@ fun NetflixSeriesPosterCard(title: String, logoUrl: String?, onClick: () -> Unit
             }
             .clickable { onClick() }
     ) {
-        if (!logoUrl.isNullOrBlank() && logoUrl != "-") {
-            AsyncImage(model = ImageRequest.Builder(LocalContext.current).data(logoUrl).crossfade(true).build(), contentDescription = title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        val finalLogo = GlobalPlayMemory.getStolenPoster(title) ?: logoUrl
+        val isValidLogo = !finalLogo.isNullOrBlank() && finalLogo != "-" && finalLogo.length > 10 && !finalLogo.equals("null", ignoreCase = true)
+        if (isValidLogo) {
+            coil.compose.SubcomposeAsyncImage(
+                model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current).data(finalLogo).crossfade(true).build(),
+                contentDescription = title,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                modifier = androidx.compose.ui.Modifier.fillMaxSize(),
+                error = {
+                    androidx.compose.foundation.layout.Box(modifier = androidx.compose.ui.Modifier.fillMaxSize().padding(8.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                        androidx.compose.material3.Text(title, color = androidx.compose.ui.graphics.Color.White, fontSize = 13.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                    }
+                }
+            )
         } else {
             androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize().padding(8.dp), contentAlignment = Alignment.Center) {
                 androidx.compose.material3.Text(title, color = Color.White, fontSize = 13.sp, textAlign = TextAlign.Center, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
