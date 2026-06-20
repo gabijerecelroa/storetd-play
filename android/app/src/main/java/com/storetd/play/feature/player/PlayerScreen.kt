@@ -304,7 +304,7 @@ fun PlayerScreen(
         val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
             .setBufferDurationsMs(
                 15_000,   // Min: 15 seg
-                45_000,   // Max: 45 seg (Anti-Colapso RAM)
+                45_000,   // Max: 45 seg (Anti-Colapso RAM TV Box)
                 1_500,    // Arranca casi al instante
                 3_000     // Si hay corte severo, junta 3s para arrancar
             )
@@ -325,16 +325,6 @@ fun PlayerScreen(
                 setMediaItem(MediaItem.fromUri(currentChannel.streamUrl))
                 prepare()
                 playWhenReady = true
-                // 🔥 AUTO-REANIMADOR SEGURO
-                addListener(object : androidx.media3.common.Player.Listener {
-                    override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                        try {
-                            seekToDefaultPosition()
-                            prepare()
-                            play()
-                        } catch (e: Exception) {}
-                    }
-                })
             }
     }
 
@@ -467,16 +457,6 @@ fun PlayerScreen(
         player.setMediaItem(MediaItem.fromUri(currentChannel.streamUrl))
         player.prepare()
         player.playWhenReady = true
-                // 🔥 AUTO-REANIMADOR SEGURO
-                addListener(object : androidx.media3.common.Player.Listener {
-                    override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                        try {
-                            seekToDefaultPosition()
-                            prepare()
-                            play()
-                        } catch (e: Exception) {}
-                    }
-                })
     }
 
     fun retryPlayback() {
@@ -970,8 +950,6 @@ fun PlayerScreen(
                 modifier = Modifier.fillMaxSize(),
                 factory = {
                     PlayerView(it).apply {
-                    // 🔥 MODO TRACTOR: Fuerza TextureView
-                    surfaceType = androidx.media3.ui.PlayerView.SURFACE_TYPE_TEXTURE_VIEW
                         keepScreenOn = true
                         useController = false
                         resizeMode = videoResizeMode.media3Mode
