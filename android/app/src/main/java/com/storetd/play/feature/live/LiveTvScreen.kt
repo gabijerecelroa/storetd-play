@@ -116,14 +116,14 @@ private data class SeriesFolder(
 )
 
 
-object LiveTvUiState {
-    var selectedSeriesKey = mutableStateOf<String?>(null)
-    var selectedSeriesGroup = mutableStateOf<String?>(null)
-    var selectedMovieCategoryKey = mutableStateOf<String?>(null)
-    var lastSeriesFocusKey = mutableStateOf<String?>(null)
-    var lastMovieCategoryFocusKey = mutableStateOf<String?>(null)
-    var lazySeriesEpisodes = mutableStateOf<List<Channel>>(emptyList())
-    var lazyMovieItems = mutableStateOf<List<Channel>>(emptyList())
+object GlobalPlayMemory {
+    var selectedSeriesKey = androidx.compose.runtime.mutableStateOf<String?>(null)
+    var selectedSeriesGroup = androidx.compose.runtime.mutableStateOf<String?>(null)
+    var selectedMovieCategoryKey = androidx.compose.runtime.mutableStateOf<String?>(null)
+    var lastSeriesFocusKey = androidx.compose.runtime.mutableStateOf<String?>(null)
+    var lastMovieCategoryFocusKey = androidx.compose.runtime.mutableStateOf<String?>(null)
+    var lazySeriesEpisodes = androidx.compose.runtime.mutableStateOf<List<Channel>>(emptyList())
+    var lazyMovieItems = androidx.compose.runtime.mutableStateOf<List<Channel>>(emptyList())
 }
 
 private object PremiumContentSessionCache {
@@ -192,11 +192,11 @@ fun LiveTvScreen(
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
 
-    var selectedSeriesKey by LiveTvUiState.selectedSeriesKey
-    var selectedSeriesGroup by LiveTvUiState.selectedSeriesGroup
-    var selectedMovieCategoryKey by LiveTvUiState.selectedMovieCategoryKey
-    var lastSeriesFocusKey by LiveTvUiState.lastSeriesFocusKey
-    var lastMovieCategoryFocusKey by LiveTvUiState.lastMovieCategoryFocusKey
+    var selectedSeriesKey by GlobalPlayMemory.selectedSeriesKey
+    var selectedSeriesGroup by GlobalPlayMemory.selectedSeriesGroup
+    var selectedMovieCategoryKey by GlobalPlayMemory.selectedMovieCategoryKey
+    var lastSeriesFocusKey by GlobalPlayMemory.lastSeriesFocusKey
+    var lastMovieCategoryFocusKey by GlobalPlayMemory.lastMovieCategoryFocusKey
     var showLazySearch by remember(contentMode) { mutableStateOf(false) }
     var lazySearchQuery by remember(contentMode) { mutableStateOf("") }
     var lazyRefreshToken by remember(contentMode) { mutableStateOf(0) }
@@ -205,7 +205,7 @@ fun LiveTvScreen(
     var lazySeriesFolders by remember(contentMode) {
         mutableStateOf<List<OptimizedContentApi.SeriesFolderLite>>(emptyList())
     }
-    var lazySeriesEpisodes by LiveTvUiState.lazySeriesEpisodes
+    var lazySeriesEpisodes by GlobalPlayMemory.lazySeriesEpisodes
 
     LaunchedEffect(lazySeriesEpisodes, selectedSeriesKey) {
         if (lazySeriesEpisodes.isNotEmpty() && selectedSeriesKey != null) {
@@ -219,7 +219,7 @@ fun LiveTvScreen(
     var lazyMovieCategories by remember(contentMode) {
         mutableStateOf<List<OptimizedContentApi.MovieCategoryLite>>(emptyList())
     }
-    var lazyMovieItems by LiveTvUiState.lazyMovieItems
+    var lazyMovieItems by GlobalPlayMemory.lazyMovieItems
     var lazyMovieSearchItems by remember(contentMode) {
         mutableStateOf<List<Channel>>(emptyList())
     }
@@ -333,7 +333,7 @@ fun LiveTvScreen(
     }
 
     
-    var lastBackPressTime by remember { mutableStateOf(0L) }
+    var lastBackPressTime by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(0L) }
     BackHandler(enabled = true) {
         val currentTime = System.currentTimeMillis()
         if (currentTime - lastBackPressTime < 1000) return@BackHandler
@@ -2892,7 +2892,7 @@ private fun buildSeriesFolders(channels: List<Channel>): List<SeriesFolder> {
                 return@mapNotNull null
             }
 
-            val validEp = groupedEpisodes.firstOrNull { !it.logoUrl.isNullOrBlank() && it.logoUrl.length > 5 && !it.logoUrl.equals("null", ignoreCase = true) }
+            val validEp = groupedEpisodes.firstOrNull { !it.logoUrl.isNullOrBlank() && (it.logoUrl?.length ?: 0) > 5 && !it.logoUrl.equals("null", ignoreCase = true) }
             val cachePoster = PremiumContentSessionCache.getSeriesPoster(folderKey, title)
             val posterUrl = cachePoster?.takeIf { it.length > 5 && !it.equals("null", ignoreCase = true) }
                 ?: validEp?.logoUrl
