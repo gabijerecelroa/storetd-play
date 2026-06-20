@@ -270,10 +270,10 @@ fun LiveTvScreen(
                     lastSeriesFocusKey = null
                     lastMovieCategoryFocusKey = null
                     lazySearchQuery = ""
-                    lazySeriesFolders = emptyList()
-                    lazySeriesEpisodes = emptyList()
+                    /* MUTED_AMNESIA */
+                    /* MUTED_AMNESIA */
                     lazyMovieCategories = emptyList()
-                    lazyMovieItems = emptyList()
+                    /* MUTED_AMNESIA */
                 }
 
                 lazyRefreshToken += 1
@@ -310,18 +310,18 @@ fun LiveTvScreen(
     }
 
     fun refreshCurrentContentScreen() {
-        selectedSeriesKey = null
-        selectedSeriesGroup = null
-        selectedMovieCategoryKey = null
+        /* MUTED_AMNESIA */
+        /* MUTED_AMNESIA */
+        /* MUTED_AMNESIA */
         lastSeriesFocusKey = null
         lastMovieCategoryFocusKey = null
         showLazySearch = false
         lazySearchQuery = ""
 
-        lazySeriesFolders = emptyList()
-        lazySeriesEpisodes = emptyList()
+        /* MUTED_AMNESIA */
+        /* MUTED_AMNESIA */
         lazyMovieCategories = emptyList()
-        lazyMovieItems = emptyList()
+        /* MUTED_AMNESIA */
         lazyMovieSearchItems = emptyList()
 
         isLazySeriesLoading = contentMode == ContentMode.Series
@@ -383,14 +383,14 @@ fun LiveTvScreen(
     }
 
     LaunchedEffect(contentMode, lazyRefreshToken) {
-        selectedSeriesKey = null
-        selectedMovieCategoryKey = null
+        /* MUTED_AMNESIA */
+        /* MUTED_AMNESIA */
         lastSeriesFocusKey = null
         lastMovieCategoryFocusKey = null
         showLazySearch = false
         lazySearchQuery = ""
-        lazySeriesEpisodes = emptyList()
-        lazyMovieItems = emptyList()
+        /* MUTED_AMNESIA */
+        /* MUTED_AMNESIA */
         isLazySeriesLoading = false
         isLazyMoviesLoading = false
 
@@ -468,9 +468,9 @@ fun LiveTvScreen(
     }
 
     LaunchedEffect(state.selectedGroup) {
-        selectedSeriesKey = null
-        selectedSeriesGroup = null
-        selectedMovieCategoryKey = null
+        /* MUTED_AMNESIA */
+        /* MUTED_AMNESIA */
+        /* MUTED_AMNESIA */
     }
 
     LaunchedEffect(contentMode, selectedSeriesKey, lazySeriesFolders) {
@@ -701,14 +701,14 @@ fun LiveTvScreen(
                         lastSeriesFocusKey = it
                         selectedSeriesKey = it
                     },
-                    onClearSeries = { selectedSeriesKey = null },
+                    onClearSeries = { /* MUTED_AMNESIA */ },
                     onSelectSeriesGroup = { group ->
-                        selectedSeriesKey = null
+                        /* MUTED_AMNESIA */
                         selectedSeriesGroup = group
                     },
                     onClearSeriesGroup = {
-                        selectedSeriesKey = null
-                        selectedSeriesGroup = null
+                        /* MUTED_AMNESIA */
+                        /* MUTED_AMNESIA */
                     },
                     lazySeriesFolders = lazySeriesFolders,
                     lazySeriesEpisodes = lazySeriesEpisodes,
@@ -725,7 +725,7 @@ fun LiveTvScreen(
                         lastMovieCategoryFocusKey = it
                         selectedMovieCategoryKey = it
                     },
-                    onClearMovieCategory = { selectedMovieCategoryKey = null },
+                    onClearMovieCategory = { /* MUTED_AMNESIA */ },
                     showLazySearch = showLazySearch,
                     lazySearchQuery = lazySearchQuery,
                     onLazySearchQueryChange = { lazySearchQuery = it },
@@ -788,14 +788,14 @@ fun LiveTvScreen(
                         lastSeriesFocusKey = it
                         selectedSeriesKey = it
                     },
-                        onClearSeries = { selectedSeriesKey = null },
+                        onClearSeries = { /* MUTED_AMNESIA */ },
                         onSelectSeriesGroup = { group ->
-                            selectedSeriesKey = null
+                            /* MUTED_AMNESIA */
                             selectedSeriesGroup = group
                         },
                         onClearSeriesGroup = {
-                            selectedSeriesKey = null
-                            selectedSeriesGroup = null
+                            /* MUTED_AMNESIA */
+                            /* MUTED_AMNESIA */
                         },
                         lazySeriesFolders = lazySeriesFolders,
                     lazySeriesEpisodes = lazySeriesEpisodes,
@@ -812,7 +812,7 @@ fun LiveTvScreen(
                         lastMovieCategoryFocusKey = it
                         selectedMovieCategoryKey = it
                     },
-                    onClearMovieCategory = { selectedMovieCategoryKey = null },
+                    onClearMovieCategory = { /* MUTED_AMNESIA */ },
                     showLazySearch = showLazySearch,
                     lazySearchQuery = lazySearchQuery,
                     onLazySearchQueryChange = { lazySearchQuery = it },
@@ -2892,11 +2892,10 @@ private fun buildSeriesFolders(channels: List<Channel>): List<SeriesFolder> {
                 return@mapNotNull null
             }
 
-            val validEp = groupedEpisodes.firstOrNull { !it.logoUrl.isNullOrBlank() && (it.logoUrl?.length ?: 0) > 5 && !it.logoUrl.equals("null", ignoreCase = true) }
-            val cachePoster = PremiumContentSessionCache.getSeriesPoster(folderKey, title)
-            val posterUrl = cachePoster?.takeIf { it.length > 5 && !it.equals("null", ignoreCase = true) }
-                ?: validEp?.logoUrl
-                ?: first.logoUrl?.takeIf { it.length > 5 && !it.equals("null", ignoreCase = true) }
+            // 🕵️‍♂️ LADRÓN DE PÓSTERS EXTREMO: Robamos la foto del capítulo por la fuerza bruta
+            val validEp = groupedEpisodes.firstOrNull { !it.logoUrl.isNullOrBlank() && (it.logoUrl?.length ?: 0) > 10 && !it.logoUrl.equals("null", ignoreCase = true) }
+            val cachePoster = PremiumContentSessionCache.getSeriesPoster(folderKey, title)?.takeIf { it.length > 10 && !it.equals("null", ignoreCase = true) }
+            val posterUrl = validEp?.logoUrl ?: cachePoster ?: first.logoUrl
 
             val episodes = groupedEpisodes
                 .distinctBy {
