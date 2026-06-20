@@ -1932,13 +1932,5 @@ fun forceHlsUrl(context: android.content.Context, originalUrl: String): String {
         }
     } catch (e: Exception) {}
     
-    // 📡 RÁDAR LOG EN PANTALLA (Para auditoría del Administrador)
-    android.os.Handler(android.os.Looper.getMainLooper()).post {
-        try {
-            val showText = "📡 RÁDAR HLS: " + finalUrl.substringAfter("://").substringBefore("?")
-            android.widget.Toast.makeText(context, showText, android.widget.Toast.LENGTH_LONG).show()
-        } catch(e: Exception) {}
-    }
-    
     return finalUrl
 }
