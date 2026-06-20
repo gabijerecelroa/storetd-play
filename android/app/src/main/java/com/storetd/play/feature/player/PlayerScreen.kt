@@ -337,21 +337,65 @@ fun PlayerScreen(
                 }
             })
 
-        androidx.media3.exoplayer.ExoPlayer.Builder(context, tvRenderersFactory)
-            .setMediaSourceFactory(mediaSourceFactory)
-            .setTrackSelector(trackSelector)
-            .setLoadControl(loadControl)
+        // 🔥 MOTOR IPTV PROFESIONAL (ESTILO TELEVIZO) 🔥
+        // 1. EXTRACTORES TOLERANTES (Evita que la imagen se congele por errores de la antena)
+        val iptvExtractorsFactory = androidx.media3.extractor.DefaultExtractorsFactory()
+            .setTsExtractorFlags(
+                androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES or
+                androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS
+            )
+
+        // 2. CAMUFLAJE VLC (Atraviesa el Firewall de Xtream Codes para evitar el "Cargando..." eterno)
+        val iptvDataSourceFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
+            .setUserAgent("VLC/3.0.9 LibVLC/3.0.9") 
+            .setAllowCrossProtocolRedirects(true)
+            .setConnectTimeoutMs(15000)
+            .setReadTimeoutMs(15000)
+
+        val iptvMediaSourceFactory = androidx.media3.exoplayer.source.DefaultMediaSourceFactory(context, iptvExtractorsFactory)
+            .setDataSourceFactory(iptvDataSourceFactory)
+
+        // 3. DECODIFICADOR INTELIGENTE (El secreto de tus fotos)
+        val uiManager = context.getSystemService(android.content.Context.UI_MODE_SERVICE) as android.app.UiModeManager
+        val isTvBox = uiManager.currentModeType == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION || 
+                      android.os.Build.MODEL.contains("Box", true) || android.os.Build.MODEL.contains("TV", true) ||
+                      android.os.Build.BRAND.contains("Dinax", true)
+
+        val smartRenderersFactory = androidx.media3.exoplayer.DefaultRenderersFactory(context)
+            .setEnableDecoderFallback(true)
+            .setMediaCodecSelector(object : androidx.media3.exoplayer.mediacodec.MediaCodecSelector {
+                override fun getDecoderInfos(
+                    mimeType: String,
+                    requireSecureDecoder: Boolean,
+                    requireTunnelingDecoder: Boolean
+                ): List<androidx.media3.exoplayer.mediacodec.MediaCodecInfo> {
+                    val decoders = androidx.media3.exoplayer.mediacodec.MediaCodecSelector.DEFAULT
+                        .getDecoderInfos(mimeType, requireSecureDecoder, requireTunnelingDecoder)
+                        .toMutableList()
+
+                    if (isTvBox) {
+                        // 📺 TV: "Prefiero Software" (Exactamente igual que Televizo en tu foto)
+                        decoders.sortBy { if (it.hardwareAccelerated) 1 else 0 }
+                    } else {
+                        // 📱 CELULAR: "Prefiero Hardware" (Máxima potencia gráfica para no trabarse)
+                        decoders.sortBy { if (it.hardwareAccelerated) 0 else 1 }
+                    }
+                    return decoders
+                }
+            })
+
+        // 4. BÚFER "NORMAL" (Igual que Televizo)
+        val normalLoadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .setBufferDurationsMs(15_000, 30_000, 1_500, 3_000)
+            .build()
+
+        androidx.media3.exoplayer.ExoPlayer.Builder(context, smartRenderersFactory)
+            .setMediaSourceFactory(iptvMediaSourceFactory)
+            .setLoadControl(normalLoadControl)
             .build()
             .apply {
-                setMediaItem(androidx.media3.common.MediaItem.Builder()
-                    .setUri(currentChannel.streamUrl)
-                    .setLiveConfiguration(
-                        androidx.media3.common.MediaItem.LiveConfiguration.Builder()
-                            .setMaxPlaybackSpeed(1.02f) // Acelera imperceptiblemente si se atrasa mucho para evitar cortes
-                            .setTargetOffsetMs(10000L)   // Escudo anti-cortes de 10 segundos de reserva
-                            .build()
-                    )
-                    .build())
+                setMediaItem(androidx.media3.common.MediaItem.fromUri(currentChannel.streamUrl))
                 prepare()
                 playWhenReady = true
             }
@@ -483,15 +527,7 @@ fun PlayerScreen(
         player.stop()
         player.clearMediaItems()
         player.seekTo(0) // Vaciado forzoso del chip físico
-        player.setMediaItem(androidx.media3.common.MediaItem.Builder()
-                    .setUri(currentChannel.streamUrl)
-                    .setLiveConfiguration(
-                        androidx.media3.common.MediaItem.LiveConfiguration.Builder()
-                            .setMaxPlaybackSpeed(1.02f) // Acelera imperceptiblemente si se atrasa mucho para evitar cortes
-                            .setTargetOffsetMs(10000L)   // Escudo anti-cortes de 10 segundos de reserva
-                            .build()
-                    )
-                    .build())
+        player.setMediaItem(androidx.media3.common.MediaItem.fromUri(currentChannel.streamUrl))
         player.prepare()
         player.playWhenReady = true
     }
