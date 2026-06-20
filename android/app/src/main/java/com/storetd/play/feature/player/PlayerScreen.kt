@@ -302,10 +302,9 @@ fun PlayerScreen(
 
         // 3. BUFFER PACIENTE: Como sabemos que el servidor no nos echa, le decimos que junte hasta 5 MINUTOS de video cuando el internet ande bien.
         val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
-            .setPrioritizeTimeOverSizeThresholds(true)
             .setBufferDurationsMs(
                 15_000,   // Min: 15 seg
-                45_000,   // Max: 45 seg (Anti-Colapso RAM para TV Boxes)
+                45_000,   // Max: 45 seg (Anti-Colapso RAM)
                 1_500,    // Arranca casi al instante
                 3_000     // Si hay corte severo, junta 3s para arrancar
             )
@@ -326,16 +325,17 @@ fun PlayerScreen(
                 setMediaItem(MediaItem.fromUri(currentChannel.streamUrl))
                 prepare()
                 playWhenReady = true
+                // 🔥 AUTO-REANIMADOR SEGURO
+                addListener(object : androidx.media3.common.Player.Listener {
+                    override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                        try {
+                            seekToDefaultPosition()
+                            prepare()
+                            play()
+                        } catch (e: Exception) {}
+                    }
+                })
             }
-        val errorListener = object : androidx.media3.common.Player.Listener {
-            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                // Choque eléctrico al reproductor si la TV Box falla
-                player.seekToDefaultPosition()
-                player.prepare()
-                player.play()
-            }
-        }
-        player.addListener(errorListener)
     }
 
     LaunchedEffect(player, currentChannel.streamUrl, isVodContent) {
@@ -467,6 +467,16 @@ fun PlayerScreen(
         player.setMediaItem(MediaItem.fromUri(currentChannel.streamUrl))
         player.prepare()
         player.playWhenReady = true
+                // 🔥 AUTO-REANIMADOR SEGURO
+                addListener(object : androidx.media3.common.Player.Listener {
+                    override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                        try {
+                            seekToDefaultPosition()
+                            prepare()
+                            play()
+                        } catch (e: Exception) {}
+                    }
+                })
     }
 
     fun retryPlayback() {
@@ -960,6 +970,8 @@ fun PlayerScreen(
                 modifier = Modifier.fillMaxSize(),
                 factory = {
                     PlayerView(it).apply {
+                    // 🔥 MODO TRACTOR: Fuerza TextureView
+                    surfaceType = androidx.media3.ui.PlayerView.SURFACE_TYPE_TEXTURE_VIEW
                         keepScreenOn = true
                         useController = false
                         resizeMode = videoResizeMode.media3Mode
