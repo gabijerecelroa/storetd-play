@@ -337,25 +337,19 @@ fun PlayerScreen(
                 }
             })
 
-        // 🔥 MOTOR IPTV PROFESIONAL (ESTILO TELEVIZO) 🔥
-        // 1. EXTRACTORES TOLERANTES (Evita que la imagen se congele por errores de la antena)
-        val iptvExtractorsFactory = androidx.media3.extractor.DefaultExtractorsFactory()
-            .setTsExtractorFlags(
-                androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES or
-                androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS
-            )
-
-        // 2. CAMUFLAJE VLC (Atraviesa el Firewall de Xtream Codes para evitar el "Cargando..." eterno)
+        // 🔥 MOTOR IPTV DEFINITIVO 🔥
+        // 1. CAMUFLAJE VLC (Atraviesa el Firewall de Xtream Codes para evitar bloqueos y el "No hay datos")
         val iptvDataSourceFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
-            .setUserAgent("VLC/3.0.9 LibVLC/3.0.9") 
+            .setUserAgent("VLC/3.0.9 LibVLC/3.0.9")
             .setAllowCrossProtocolRedirects(true)
             .setConnectTimeoutMs(15000)
             .setReadTimeoutMs(15000)
 
-        val iptvMediaSourceFactory = androidx.media3.exoplayer.source.DefaultMediaSourceFactory(context, iptvExtractorsFactory)
+        // 2. EXTRACTORES PUROS (¡Extirpamos la bandera tóxica! Exige imagen limpia para curar la mancha verde)
+        val iptvMediaSourceFactory = androidx.media3.exoplayer.source.DefaultMediaSourceFactory(context)
             .setDataSourceFactory(iptvDataSourceFactory)
 
-        // 3. DECODIFICADOR INTELIGENTE (El secreto de tus fotos)
+        // 3. CEREBRO INTELIGENTE DE HARDWARE
         val uiManager = context.getSystemService(android.content.Context.UI_MODE_SERVICE) as android.app.UiModeManager
         val isTvBox = uiManager.currentModeType == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION || 
                       android.os.Build.MODEL.contains("Box", true) || android.os.Build.MODEL.contains("TV", true) ||
@@ -374,17 +368,15 @@ fun PlayerScreen(
                         .toMutableList()
 
                     if (isTvBox) {
-                        // 📺 TV: "Prefiero Software" (Exactamente igual que Televizo en tu foto)
-                        decoders.sortBy { if (it.hardwareAccelerated) 1 else 0 }
+                        decoders.sortBy { if (it.hardwareAccelerated) 1 else 0 } // TV -> Software
                     } else {
-                        // 📱 CELULAR: "Prefiero Hardware" (Máxima potencia gráfica para no trabarse)
-                        decoders.sortBy { if (it.hardwareAccelerated) 0 else 1 }
+                        decoders.sortBy { if (it.hardwareAccelerated) 0 else 1 } // Celular -> Hardware
                     }
                     return decoders
                 }
             })
 
-        // 4. BÚFER "NORMAL" (Igual que Televizo)
+        // 4. BÚFER NORMAL (15s a 30s de colchón para rapidez)
         val normalLoadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
             .setPrioritizeTimeOverSizeThresholds(true)
             .setBufferDurationsMs(15_000, 30_000, 1_500, 3_000)
