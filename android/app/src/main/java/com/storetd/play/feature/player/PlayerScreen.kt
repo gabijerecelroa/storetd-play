@@ -1,37 +1,5 @@
 package com.storetd.play.feature.player
 
-// 🔥 MUTADOR HLS ANDROID 🔥
-fun forceHlsUrl(context: android.content.Context, originalUrl: String): String {
-    var finalUrl = originalUrl
-    try {
-        if (!finalUrl.contains(".m3u8") && !finalUrl.contains("movie") && !finalUrl.contains("series")) {
-            val clean = finalUrl.substringBefore("?").replace(".ts", "")
-            val parts = clean.split("/")
-            if (parts.size >= 4 && !finalUrl.contains("magma-lite") && !finalUrl.contains("xtream-lite")) {
-                val id = parts.last()
-                val pass = parts[parts.size - 2]
-                val user = parts[parts.size - 3]
-                var base = parts.dropLast(3).joinToString("/")
-                if (base.endsWith("/live")) {
-                    base = base.substring(0, base.length - 5)
-                }
-                finalUrl = "$base/live/$user/$pass/$id.m3u8"
-            }
-        }
-    } catch (e: Exception) {}
-    
-    // 📡 RÁDAR LOG EN PANTALLA (Para auditoría del Administrador)
-    android.os.Handler(android.os.Looper.getMainLooper()).post {
-        try {
-            val showText = "📡 RÁDAR HLS: " + finalUrl.substringAfter("://").substringBefore("?")
-            android.widget.Toast.makeText(context, showText, android.widget.Toast.LENGTH_LONG).show()
-        } catch(e: Exception) {}
-    }
-    
-    return finalUrl
-}
-
-
 import android.content.res.Configuration
 import android.os.Build
 import android.view.View
@@ -1944,3 +1912,33 @@ private fun shouldAutoRetryForPlaybackError(error: PlaybackException): Boolean {
 }
 
 
+// 🔥 MUTADOR HLS ANDROID 🔥
+fun forceHlsUrl(context: android.content.Context, originalUrl: String): String {
+    var finalUrl = originalUrl
+    try {
+        if (!finalUrl.contains(".m3u8") && !finalUrl.contains("movie") && !finalUrl.contains("series")) {
+            val clean = finalUrl.substringBefore("?").replace(".ts", "")
+            val parts = clean.split("/")
+            if (parts.size >= 4 && !finalUrl.contains("magma-lite") && !finalUrl.contains("xtream-lite")) {
+                val id = parts.last()
+                val pass = parts[parts.size - 2]
+                val user = parts[parts.size - 3]
+                var base = parts.dropLast(3).joinToString("/")
+                if (base.endsWith("/live")) {
+                    base = base.substring(0, base.length - 5)
+                }
+                finalUrl = "$base/live/$user/$pass/$id.m3u8"
+            }
+        }
+    } catch (e: Exception) {}
+    
+    // 📡 RÁDAR LOG EN PANTALLA (Para auditoría del Administrador)
+    android.os.Handler(android.os.Looper.getMainLooper()).post {
+        try {
+            val showText = "📡 RÁDAR HLS: " + finalUrl.substringAfter("://").substringBefore("?")
+            android.widget.Toast.makeText(context, showText, android.widget.Toast.LENGTH_LONG).show()
+        } catch(e: Exception) {}
+    }
+    
+    return finalUrl
+}
