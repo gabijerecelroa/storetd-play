@@ -329,6 +329,21 @@ fun PlayerScreen(
                         .getDecoderInfos(mimeType, requireSecureDecoder, requireTunnelingDecoder)
                         .toMutableList()
 
+                    // 🔥 MODO TELEVIZO: Prioriza procesador de software (Cura pantalla verde y congelamientos)
+                    decoders.sortByDescending { it.name.startsWith("OMX.google.") || it.name.startsWith("c2.android.") || it.name.contains("sw", ignoreCase = true) }
+                    return decoders
+                }
+            })
+            .setMediaCodecSelector(object : androidx.media3.exoplayer.mediacodec.MediaCodecSelector {
+                override fun getDecoderInfos(
+                    mimeType: String,
+                    requireSecureDecoder: Boolean,
+                    requireTunnelingDecoder: Boolean
+                ): List<androidx.media3.exoplayer.mediacodec.MediaCodecInfo> {
+                    val decoders = androidx.media3.exoplayer.mediacodec.MediaCodecSelector.DEFAULT
+                        .getDecoderInfos(mimeType, requireSecureDecoder, requireTunnelingDecoder)
+                        .toMutableList()
+
                     // 🔥 MODO SEGURO PARA TV EN VIVO: Priorizar decodificadores por software (CPU)
                     // Evita pantallazos verdes y macroblocking en canales entrelazados (América, Telefe)
                     decoders.sortByDescending { it.name.startsWith("OMX.google.") || it.name.startsWith("c2.android.") || it.name.contains("sw", ignoreCase = true) }
@@ -348,7 +363,7 @@ fun PlayerScreen(
                     .setLiveConfiguration(
                         androidx.media3.common.MediaItem.LiveConfiguration.Builder()
                             .setMaxPlaybackSpeed(1.02f) // Acelera imperceptiblemente si se atrasa mucho para evitar cortes
-                            .setTargetOffsetMs(10000)   // Escudo anti-cortes de 10 segundos de reserva
+                            .setTargetOffsetMs(10000L)   // Escudo anti-cortes de 10 segundos de reserva
                             .build()
                     )
                     .build())
@@ -488,7 +503,7 @@ fun PlayerScreen(
                     .setLiveConfiguration(
                         androidx.media3.common.MediaItem.LiveConfiguration.Builder()
                             .setMaxPlaybackSpeed(1.02f) // Acelera imperceptiblemente si se atrasa mucho para evitar cortes
-                            .setTargetOffsetMs(10000)   // Escudo anti-cortes de 10 segundos de reserva
+                            .setTargetOffsetMs(10000L)   // Escudo anti-cortes de 10 segundos de reserva
                             .build()
                     )
                     .build())
@@ -987,18 +1002,7 @@ fun PlayerScreen(
                 modifier = Modifier.fillMaxSize(),
                 factory = {
                     PlayerView(it).apply {
-                    // 🧠 DETECTOR INTELIGENTE DE HARDWARE GRÁFICO
-                    val uiManager = context.getSystemService(android.content.Context.UI_MODE_SERVICE) as android.app.UiModeManager
-                    val isTvBox = uiManager.currentModeType == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION || 
-                                  android.os.Build.MODEL.contains("Box", true) || 
-                                  android.os.Build.BRAND.contains("Dinax", true) ||
-                                  android.os.Build.MANUFACTURER.contains("Rockchip", true)
-
-                    surfaceType = if (isTvBox) {
-                        androidx.media3.ui.PlayerView.SURFACE_TYPE_TEXTURE_VIEW // Modo Tractor para Dinax
-                    } else {
-                        androidx.media3.ui.PlayerView.SURFACE_TYPE_SURFACE_VIEW // Modo Nativo Rápido para Celulares
-                    }
+                    /* PANTALLA LIMPIA: Error de Google evitado */
                         keepScreenOn = true
                         useController = false
                         resizeMode = videoResizeMode.media3Mode
