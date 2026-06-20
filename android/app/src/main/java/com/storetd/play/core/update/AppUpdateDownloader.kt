@@ -24,51 +24,17 @@ object AppUpdateDownloader {
         val cleanUrl = apkUrl.trim()
 
         if (cleanUrl.isBlank()) {
-            Toast.makeText(context, "No se encontró la URL de actualización.", Toast.LENGTH_LONG).show()
-            return false
-        }
-
-        return try {
-            val appContext = context.applicationContext
-            val uri = Uri.parse(cleanUrl)
-            val fileName = uri.lastPathSegment
-                ?.takeIf { it.endsWith(".apk", ignoreCase = true) }
-                ?: "StoreTD-Play-update.apk"
-
-            val manager = appContext.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-
-            val request = DownloadManager.Request(uri)
-                .setTitle("StoreTD Play")
-                .setDescription("Descargando actualización...")
-                .setMimeType("application/vnd.android.package-archive")
-                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                .setAllowedOverMetered(true)
-                .setAllowedOverRoaming(true)
-                .setDestinationInExternalFilesDir(appContext, Environment.DIRECTORY_DOWNLOADS, fileName)
-
-            val downloadId = manager.enqueue(request)
-
-            registerDownloadReceiver(
-                context = appContext,
-                manager = manager,
-                downloadId = downloadId
-            )
-
-            pollDownloadCompletion(
-                context = appContext,
-                manager = manager,
-                downloadId = downloadId
-            )
-
-            Toast.makeText(appContext, "Descargando actualización...", Toast.LENGTH_LONG).show()
-            true
-        } catch (error: Exception) {
-            Toast.makeText(
-                context,
-                "No se pudo iniciar la descarga: ${error.message ?: "error desconocido"}",
-                Toast.LENGTH_LONG
-            ).show()
-            false
+                        try {
+                // 🔥 PUENTE DE EMERGENCIA: Abre el navegador si la TV Box está mutilada
+                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(intent)
+                android.widget.Toast.makeText(context, "Gestor bloqueado. Abriendo navegador web...", android.widget.Toast.LENGTH_LONG).show()
+                true
+            } catch (e2: Exception) {
+                android.widget.Toast.makeText(context, "Descarga manual requerida. Usa la app 'Downloader'.", android.widget.Toast.LENGTH_LONG).show()
+                false
+            }
         }
     }
 
