@@ -83,16 +83,16 @@ fun HomeScreen(
                 val mCats = OptimizedContentApi.loadMovieCategoriesLite(code)
                 if (mCats.isNotEmpty()) {
                     val estCat = mCats.find { it.title.contains("estreno", true) || it.title.contains("nuevo", true) || it.title.contains("202", true) } ?: mCats.firstOrNull()
-                    if (estCat != null) estrenos = OptimizedContentApi.loadMovieCategoryItems(code, estCat.key).filter { !it.logoUrl.isNullOrBlank() && it.logoUrl != "-" }.take(20)
+                    if (estCat != null) estrenos = OptimizedContentApi.loadMovieCategoryItems(code, estCat.key).filter { !it.logoUrl.isNullOrBlank() && it.logoUrl != "-" }.shuffled().take(20)
 
                     val popCat = mCats.find { it.title.contains("popular", true) || it.title.contains("top", true) || it.title.contains("vista", true) } ?: mCats.getOrNull(1) ?: mCats.firstOrNull()
-                    if (popCat != null && popCat.key != estCat?.key) peliculasVistas = OptimizedContentApi.loadMovieCategoryItems(code, popCat.key).filter { !it.logoUrl.isNullOrBlank() && it.logoUrl != "-" }.take(20)
+                    if (popCat != null && popCat.key != estCat?.key) peliculasVistas = OptimizedContentApi.loadMovieCategoryItems(code, popCat.key).filter { !it.logoUrl.isNullOrBlank() && it.logoUrl != "-" }.shuffled().take(20)
                 }
 
                 // 2. CARGAMOS LAS SERIES RECOMENDADAS
                 val sCats = OptimizedContentApi.loadSeriesFoldersAsChannels(code)
                 if (sCats.isNotEmpty()) {
-                    seriesDestacadas = sCats.filter { !it.logoUrl.isNullOrBlank() && it.logoUrl != "-" }.take(20)
+                    seriesDestacadas = sCats.shuffled().take(20)
                 }
 
             } catch(e: Exception) { e.printStackTrace() } finally { isLoading = false }
