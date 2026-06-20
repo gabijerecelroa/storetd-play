@@ -349,32 +349,10 @@ fun PlayerScreen(
         val iptvMediaSourceFactory = androidx.media3.exoplayer.source.DefaultMediaSourceFactory(context)
             .setDataSourceFactory(iptvDataSourceFactory)
 
-        // 3. CEREBRO INTELIGENTE DE HARDWARE
-        val uiManager = context.getSystemService(android.content.Context.UI_MODE_SERVICE) as android.app.UiModeManager
-        val isTvBox = uiManager.currentModeType == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION || 
-                      android.os.Build.MODEL.contains("Box", true) || android.os.Build.MODEL.contains("TV", true) ||
-                      android.os.Build.BRAND.contains("Dinax", true)
-
+        // 3. HARDWARE PURO PARA TODOS (Cura de Congelamiento en TV)
+        // Liberamos a la TV Box para que use su Tarjeta Gráfica (GPU) igual que el celular.
         val smartRenderersFactory = androidx.media3.exoplayer.DefaultRenderersFactory(context)
             .setEnableDecoderFallback(true)
-            .setMediaCodecSelector(object : androidx.media3.exoplayer.mediacodec.MediaCodecSelector {
-                override fun getDecoderInfos(
-                    mimeType: String,
-                    requireSecureDecoder: Boolean,
-                    requireTunnelingDecoder: Boolean
-                ): List<androidx.media3.exoplayer.mediacodec.MediaCodecInfo> {
-                    val decoders = androidx.media3.exoplayer.mediacodec.MediaCodecSelector.DEFAULT
-                        .getDecoderInfos(mimeType, requireSecureDecoder, requireTunnelingDecoder)
-                        .toMutableList()
-
-                    if (isTvBox) {
-                        decoders.sortBy { if (it.hardwareAccelerated) 1 else 0 } // TV -> Software
-                    } else {
-                        decoders.sortBy { if (it.hardwareAccelerated) 0 else 1 } // Celular -> Hardware
-                    }
-                    return decoders
-                }
-            })
 
         // 4. BÚFER NORMAL (15s a 30s de colchón para rapidez)
         val normalLoadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
