@@ -280,6 +280,12 @@ fun MovieCard(name: String, logoUrl: String?, onFocused: () -> Unit, onClick: ()
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (isFocused) 1.08f else 1f, label = "scale")
 
+    val finalLogo = if (logoUrl.isNullOrBlank() || logoUrl == "-" || logoUrl.lowercase().contains("default")) {
+        "http://82.39.109.213:5000/api/tmdb/poster?title=${android.net.Uri.encode(name)}"
+    } else {
+        logoUrl
+    }
+
     Box(
         modifier = Modifier
             .width(140.dp)
@@ -295,14 +301,40 @@ fun MovieCard(name: String, logoUrl: String?, onFocused: () -> Unit, onClick: ()
             }
             .clickable { onClick() }
     ) {
-        if (!logoUrl.isNullOrBlank() && logoUrl != "-") {
-            AsyncImage(model = ImageRequest.Builder(LocalContext.current).data(logoUrl).crossfade(true).build(), contentDescription = name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-        } else {
-            Box(modifier = Modifier.fillMaxSize().padding(8.dp), contentAlignment = Alignment.Center) {
-                Text(name, color = Color.White, fontSize = 13.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
-            }
+        coil.compose.AsyncImage(
+            model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                .data(finalLogo)
+                .crossfade(true)
+                .build(),
+            contentDescription = name,
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // Degradado y Texto Netflix
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(androidx.compose.ui.Alignment.BottomCenter)
+                .background(
+                    androidx.compose.ui.graphics.Brush.verticalGradient(
+                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f), Color.Black)
+                    )
+                )
+                .padding(horizontal = 4.dp, vertical = 6.dp)
+        ) {
+            Text(
+                text = name ?: "",
+                color = Color.White,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+                lineHeight = 14.sp
+            )
         }
-        if (isFocused) Box(modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha=0.15f)))
     }
 }
 
@@ -311,10 +343,16 @@ fun LandscapeCard(name: String, logoUrl: String?, onFocused: () -> Unit, onClick
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (isFocused) 1.08f else 1f, label = "scale")
 
+    val finalLogo = if (logoUrl.isNullOrBlank() || logoUrl == "-" || logoUrl.lowercase().contains("default")) {
+        "http://82.39.109.213:5000/api/tmdb/poster?title=${android.net.Uri.encode(name)}"
+    } else {
+        logoUrl
+    }
+
     Box(
         modifier = Modifier
-            .width(240.dp)
-            .height(135.dp) // Diseño 16:9 perfecto para logos de TV
+            .width(220.dp)
+            .height(124.dp)
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .zIndex(if (isFocused) 1f else 0f)
             .clip(RoundedCornerShape(10.dp))
@@ -326,21 +364,38 @@ fun LandscapeCard(name: String, logoUrl: String?, onFocused: () -> Unit, onClick
             }
             .clickable { onClick() }
     ) {
-        if (!logoUrl.isNullOrBlank() && logoUrl != "-") {
-            // Capa 1: Fondo difuminado para rellenar los bordes negros
-            AsyncImage(model = ImageRequest.Builder(LocalContext.current).data(logoUrl).crossfade(true).build(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().blur(12.dp).alpha(0.4f))
-            // Capa 2: Logo original con ContentScale.Fit para que no se recorte nada
-            AsyncImage(model = ImageRequest.Builder(LocalContext.current).data(logoUrl).crossfade(true).build(), contentDescription = name, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().padding(bottom = 36.dp, top = 8.dp, start = 8.dp, end = 8.dp))
-        } else {
-            Box(modifier = Modifier.fillMaxSize().padding(8.dp), contentAlignment = Alignment.Center) {
-                Text(name, color = Color.White, fontSize = 14.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
-            }
-        }
-        
-        // Degradado inferior para proteger la visibilidad del título
-        Box(modifier = Modifier.fillMaxWidth().height(36.dp).align(Alignment.BottomCenter).background(Color(0xFF09090B).copy(alpha = 0.95f)))
-        Text(text = name, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp, start = 8.dp, end = 8.dp))
+        coil.compose.AsyncImage(
+            model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                .data(finalLogo)
+                .crossfade(true)
+                .build(),
+            contentDescription = name,
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
 
-        if (isFocused) Box(modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha=0.15f)))
+        // Degradado y Texto Netflix
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(androidx.compose.ui.Alignment.BottomCenter)
+                .background(
+                    androidx.compose.ui.graphics.Brush.verticalGradient(
+                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f), Color.Black)
+                    )
+                )
+                .padding(horizontal = 4.dp, vertical = 6.dp)
+        ) {
+            Text(
+                text = name ?: "",
+                color = Color.White,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
