@@ -1,4 +1,8 @@
-package com.storetd.play.ui.components
+import os
+
+path = "/root/storetd-play/android/app/src/main/java/com/storetd/play/ui/components/PremiumSideMenu.kt"
+
+new_content = """package com.storetd.play.ui.components
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -94,3 +98,11 @@ fun MenuButton(icon: String, title: String, isSelected: Boolean, isExpanded: Boo
         }
     }
 }
+"""
+
+if os.path.exists(path):
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(new_content)
+    print("✅ ¡Adiós Casita Roja! Menú lateral StreamVault inyectado con éxito.")
+else:
+    print("⚠️ No se encontró PremiumSideMenu.kt")
