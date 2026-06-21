@@ -1336,97 +1336,21 @@ private fun PremiumHeroPanel(
 }
 
 @Composable
-private fun PremiumSectionHeader(
-    mode: ContentMode,
-    refreshMessage: String? = null,
-    isLoading: Boolean = false
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = Color(0xFF07111B),
-        shape = RoundedCornerShape(34.dp),
-        border = BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
-        ),
-        shadowElevation = 8.dp
+private fun PremiumSectionHeader(mode: ContentMode, refreshMessage: String? = null, isLoading: Boolean = false) {
+    androidx.compose.foundation.layout.Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, top = 32.dp, bottom = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 26.dp, vertical = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(22.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                modifier = Modifier.size(58.dp),
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.22f),
-                shape = RoundedCornerShape(20.dp),
-                border = BorderStroke(
-                    1.dp,
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
-                )
-            ) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = when (mode) {
-                            ContentMode.LiveTv -> "TV"
-                            ContentMode.Movies -> "🎬"
-                            ContentMode.Series -> "S"
-                        },
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                }
-            }
-
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(5.dp)
-            ) {
-                Text(
-                    text = mode.title,
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.ExtraBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                Text(
-                    text = when (mode) {
-                        ContentMode.LiveTv -> "Canales en vivo con navegación optimizada para TV"
-                        ContentMode.Movies -> "Explorá películas por carpetas con una vista más inmersiva"
-                        ContentMode.Series -> "Series, temporadas y capítulos con selector optimizado"
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                refreshMessage?.let { message ->
-                    Text(
-                        text = message,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1
-                    )
-                }
-            }
-
-            if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(28.dp),
-                    strokeWidth = 3.dp
-                )
-            }
+        androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            val title = when (mode) { ContentMode.LiveTv -> "TV en vivo"; ContentMode.Movies -> "Películas"; ContentMode.Series -> "Series" }
+            androidx.compose.material3.Text(text = title, color = androidx.compose.ui.graphics.Color.White, fontSize = 32.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+            if (isLoading) { androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(20.dp), color = androidx.compose.ui.graphics.Color.White, strokeWidth = 2.dp) }
         }
     }
 }
+
+
 
 
 @Composable
@@ -1553,46 +1477,33 @@ Surface(
 }
 
 @Composable
-private fun CategoryRow(
-    groups: List<String>,
-    selectedGroup: String,
-    onSelectGroup: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
+private fun CategoryRow(groups: List<String>, selectedGroup: String, onSelectGroup: (String) -> Unit, modifier: Modifier = Modifier) {
     val visibleGroups = groups.filter { it.isNotBlank() }.distinct()
     if (visibleGroups.isEmpty()) return
-
-    androidx.compose.foundation.lazy.LazyRow(
-        modifier = modifier.fillMaxWidth().padding(bottom = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp)
-    ) {
+    androidx.compose.foundation.lazy.LazyRow(modifier = modifier.fillMaxWidth().padding(bottom = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 24.dp)) {
         items(items = visibleGroups, key = { it.hashCode() }, contentType = { "category_item" }) { group ->
-            var focused by remember(group, selectedGroup) { mutableStateOf(false) }
+            var focused by androidx.compose.runtime.remember(group, selectedGroup) { androidx.compose.runtime.mutableStateOf(false) }
             val active = group == selectedGroup || focused
-            val scale by animateFloatAsState(if (focused) 1.05f else 1f, label = "scale")
-
-            Box(
-                modifier = Modifier
-                    .height(48.dp)
-                    .graphicsLayer { scaleX = scale; scaleY = scale }
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(if (active) Color(0xFF69A8FF) else Color(0xFF0B1724))
-                    .border(2.dp, if (focused) Color.White else Color.Transparent, RoundedCornerShape(8.dp))
-                    .onFocusChanged { focused = it.isFocused || it.hasFocus }
-                    .clickable { onSelectGroup(group) },
-                contentAlignment = Alignment.Center
+            val scale by androidx.compose.animation.core.animateFloatAsState(if (focused) 1.05f else 1f, label = "scale")
+            
+            val bgColor = if (active) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color(0xFF162338).copy(alpha=0.6f)
+            val textColor = if (active) androidx.compose.ui.graphics.Color.Black else androidx.compose.ui.graphics.Color(0xFFBBC6D8)
+            
+            androidx.compose.material3.Surface(
+                modifier = Modifier.height(38.dp).graphicsLayer { scaleX = scale; scaleY = scale }.onFocusChanged { focused = it.isFocused || it.hasFocus }.clickable { onSelectGroup(group) },
+                color = bgColor,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(50),
+                border = if (!active) androidx.compose.foundation.BorderStroke(1.dp, androidx.compose.ui.graphics.Color(0x264C6D95)) else null
             ) {
-                Text(
-                    text = group,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 20.dp)
-                )
+                androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 18.dp)) {
+                    androidx.compose.material3.Text(text = group, color = textColor, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, fontSize = 14.sp)
+                }
             }
         }
     }
 }
+
+
 
 
 @Composable
