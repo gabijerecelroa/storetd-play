@@ -1338,7 +1338,7 @@ private fun PremiumHeroPanel(
 @Composable
 private fun PremiumSectionHeader(mode: ContentMode, refreshMessage: String? = null, isLoading: Boolean = false) {
     androidx.compose.foundation.layout.Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, top = 32.dp, bottom = 12.dp),
+        modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 32.dp, bottom = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
