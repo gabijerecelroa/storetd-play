@@ -1,5 +1,12 @@
 package com.storetd.play.feature.player
 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.horizontalScroll
+
+
 import android.content.res.Configuration
 import android.os.Build
 import android.view.View
