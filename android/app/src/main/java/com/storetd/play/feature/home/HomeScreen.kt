@@ -242,7 +242,7 @@ fun QuickButton(text: String, onFocused: () -> Unit, onClick: () -> Unit) {
 @Composable
 fun <T> AppCategoryRow(title: String, items: List<T>, keySelector: (T) -> Any, itemContent: @Composable (T) -> Unit) {
     Column(modifier = Modifier.padding(top = 16.dp, bottom = 16.dp)) {
-        Text(text = title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 48.dp, bottom = 16.dp))
+        Text(text = title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 48.dp, end = 48.dp, bottom = 16.dp))
         LazyRow(contentPadding = PaddingValues(horizontal = 48.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             items(items.size, key = { index -> keySelector(items[index]) }) { index ->
                 itemContent(items[index])
