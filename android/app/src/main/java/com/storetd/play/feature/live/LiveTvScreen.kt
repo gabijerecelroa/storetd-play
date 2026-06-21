@@ -1343,7 +1343,8 @@ private fun PremiumSectionHeader(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.16f),
+        color = Color(0xFF07111B),
+        shape = RoundedCornerShape(0.dp),
         shape = RoundedCornerShape(34.dp),
         border = BorderStroke(
             1.dp,
@@ -1443,7 +1444,7 @@ private fun ContentControls(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.52f),
+        color = Color(0xFF223754).copy(alpha = 0.52f),
         shape = RoundedCornerShape(28.dp),
         border = BorderStroke(
             1.dp,
@@ -1577,7 +1578,7 @@ private fun CategoryRow(
                     .height(48.dp)
                     .graphicsLayer { scaleX = scale; scaleY = scale }
                     .clip(RoundedCornerShape(8.dp))
-                    .background(if (active) Color(0xFFE50914) else Color(0xFF27272A).copy(alpha = 0.8f))
+                    .background(if (active) Color(0xFF69A8FF) else Color(0xFF0B1724))
                     .border(2.dp, if (focused) Color.White else Color.Transparent, RoundedCornerShape(8.dp))
                     .onFocusChanged { focused = it.isFocused || it.hasFocus }
                     .clickable { onSelectGroup(group) },
@@ -1644,7 +1645,7 @@ private fun TvCategoryChip(
         } else if (selected) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
         } else {
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.78f)
+            Color(0xFF162338).copy(alpha = 0.78f)
         },
         shape = shape,
         border = BorderStroke(
@@ -1739,7 +1740,7 @@ private fun LazySearchHeader(
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.48f),
+        color = Color(0xFF162338),
         shape = RoundedCornerShape(26.dp),
         border = BorderStroke(
             1.dp,
@@ -1787,7 +1788,7 @@ private fun LazySearchHeader(
                     color = if (showSearch) {
                         MaterialTheme.colorScheme.primary
                     } else {
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.78f)
+                        Color(0xFF162338).copy(alpha = 0.78f)
                     },
                     shape = RoundedCornerShape(999.dp),
                     border = BorderStroke(
@@ -1891,7 +1892,7 @@ private fun MovieCategoryLiteRow(
                 color = if (active) {
                     MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)
                 } else {
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.60f)
+                    Color(0xFF162338).copy(alpha = 0.60f)
                 },
                 shape = RoundedCornerShape(22.dp),
                 border = BorderStroke(
@@ -1936,7 +1937,7 @@ private fun MovieCategoryLiteRow(
                 color = if (active) {
                     MaterialTheme.colorScheme.primary
                 } else {
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)
+                    Color(0xFF162338).copy(alpha = 0.72f)
                 },
                 shape = RoundedCornerShape(999.dp)
             ) {
@@ -1964,7 +1965,7 @@ private fun MovieCategoryHeader(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.58f),
+        color = Color(0xFF223754).copy(alpha = 0.58f),
         shape = RoundedCornerShape(28.dp),
         border = BorderStroke(
             1.dp,
@@ -2140,7 +2141,7 @@ private fun SeriesSourceGroupRow(
                 color = if (isFocused) {
                     MaterialTheme.colorScheme.primary
                 } else {
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)
+                    Color(0xFF162338).copy(alpha = 0.72f)
                 },
                 shape = RoundedCornerShape(999.dp)
             ) {
@@ -2344,7 +2345,7 @@ private fun SeriesFolderLiteRow(
                 color = if (isFocused) {
                     MaterialTheme.colorScheme.primary
                 } else {
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)
+                    Color(0xFF162338).copy(alpha = 0.72f)
                 },
                 shape = RoundedCornerShape(999.dp)
             ) {
@@ -2500,7 +2501,7 @@ private fun SeriesFolderRow(
             containerColor = if (focused) {
                 MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
             } else {
-                MaterialTheme.colorScheme.surfaceVariant
+                Color(0xFF162338)
             }
         ),
         elevation = CardDefaults.cardElevation(
@@ -2753,7 +2754,7 @@ private fun ChannelRow(
                 color = if (active) {
                     androidx.compose.ui.graphics.Color.White.copy(alpha = 0.15f)
                 } else {
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.58f)
+                    Color(0xFF162338).copy(alpha = 0.58f)
                 },
                 shape = RoundedCornerShape(26.dp),
                 border = BorderStroke(
@@ -2804,7 +2805,7 @@ private fun ChannelRow(
                         color = if (active) {
                             MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
                         } else {
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.64f)
+                            Color(0xFF162338).copy(alpha = 0.64f)
                         },
                         shape = RoundedCornerShape(999.dp)
                     ) {
@@ -2848,7 +2849,7 @@ private fun ChannelRow(
                 color = if (active) {
                     MaterialTheme.colorScheme.primary
                 } else {
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.74f)
+                    Color(0xFF162338).copy(alpha = 0.74f)
                 },
                 shape = RoundedCornerShape(999.dp)
             ) {
@@ -3385,7 +3386,7 @@ fun NetflixCategoryCard(title: String, onClick: () -> Unit) {
             .zIndex(if (isFocused) 1f else 0f)
             .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
             .border(3.dp, if (isFocused) Color.White else Color.Transparent, androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
-            .background(if (isFocused) Color(0xFFE50914) else Color(0xFF27272A))
+            .background(if (isFocused) Color(0xFF69A8FF) else Color(0xFF27272A))
             .onFocusChanged { 
                 isFocused = it.isFocused || it.hasFocus
                 if (isFocused) LiveTvBgState.currentBgUrl = null
