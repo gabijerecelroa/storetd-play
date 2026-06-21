@@ -12,6 +12,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.focus.onFocusChanged
+
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
@@ -191,7 +195,7 @@ fun VodDetailScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = info?.releaseDate?.take(4) ?: "2024",
+                    text = "HD",
                     color = Color(0xFFBBC6D8), // TextSecondary
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium
