@@ -1344,7 +1344,6 @@ private fun PremiumSectionHeader(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = Color(0xFF07111B),
-        shape = RoundedCornerShape(0.dp),
         shape = RoundedCornerShape(34.dp),
         border = BorderStroke(
             1.dp,
