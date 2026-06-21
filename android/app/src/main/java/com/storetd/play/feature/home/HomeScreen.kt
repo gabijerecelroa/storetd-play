@@ -309,7 +309,6 @@ fun AppPosterCard(imageUrl: String?, title: String, subtitle: String?, isLandsca
         }
     }
 }
-}
 
 @Composable
 fun CarouselSection(title: String, items: List<Channel>, onFocused: (Channel) -> Unit, onClick: (Channel) -> Unit) {
