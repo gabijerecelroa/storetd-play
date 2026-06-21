@@ -1,145 +1,22 @@
-package com.storetd.play.feature.vod
+import re
+import os
 
-import android.net.Uri
+path = "/root/storetd-play/android/app/src/main/java/com/storetd/play/feature/vod/VodDetailScreen.kt"
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
-import com.storetd.play.core.api.TmdbRepository
-import com.storetd.play.core.api.TmdbResult
-import com.storetd.play.core.network.OptimizedContentApi
-import com.storetd.play.core.storage.LocalAccount
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.util.Locale
+if os.path.exists(path):
+    with open(path, "r", encoding="utf-8") as f:
+        content = f.read()
 
-private fun isMagmaMovieUrl(url: String): Boolean {
-    return url.contains("/magma-lite/movie/", ignoreCase = true)
-}
+    # Buscamos el punto exacto donde termina tu lógica de backend para no romper nada
+    marker = "// MAGMA_FRESH_SOURCE_SELECTOR_END\n    }"
+    idx = content.find(marker)
 
-private fun extractMagmaMovieStreamId(url: String): String? {
-    return Regex("/magma-lite/movie/([0-9]+)\\.m3u8", RegexOption.IGNORE_CASE)
-        .find(url)
-        ?.groupValues
-        ?.getOrNull(1)
-}
+    if idx != -1:
+        # Mantenemos todo el archivo hasta este punto exacto
+        new_content = content[:idx + len(marker)]
 
-private fun extractUrlQueryParam(url: String, key: String): String {
-    return runCatching {
-        Uri.parse(url).getQueryParameter(key).orEmpty()
-    }.getOrDefault("")
-}
-
-
-@Composable
-fun VodDetailScreen(
-    channelName: String,
-    streamUrl: String,
-    groupName: String,
-    logoUrl: String?,
-    onPlay: (String) -> Unit,
-    onBack: () -> Unit
-) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-
-    var info by remember { mutableStateOf<TmdbResult?>(null) }
-    var isLoading by remember { mutableStateOf(true) }
-    var isLoadingSources by remember { mutableStateOf(false) }
-    var showSourceDialog by remember { mutableStateOf(false) }
-    var sourceMessage by remember { mutableStateOf<String?>(null) }
-    var movieSources by remember { mutableStateOf<List<OptimizedContentApi.MovieSourceLite>>(emptyList()) }
-    val sourceDialogScrollState = rememberScrollState()
-
-    val focusRequester = remember { FocusRequester() }
-    val isSeries = groupName.contains("serie", ignoreCase = true) || groupName.contains("temporada", ignoreCase = true)
-    
-    // Detectamos si es Celular (Vertical) o TV (Horizontal)
-    val configuration = LocalConfiguration.current
-    val isLandscape = configuration.screenWidthDp > configuration.screenHeightDp
-
-    LaunchedEffect(channelName) {
-        info = TmdbRepository().searchContent(channelName, isSeries)
-        isLoading = false
-        delay(100)
-        try { focusRequester.requestFocus() } catch (e: Exception) {}
-    }
-
-    val isMagmaMovie = remember(streamUrl) { isMagmaMovieUrl(streamUrl) }
-    val magmaMovieStreamId = remember(streamUrl) { extractMagmaMovieStreamId(streamUrl) }
-    val playButtonText = when {
-        isLoadingSources -> "Cargando fuentes..."
-        isMagmaMovie -> "▶ Reproducir"
-        else -> "▶ Reproducir"
-    }
-
-    fun handlePlayRequest() {
-        if (!isMagmaMovie) {
-            onPlay(streamUrl)
-            return
-        }
-
-        val streamId = magmaMovieStreamId
-
-        if (streamId.isNullOrBlank()) {
-            onPlay(streamUrl)
-            return
-        }
-
-        // MAGMA_FRESH_SOURCE_SELECTOR_START
-        isLoadingSources = true
-        showSourceDialog = false // OCULTAMOS EL MENÚ PARA HACERLO SILENCIOSO
-
-        scope.launch {
-            val account = LocalAccount.getAccount(context)
-            val activationCode = account.activationCode.trim()
-
-            val loadedSources = withContext(Dispatchers.IO) {
-                emptyList<Nothing>() /* OptimizedContentApi.loadMagmaMovieSources(
-                    activationCode = activationCode,
-                    streamId = streamId,
-                    kind = extractUrlQueryParam(streamUrl, "kind"),
-                    seriesId = extractUrlQueryParam(streamUrl, "seriesId"),
-                    season = extractUrlQueryParam(streamUrl, "season"),
-                    episode = extractUrlQueryParam(streamUrl, "episode")
-                ) */
-            }
-
-            if (true) {
-                // 🔥 EL TOQUE MAESTRO: AUTO-PLAY INMEDIATO
-                onPlay(streamUrl)
-            } else {
-                // Solo mostramos error si no hay enlaces
-                sourceMessage = "Esta película no está disponible en este momento. Probá otra opción."
-                showSourceDialog = true 
-            }
-
-            isLoadingSources = false
-        }
-        // MAGMA_FRESH_SOURCE_SELECTOR_END
-    }
+        # Inyectamos el diseño idéntico a StreamVault
+        new_ui = """
 
     Box(
         modifier = Modifier
@@ -293,3 +170,13 @@ fun VodDetailScreen(
         }
     }
 }
+"""
+        new_content += new_ui
+
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(new_content)
+        print("✅ Pantalla de detalles de StreamVault inyectada correctamente.")
+    else:
+        print("⚠️ No se encontró el marcador del backend. Revisa el archivo.")
+else:
+    print("⚠️ No se encontró VodDetailScreen.kt")
