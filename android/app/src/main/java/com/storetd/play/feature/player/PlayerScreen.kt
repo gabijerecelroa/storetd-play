@@ -1,5 +1,6 @@
 package com.storetd.play.feature.player
 
+import androidx.compose.ui.unit.sp
 import android.content.res.Configuration
 import android.os.Build
 import android.view.View
