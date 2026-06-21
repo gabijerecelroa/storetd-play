@@ -131,10 +131,10 @@ fun HomeScreen(
         ))
 
         if (isLoading && history.isEmpty() && estrenos.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color(0xFFE50914)) }
+            Box(modifier = Modifier.fillMaxSize().background(Color(0xFF07111B)), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color(0xFFE50914)) }
         } else {
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().background(Color(0xFF07111B)),
                 contentPadding = PaddingValues(top = 42.dp, bottom = 60.dp)
             ) {
                 item {
@@ -219,8 +219,8 @@ fun HomeScreen(
 @Composable
 fun TopBarItem(text: String, icon: String, isSelected: Boolean = false, onFocused: () -> Unit, onClick: () -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
-    val bgColor = if (isFocused || isSelected) Color(0xFF2563EB) else Color.Transparent // Azul StreamVault
-    val contentColor = if (isFocused || isSelected) Color.White else Color(0xFF94A3B8) // Gris claro elegante
+    val bgColor = if (isFocused || isSelected) Color(0xFF69A8FF) else Color.Transparent // Azul StreamVault
+    val contentColor = if (isFocused || isSelected) Color.White else Color(0xFFBBC6D8) // Gris claro elegante
 
     Row(
         modifier = Modifier
@@ -273,13 +273,13 @@ fun AppPosterCard(imageUrl: String?, title: String, subtitle: String?, isLandsca
                 .fillMaxWidth()
                 .aspectRatio(if (isLandscape) 16f/9f else 2f/3f)
                 .clip(RoundedCornerShape(8.dp))
-                .border(if (isFocused) 3.dp else 1.dp, if (isFocused) Color(0xFF3B82F6) else Color.White.copy(alpha=0.1f), RoundedCornerShape(8.dp))
-                .background(Color(0xFF0F172A)) // El azul oscuro elegante de StreamVault
+                .border(if (isFocused) 3.dp else 1.dp, if (isFocused) Color(0xFF69A8FF) else Color.White.copy(alpha=0.1f), RoundedCornerShape(8.dp))
+                .background(Color(0xFF162338)) // El azul oscuro elegante de StreamVault
         ) {
             AsyncImage(
                 model = coil.request.ImageRequest.Builder(LocalContext.current).data(imageUrl).crossfade(true).build(),
                 contentDescription = title,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().background(Color(0xFF07111B)),
                 contentScale = ContentScale.Crop
             )
             
@@ -294,7 +294,7 @@ fun AppPosterCard(imageUrl: String?, title: String, subtitle: String?, isLandsca
                         .align(Alignment.TopStart)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("★", fontSize = 10.sp, color = Color(0xFFFACC15)) // Estrella amarilla
+                        Text("★", fontSize = 10.sp, color = Color(0xFFFFC766)) // Estrella amarilla
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("8.5/10", fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
                     }
@@ -302,9 +302,9 @@ fun AppPosterCard(imageUrl: String?, title: String, subtitle: String?, isLandsca
             }
         }
         Column(modifier = Modifier.padding(horizontal = 4.dp)) {
-            Text(text = title, color = if (isFocused) Color.White else Color(0xFF94A3B8), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(text = title, color = if (isFocused) Color.White else Color(0xFFBBC6D8), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (subtitle != null) {
-                Text(text = subtitle, color = Color(0xFF64748B), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(text = subtitle, color = Color(0xFF7F8DA5), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
