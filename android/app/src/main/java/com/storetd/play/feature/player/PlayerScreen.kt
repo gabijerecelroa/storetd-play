@@ -1,4 +1,4 @@
-package com.storetd.play.feature.player\nimport androidx.compose.ui.unit.sp\nimport androidx.compose.ui.graphics.Brush\nimport androidx.compose.ui.graphics.Color
+package com.storetd.play.feature.player
 
 import android.content.res.Configuration
 import android.os.Build
@@ -1409,10 +1409,10 @@ private fun ErrorActionButton(
 
 @Composable
 private fun PlayerCenterControl(selected: Boolean, isPlaying: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val bgColor = if (selected) Color(0xFF69A8FF) else Color(0xFF07111B).copy(alpha = 0.75f)
-    val textColor = if (selected) Color(0xFF07111B) else Color.White
-    Surface(modifier = modifier.clickable { onClick() }, color = bgColor, shape = RoundedCornerShape(50), border = BorderStroke(2.dp, if (selected) Color.White else Color.Transparent)) {
-        Text(text = if (isPlaying) "⏸ Pausa" else "▶ Reproducir", color = textColor, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(horizontal = 32.dp, vertical = 14.dp))
+    val bgColor = if (selected) androidx.compose.ui.graphics.Color(0xFF69A8FF) else androidx.compose.ui.graphics.Color(0xFF07111B).copy(alpha = 0.75f)
+    val textColor = if (selected) androidx.compose.ui.graphics.Color(0xFF07111B) else androidx.compose.ui.graphics.Color.White
+    Surface(modifier = modifier.clickable { onClick() }, color = bgColor, shape = androidx.compose.foundation.shape.RoundedCornerShape(50), border = androidx.compose.foundation.BorderStroke(2.dp, if (selected) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color.Transparent)) {
+        androidx.compose.material3.Text(text = if (isPlaying) "⏸ Pausa" else "▶ Reproducir", color = textColor, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(horizontal = 32.dp, vertical = 14.dp))
     }
 }
 
@@ -1493,7 +1493,7 @@ private fun PlayerBottomOverlay(
     onBack: () -> Unit
 ) {
     BoxWithConstraints(
-        modifier = Modifier.fillMaxWidth().background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color(0xFF07111B).copy(alpha = 0.95f))))
+        modifier = Modifier.fillMaxWidth().background(androidx.compose.ui.graphics.Brush.verticalGradient(colors = listOf(androidx.compose.ui.graphics.Color.Transparent, androidx.compose.ui.graphics.Color(0xFF07111B).copy(alpha = 0.95f))))
             .padding(horizontal = 12.dp, vertical = if (isLandscape) 8.dp else 10.dp)
     ) {
         val compact = !isLandscape || maxWidth < 780.dp
@@ -1596,10 +1596,10 @@ private fun PlayerBottomOverlay(
 
 @Composable
 private fun PlayerControlChip(label: String, selected: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
-    val bgColor = if (selected) Color(0xFF69A8FF) else Color(0xFF162338).copy(alpha = 0.8f)
-    val textColor = if (selected) Color(0xFF07111B) else Color(0xFFBBC6D8)
-    Surface(color = if (enabled) bgColor else Color.Transparent, shape = RoundedCornerShape(50), border = BorderStroke(1.dp, if (selected) Color.Transparent else Color(0x264C6D95)), modifier = Modifier.clickable(enabled = enabled) { onClick() }) {
-        Text(text = label, color = textColor, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp))
+    val bgColor = if (selected) androidx.compose.ui.graphics.Color(0xFF69A8FF) else androidx.compose.ui.graphics.Color(0xFF162338).copy(alpha = 0.8f)
+    val textColor = if (selected) androidx.compose.ui.graphics.Color(0xFF07111B) else androidx.compose.ui.graphics.Color(0xFFBBC6D8)
+    Surface(color = if (enabled) bgColor else androidx.compose.ui.graphics.Color.Transparent, shape = androidx.compose.foundation.shape.RoundedCornerShape(50), border = androidx.compose.foundation.BorderStroke(1.dp, if (selected) androidx.compose.ui.graphics.Color.Transparent else androidx.compose.ui.graphics.Color(0x264C6D95)), modifier = Modifier.clickable(enabled = enabled) { onClick() }) {
+        androidx.compose.material3.Text(text = label, color = textColor, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp))
     }
 }
 
@@ -1610,12 +1610,12 @@ private fun PlayerControlChip(label: String, selected: Boolean, enabled: Boolean
 private fun PlayerProgressBar(currentPositionMs: Long, durationMs: Long) {
     val progress = (currentPositionMs.toFloat() / durationMs.coerceAtLeast(1L).toFloat()).coerceIn(0f, 1f)
     Column(modifier = Modifier.fillMaxWidth()) {
-        Box(modifier = Modifier.fillMaxWidth().height(4.dp).background(Color(0xFF223754), RoundedCornerShape(50))) {
-            Box(modifier = Modifier.fillMaxWidth(progress).height(4.dp).background(Color(0xFF69A8FF), RoundedCornerShape(50)))
+        Box(modifier = Modifier.fillMaxWidth().height(4.dp).background(androidx.compose.ui.graphics.Color(0xFF223754), androidx.compose.foundation.shape.RoundedCornerShape(50))) {
+            Box(modifier = Modifier.fillMaxWidth(progress).height(4.dp).background(androidx.compose.ui.graphics.Color(0xFF69A8FF), androidx.compose.foundation.shape.RoundedCornerShape(50)))
         }
         Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(formatPlaybackTime(currentPositionMs), color = Color(0xFFBBC6D8), fontSize = 12.sp)
-            Text(formatPlaybackTime(durationMs), color = Color(0xFFBBC6D8), fontSize = 12.sp)
+            androidx.compose.material3.Text(formatPlaybackTime(currentPositionMs), color = androidx.compose.ui.graphics.Color(0xFFBBC6D8), fontSize = 12.sp)
+            androidx.compose.material3.Text(formatPlaybackTime(durationMs), color = androidx.compose.ui.graphics.Color(0xFFBBC6D8), fontSize = 12.sp)
         }
     }
 }
@@ -1712,8 +1712,8 @@ private fun formatPlayerEpgTime(value: Long): String {
 
 @Composable
 private fun PlayerPortraitBackButton(onBack: () -> Unit, modifier: Modifier = Modifier) {
-    Surface(modifier = modifier.clickable { onBack() }.padding(16.dp), color = Color(0xFF162338).copy(alpha = 0.9f), shape = RoundedCornerShape(50), border = BorderStroke(1.dp, Color(0x264C6D95))) {
-        Text("⬅ Volver", color = Color.White, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp))
+    Surface(modifier = modifier.clickable { onBack() }.padding(16.dp), color = androidx.compose.ui.graphics.Color(0xFF162338).copy(alpha = 0.9f), shape = androidx.compose.foundation.shape.RoundedCornerShape(50), border = androidx.compose.foundation.BorderStroke(1.dp, androidx.compose.ui.graphics.Color(0x264C6D95))) {
+        androidx.compose.material3.Text("⬅ Volver", color = androidx.compose.ui.graphics.Color.White, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp))
     }
 }
 
