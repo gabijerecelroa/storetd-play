@@ -1408,84 +1408,13 @@ private fun ErrorActionButton(
 }
 
 @Composable
-private fun PlayerCenterControl(
-    selected: Boolean,
-    isPlaying: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val shape = RoundedCornerShape(999.dp)
-
-    Surface(
-        modifier = modifier
-            .border(
-                width = if (selected) 4.dp else 1.dp,
-                color = if (selected) {
-                    MaterialTheme.colorScheme.onPrimary
-                } else {
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.50f)
-                },
-                shape = shape
-            )
-            .clickable { onClick() },
-        color = if (selected) {
-            MaterialTheme.colorScheme.primary
-        } else {
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.82f)
-        },
-        shape = shape,
-        shadowElevation = if (selected) 14.dp else 6.dp
-    ) {
-        Text(
-            text = if (isPlaying) "Pausa" else "Play",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onPrimary,
-            modifier = Modifier.padding(horizontal = 30.dp, vertical = 14.dp)
-        )
+private fun PlayerCenterControl(selected: Boolean, isPlaying: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val bgColor = if (selected) Color(0xFF69A8FF) else Color(0xFF07111B).copy(alpha = 0.75f)
+    val textColor = if (selected) Color(0xFF07111B) else Color.White
+    Surface(modifier = modifier.clickable { onClick() }, color = bgColor, shape = RoundedCornerShape(50), border = BorderStroke(2.dp, if (selected) Color.White else Color.Transparent)) {
+        Text(text = if (isPlaying) "⏸ Pausa" else "▶ Reproducir", color = textColor, fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(horizontal = 32.dp, vertical = 14.dp))
     }
-}
-
-@Composable
-private fun ReportDialog(
-    isSending: Boolean,
-    onDismiss: () -> Unit,
-    onSend: (String) -> Unit
-) {
-    val options = listOf(
-        "No reproduce",
-        "Se corta",
-        "Sin audio",
-        "Sin video",
-        "Canal incorrecto",
-        "Baja calidad",
-        "Audio desfasado",
-        "Subtitulos incorrectos",
-        "Otro problema"
-    )
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Reportar canal") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Selecciona el problema detectado.")
-
-                options.forEach { option ->
-                    OutlinedButton(
-                        onClick = { onSend(option) },
-                        enabled = !isSending,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(option)
-                    }
-                }
-
-                if (isSending) {
-                    Text("Enviando reporte...")
-                }
-            }
-        },
+},
         confirmButton = {},
         dismissButton = {
             TextButton(
@@ -1500,231 +1429,34 @@ private fun ReportDialog(
 
 @Composable
 private fun PlayerBottomOverlay(
-    channel: SavedChannel,
-    isFavorite: Boolean,
-    canPrevious: Boolean,
-    canNext: Boolean,
-    resizeModeLabel: String,
-    currentProgram: EpgProgram?,
-    nextProgram: EpgProgram?,
-    isLandscape: Boolean,
-    isVodContent: Boolean,
-    currentPositionMs: Long,
-    durationMs: Long,
-    selectedControlIndex: Int,
-    onPrevious: () -> Unit,
-    onNext: () -> Unit,
-    onFavorite: () -> Unit,
-    onReport: () -> Unit,
-    onRetry: () -> Unit,
-    onChangeResizeMode: () -> Unit,
-    onBack: () -> Unit
+    channel: SavedChannel, isFavorite: Boolean, canPrevious: Boolean, canNext: Boolean, resizeModeLabel: String, currentProgram: EpgProgram?, nextProgram: EpgProgram?, isLandscape: Boolean, isVodContent: Boolean, currentPositionMs: Long, durationMs: Long, selectedControlIndex: Int, onPrevious: () -> Unit, onNext: () -> Unit, onFavorite: () -> Unit, onReport: () -> Unit, onRetry: () -> Unit, onChangeResizeMode: () -> Unit, onBack: () -> Unit
 ) {
-    BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = if (isLandscape) 8.dp else 10.dp)
-    ) {
-        val compact = !isLandscape || maxWidth < 780.dp
-
-        if (compact) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = channel.name,
-                    style = MaterialTheme.typography.titleSmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                Text(
-                    text = "${channel.group} · Vista: $resizeModeLabel",
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                if (isVodContent && durationMs > 0L) {
-                    PlayerProgressBar(
-                        currentPositionMs = currentPositionMs,
-                        durationMs = durationMs
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                }
-
-                PlayerEpgInfo(
-                    currentProgram = currentProgram,
-                    nextProgram = nextProgram
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    PlayerControlChip(if (isVodContent) "-10s" else "Ant.", selectedControlIndex == 1, if (isVodContent) currentPositionMs > 1000L else canPrevious, onPrevious)
-                    PlayerControlChip(if (isVodContent) "+30s" else "Sig.", selectedControlIndex == 2, if (isVodContent) durationMs <= 0L || currentPositionMs < durationMs - 1000L else canNext, onNext)
-                    PlayerControlChip("Vista", selectedControlIndex == 3, true, onChangeResizeMode)
-                    PlayerControlChip(if (isFavorite) "Quitar" else "Fav.", selectedControlIndex == 4, true, onFavorite)
-                    PlayerControlChip("Reportar", selectedControlIndex == 5, true, onReport)
-                    PlayerControlChip("Reint.", selectedControlIndex == 6, true, onRetry)
-                    PlayerControlChip("Volver", selectedControlIndex == 7, true, onBack)
-                }
+    Box(modifier = Modifier.fillMaxWidth().background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color(0xFF07111B).copy(alpha = 0.95f)))).padding(horizontal = if (isLandscape) 48.dp else 16.dp, vertical = 24.dp)) {
+        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column {
+                Text(text = channel.name, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Text(text = "${channel.group} • $resizeModeLabel", color = Color(0xFFBBC6D8), fontSize = 14.sp)
+                PlayerEpgInfo(currentProgram, nextProgram)
             }
-        } else {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = channel.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    Text(
-                        text = "${channel.group} · Vista: $resizeModeLabel",
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    if (isVodContent && durationMs > 0L) {
-                    PlayerProgressBar(
-                        currentPositionMs = currentPositionMs,
-                        durationMs = durationMs
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                }
-
-                PlayerEpgInfo(
-                        currentProgram = currentProgram,
-                        nextProgram = nextProgram
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    PlayerControlChip(if (isVodContent) "-10s" else "Ant.", selectedControlIndex == 1, if (isVodContent) currentPositionMs > 1000L else canPrevious, onPrevious)
-                    PlayerControlChip(if (isVodContent) "+30s" else "Sig.", selectedControlIndex == 2, if (isVodContent) durationMs <= 0L || currentPositionMs < durationMs - 1000L else canNext, onNext)
-                    PlayerControlChip("Vista", selectedControlIndex == 3, true, onChangeResizeMode)
-                    PlayerControlChip(if (isFavorite) "Quitar" else "Fav.", selectedControlIndex == 4, true, onFavorite)
-                    PlayerControlChip("Reportar", selectedControlIndex == 5, true, onReport)
-                    PlayerControlChip("Reint.", selectedControlIndex == 6, true, onRetry)
-                    PlayerControlChip("Volver", selectedControlIndex == 7, true, onBack)
-                }
+            if (isVodContent) { PlayerProgressBar(currentPositionMs, durationMs) }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                PlayerControlChip("⏮ Ant", selectedControlIndex == 0, canPrevious, onPrevious)
+                PlayerControlChip(if (isFavorite) "❤️ Quitar" else "🤍 Fav", selectedControlIndex == 1, true, onFavorite)
+                PlayerControlChip("⚠️ Rep", selectedControlIndex == 2, true, onReport)
+                PlayerControlChip("Sig ⏭", selectedControlIndex == 3, canNext, onNext)
+                PlayerControlChip("⛶ Ajustar", selectedControlIndex == 4, true, onChangeResizeMode)
             }
         }
     }
 }
-
-@Composable
-private fun PlayerControlChip(
-    label: String,
-    selected: Boolean,
-    enabled: Boolean = true,
-    onClick: () -> Unit
-) {
-    val shape = RoundedCornerShape(999.dp)
-
-    Surface(
-        modifier = Modifier
-            .border(
-                width = if (selected) 4.dp else 1.dp,
-                color = if (selected) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f)
-                },
-                shape = shape
-            )
-            .clickable(enabled = enabled) { onClick() },
-        color = when {
-            !enabled -> MaterialTheme.colorScheme.surface.copy(alpha = 0.42f)
-            selected -> MaterialTheme.colorScheme.primary
-            else -> MaterialTheme.colorScheme.surface.copy(alpha = 0.78f)
-        },
-        shape = shape,
-        shadowElevation = if (selected) 12.dp else 3.dp,
-        border = BorderStroke(
-            1.dp,
-            if (selected) {
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.70f)
-            } else {
-                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-            }
-        )
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-            color = if (selected) {
-                MaterialTheme.colorScheme.onPrimary
-            } else {
-                MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else 0.45f)
-            },
-            modifier = Modifier.padding(horizontal = 22.dp, vertical = 12.dp),
-            maxLines = 1
-        )
-    }
 }
 
-
 @Composable
-private fun PlayerProgressBar(
-    currentPositionMs: Long,
-    durationMs: Long
-) {
-    val safeDuration = durationMs.coerceAtLeast(1L)
-    val progress = (currentPositionMs.toFloat() / safeDuration.toFloat()).coerceIn(0f, 1f)
-    val shape = RoundedCornerShape(999.dp)
-
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(7.dp)
-                .background(
-                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f),
-                    shape
-                )
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(progress)
-                    .height(7.dp)
-                    .background(
-                        MaterialTheme.colorScheme.primary,
-                        shape
-                    )
-            )
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = formatPlaybackTime(currentPositionMs),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.82f)
-            )
-
-            Text(
-                text = formatPlaybackTime(durationMs),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.82f)
-            )
-        }
+private fun PlayerControlChip(label: String, selected: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
+    val bgColor = if (selected) Color(0xFF69A8FF) else Color(0xFF162338).copy(alpha = 0.8f)
+    val textColor = if (selected) Color(0xFF07111B) else Color(0xFFBBC6D8)
+    Surface(color = if (enabled) bgColor else Color.Transparent, shape = RoundedCornerShape(50), border = BorderStroke(1.dp, if (selected) Color.Transparent else Color(0x264C6D95)), modifier = Modifier.clickable(enabled = enabled) { onClick() }) {
+        Text(text = label, color = textColor, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp))
     }
 }
 
@@ -1817,27 +1549,9 @@ private fun formatPlayerEpgTime(value: Long): String {
 
 
 @Composable
-private fun PlayerPortraitBackButton(
-    onBack: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier.clickable { onBack() },
-        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.96f),
-        shape = RoundedCornerShape(999.dp),
-        border = BorderStroke(
-            2.dp,
-            MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f)
-        ),
-        shadowElevation = 10.dp
-    ) {
-        Text(
-            text = "Volver",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onPrimary,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 22.dp, vertical = 12.dp)
-        )
+private fun PlayerPortraitBackButton(onBack: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(modifier = modifier.clickable { onBack() }.padding(16.dp), color = Color(0xFF162338).copy(alpha = 0.9f), shape = RoundedCornerShape(50), border = BorderStroke(1.dp, Color(0x264C6D95))) {
+        Text("⬅ Volver", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp))
     }
 }
 
