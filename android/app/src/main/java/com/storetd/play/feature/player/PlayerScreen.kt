@@ -1449,7 +1449,6 @@ private fun PlayerBottomOverlay(
         }
     }
 }
-}
 
 @Composable
 private fun PlayerControlChip(label: String, selected: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
@@ -1554,7 +1553,6 @@ private fun PlayerPortraitBackButton(onBack: () -> Unit, modifier: Modifier = Mo
         Text("⬅ Volver", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp))
     }
 }
-
 
 private fun friendlyPlaybackErrorMessage(error: PlaybackException): String {
     val raw = listOfNotNull(
