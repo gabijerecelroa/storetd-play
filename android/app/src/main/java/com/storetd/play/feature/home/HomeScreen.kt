@@ -44,6 +44,10 @@ import com.storetd.play.core.storage.LocalAccount
 import com.storetd.play.core.storage.LocalLibrary
 import com.storetd.play.core.storage.SavedChannel
 
+import com.storetd.play.ui.streamvault.components.CategoryRow
+import com.storetd.play.ui.streamvault.components.PosterCard
+
+
 @Composable
 fun HomeScreen(
     onOpenLiveTv: () -> Unit,
@@ -239,163 +243,52 @@ fun QuickButton(text: String, onFocused: () -> Unit, onClick: () -> Unit) {
 
 @Composable
 fun CarouselSection(title: String, items: List<Channel>, onFocused: (Channel) -> Unit, onClick: (Channel) -> Unit) {
-    Column(modifier = Modifier.padding(top = 12.dp, bottom = 16.dp)) {
-        Text(title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 48.dp))
-        Spacer(modifier = Modifier.height(16.dp))
-        LazyRow(contentPadding = PaddingValues(horizontal = 48.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            // EL SECRETO PARA ELIMINAR EL TEMBLOR: key = { it.id }
-            items(items, key = { it.id }) { item -> 
-                MovieCard(item.name, item.logoUrl, onFocused = { onFocused(item) }) { onClick(item) } 
-            }
+    CategoryRow(
+        title = title,
+        items = items,
+        keySelector = { it.id }, // 🔥 Mantenemos tu sistema anti-temblores
+        modifier = Modifier.padding(top = 12.dp, bottom = 16.dp)
+    ) { item ->
+        val finalLogo = if (item.logoUrl.isNullOrBlank() || item.logoUrl == "-" || item.logoUrl.lowercase().contains("default")) {
+            "http://82.39.109.213:5000/api/tmdb/poster?title=${android.net.Uri.encode(item.name)}"
+        } else {
+            item.logoUrl
         }
+        
+        // 🔥 La tarjeta de lujo de StreamVault
+        PosterCard(
+            imageUrl = finalLogo,
+            title = item.name,
+            subtitle = null,
+            modifier = Modifier
+                .width(140.dp)
+                .onFocusChanged { if (it.isFocused || it.hasFocus) onFocused(item) }
+                .clickable { onClick(item) }
+        )
     }
 }
 
 @Composable
 fun CarouselSectionSaved(title: String, items: List<SavedChannel>, onFocused: (SavedChannel) -> Unit, onClick: (SavedChannel) -> Unit) {
-    Column(modifier = Modifier.padding(top = 12.dp, bottom = 16.dp)) {
-        Text(title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 48.dp))
-        Spacer(modifier = Modifier.height(16.dp))
-        LazyRow(contentPadding = PaddingValues(horizontal = 48.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            // EL SECRETO PARA ELIMINAR EL TEMBLOR: key = { it.id }
-            items(items, key = { it.id }) { item -> 
-                val url = item.streamUrl.lowercase()
-                val group = (item.group ?: "").lowercase()
-                
-                // Inteligencia de formato: Si detecta que es TV, muestra un rectangulo horizontal 16:9
-                val isLiveTv = url.contains("/live/") || url.contains("m3uts") || url.contains("tvclub") || group.contains("tv") || group.contains("vivo")
-                
-                if (isLiveTv) {
-                    LandscapeCard(item.name, item.logoUrl, onFocused = { onFocused(item) }) { onClick(item) } 
-                } else {
-                    MovieCard(item.name, item.logoUrl, onFocused = { onFocused(item) }) { onClick(item) } 
-                }
-            }
-        }
-    }
-}
+    CategoryRow(
+        title = title,
+        items = items,
+        keySelector = { it.id },
+        modifier = Modifier.padding(top = 12.dp, bottom = 16.dp)
+    ) { item ->
+        val url = item.streamUrl.lowercase()
+        val group = (item.group ?: "").lowercase()
+        val isLiveTv = url.contains("/live/") || url.contains("m3uts") || url.contains("tvclub") || group.contains("tv") || group.contains("vivo")
 
-@Composable
-fun MovieCard(name: String, logoUrl: String?, onFocused: () -> Unit, onClick: () -> Unit) {
-    var isFocused by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (isFocused) 1.08f else 1f, label = "scale")
-
-    val finalLogo = if (logoUrl.isNullOrBlank() || logoUrl == "-" || logoUrl.lowercase().contains("default")) {
-        "http://82.39.109.213:5000/api/tmdb/poster?title=${android.net.Uri.encode(name)}"
-    } else {
-        logoUrl
-    }
-
-    Box(
-        modifier = Modifier
-            .width(140.dp)
-            .height(210.dp)
-            .graphicsLayer { scaleX = scale; scaleY = scale }
-            .zIndex(if (isFocused) 1f else 0f)
-            .clip(RoundedCornerShape(10.dp))
-            .border(3.dp, if (isFocused) Color.White else Color.Transparent, RoundedCornerShape(10.dp))
-            .background(Color(0xFF18181B))
-            .onFocusChanged {
-                isFocused = it.isFocused || it.hasFocus
-                if (isFocused) onFocused()
-            }
-            .clickable { onClick() }
-    ) {
-        coil.compose.AsyncImage(
-            model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
-                .data(finalLogo)
-                .crossfade(true)
-                .build(),
-            contentDescription = name,
-            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
-        )
-
-        // Degradado y Texto Netflix
-        Box(
+        // 🔥 Inteligencia de formato: Poster normal vs Paisaje (16:9)
+        PosterCard(
+            imageUrl = item.logoUrl,
+            title = item.name,
+            subtitle = if (isLiveTv) "TV en Vivo" else null,
             modifier = Modifier
-                .fillMaxWidth()
-                .align(androidx.compose.ui.Alignment.BottomCenter)
-                .background(
-                    androidx.compose.ui.graphics.Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f), Color.Black)
-                    )
-                )
-                .padding(horizontal = 4.dp, vertical = 6.dp)
-        ) {
-            Text(
-                text = name ?: "",
-                color = Color.White,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 2,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-                lineHeight = 14.sp
-            )
-        }
-    }
-}
-
-@Composable
-fun LandscapeCard(name: String, logoUrl: String?, onFocused: () -> Unit, onClick: () -> Unit) {
-    var isFocused by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (isFocused) 1.08f else 1f, label = "scale")
-
-    val finalLogo = if (logoUrl.isNullOrBlank() || logoUrl == "-" || logoUrl.lowercase().contains("default")) {
-        "http://82.39.109.213:5000/api/tmdb/poster?title=${android.net.Uri.encode(name)}"
-    } else {
-        logoUrl
-    }
-
-    Box(
-        modifier = Modifier
-            .width(220.dp)
-            .height(124.dp)
-            .graphicsLayer { scaleX = scale; scaleY = scale }
-            .zIndex(if (isFocused) 1f else 0f)
-            .clip(RoundedCornerShape(10.dp))
-            .border(3.dp, if (isFocused) Color.White else Color.Transparent, RoundedCornerShape(10.dp))
-            .background(Color(0xFF18181B))
-            .onFocusChanged {
-                isFocused = it.isFocused || it.hasFocus
-                if (isFocused) onFocused()
-            }
-            .clickable { onClick() }
-    ) {
-        coil.compose.AsyncImage(
-            model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
-                .data(finalLogo)
-                .crossfade(true)
-                .build(),
-            contentDescription = name,
-            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
+                .width(if (isLiveTv) 240.dp else 140.dp)
+                .onFocusChanged { if (it.isFocused || it.hasFocus) onFocused(item) }
+                .clickable { onClick(item) }
         )
-
-        // Degradado y Texto Netflix
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(androidx.compose.ui.Alignment.BottomCenter)
-                .background(
-                    androidx.compose.ui.graphics.Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f), Color.Black)
-                    )
-                )
-                .padding(horizontal = 4.dp, vertical = 6.dp)
-        ) {
-            Text(
-                text = name ?: "",
-                color = Color.White,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
     }
 }

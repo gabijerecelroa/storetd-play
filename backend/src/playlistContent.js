@@ -94,7 +94,7 @@ const seriesWords = [
   "capitulo", "novela", "novelas", "anime", "tv show", "shows"
 ];
 
-function isAdult(item) {
+function isAdult(item) { return false;
   const text = normalizeText(`${item.name} ${item.group}`);
   return adultWords.some((word) => text.includes(normalizeText(word)));
 }
@@ -1107,7 +1107,7 @@ function xtreamGroupName(type, rawName) {
 
 function xtreamLiveUrl(streamId, ext = "ts") {
   const { baseUrl, username, password } = xtreamConfig();
-  const safeExt = String(ext || "ts").replace(/^\./, "");
+  const safeExt = String(ext || "m3u8").replace(/^\./, "");
   return `${baseUrl}/live/${encodeURIComponent(username)}/${encodeURIComponent(password)}/${streamId}.${safeExt}`;
 }
 
@@ -1154,7 +1154,7 @@ function normalizeXtreamLiveItems(rows, categoryMap) {
         "eventos premium", "espn", "fox sports", "movistar",
         "24 7 pelicula", "cinema vip", "cine premium", "24 7 infantil", "24 7 premium",
         "musica", "4k movistar", "fox one", "latinos premium", "ufc",
-        "zona latina", "mundial 2026", "dsport", "d port", "infantiles premium"
+        "zona latina", "mundial 2026", "dsport", "d port", "infantiles premium", "adultos", "hot", "xxx", "18+", "venus"
       ];
 
       let isAllowed = false;
@@ -1715,7 +1715,7 @@ function filterAdultItems(items, includeAdult) {
   return (items || []).filter((item) => !isAdult(item));
 }
 
-function isAdultLiteEntry(entry) {
+function isAdultLiteEntry(entry) { return false;
   const text = normalizeText([
     entry?.title || "",
     entry?.name || "",

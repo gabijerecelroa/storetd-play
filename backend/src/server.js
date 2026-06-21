@@ -36,6 +36,18 @@ const {
 } = require("./playlistContent");
 
 const app = express();
+
+
+
+// 🔥 BOMBA DE CACHÉ GLOBAL (ACTUALIZACIÓN FORZADA) 🔥
+app.use((req, res, next) => {
+    if(req.query) {
+        req.query.autoRefresh = '1'; // Obliga al servidor a dar la lista nueva
+        req.query.force = 'true';
+    }
+    next();
+});
+
 const compression = require('compression');
 app.use(compression());
 
