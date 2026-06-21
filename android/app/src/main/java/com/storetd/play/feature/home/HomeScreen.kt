@@ -177,10 +177,14 @@ fun HomeScreen(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 48.dp, vertical = 24.dp).horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        QuickButton("📺 TV en Vivo", onFocused = { heroTitle = "TV en Vivo"; heroSubtitle = "Mirá los canales en directo"; currentBgUrl = null }) { onOpenLiveTv() }
-                        QuickButton("🎬 Películas", onFocused = { heroTitle = "Películas"; heroSubtitle = "Explorá todo nuestro catálogo"; currentBgUrl = null }) { onOpenMovies() }
-                        QuickButton("🍿 Series", onFocused = { heroTitle = "Series"; heroSubtitle = "Tus temporadas favoritas"; currentBgUrl = null }) { onOpenSeries() }
-                        QuickButton("❤️ Favoritos", onFocused = { heroTitle = "Favoritos"; heroSubtitle = "Tu contenido guardado"; currentBgUrl = null }) { onOpenFavorites() }
+                        TopBarItem("Inicio", "🏠", isSelected = true, onFocused = { heroTitle = "Inicio"; heroSubtitle = "Panel Principal"; currentBgUrl = null }) { }
+                        TopBarItem("TV en vivo", "▶", onFocused = { heroTitle = "TV en Vivo"; heroSubtitle = "Canales en directo"; currentBgUrl = null }) { onOpenLiveTv() }
+                        TopBarItem("Películas", "★", onFocused = { heroTitle = "Películas"; heroSubtitle = "Explorá todo nuestro catálogo"; currentBgUrl = null }) { onOpenMovies() }
+                        TopBarItem("Serie", "≡", onFocused = { heroTitle = "Series"; heroSubtitle = "Tus temporadas favoritas"; currentBgUrl = null }) { onOpenSeries() }
+                        TopBarItem("Downloads", "↓", onFocused = { heroTitle = "Descargas"; heroSubtitle = "Contenido sin conexión"; currentBgUrl = null }) { }
+                        TopBarItem("Guía", "ℹ", onFocused = { heroTitle = "Guía"; heroSubtitle = "Programación de TV"; currentBgUrl = null }) { onOpenEpg() }
+                        TopBarItem("Buscar", "🔍", onFocused = { heroTitle = "Buscar"; heroSubtitle = "Encuentra contenido"; currentBgUrl = null }) { }
+                        TopBarItem("Favoritos", "❤️", onFocused = { heroTitle = "Favoritos"; heroSubtitle = "Tu lista guardada"; currentBgUrl = null }) { onOpenFavorites() }
                     }
                 }
 
@@ -213,29 +217,26 @@ fun HomeScreen(
 }
 
 @Composable
-fun QuickButton(text: String, onFocused: () -> Unit, onClick: () -> Unit) {
+fun TopBarItem(text: String, icon: String, isSelected: Boolean = false, onFocused: () -> Unit, onClick: () -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (isFocused) 1.05f else 1f, label = "scale")
+    val bgColor = if (isFocused || isSelected) Color(0xFF2563EB) else Color.Transparent // Azul StreamVault
+    val contentColor = if (isFocused || isSelected) Color.White else Color(0xFF94A3B8) // Gris claro elegante
 
-    val bgColor = if (isFocused) Color.White else Color(0xFF27272A).copy(alpha = 0.8f)
-    val textColor = if (isFocused) Color.Black else Color.White
-
-    Box(
+    Row(
         modifier = Modifier
-            .width(160.dp)
-            .height(55.dp)
-            .graphicsLayer { scaleX = scale; scaleY = scale }
-            .clip(RoundedCornerShape(8.dp))
-            .border(3.dp, if (isFocused) Color.White else Color.Transparent, RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(50)) // Borde 100% circular (Píldora)
             .background(bgColor)
             .onFocusChanged {
                 isFocused = it.isFocused || it.hasFocus
                 if (isFocused) onFocused()
             }
-            .clickable { onClick() },
-        contentAlignment = Alignment.Center
+            .clickable { onClick() }
+            .padding(horizontal = 18.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text(text, color = textColor, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+        Text(icon, color = contentColor, fontSize = 16.sp)
+        Text(text, color = contentColor, fontSize = 15.sp, fontWeight = FontWeight.Bold)
     }
 }
 
