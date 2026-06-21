@@ -271,9 +271,9 @@ fun AppPosterCard(imageUrl: String?, title: String, subtitle: String?, isLandsca
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(if (isLandscape) 16f/9f else 2f/3f)
-                .clip(RoundedCornerShape(12.dp))
-                .border(3.dp, if (isFocused) Color.White else Color.Transparent, RoundedCornerShape(12.dp))
-                .background(Color(0xFF1E1E1E))
+                .clip(RoundedCornerShape(8.dp))
+                .border(if (isFocused) 3.dp else 1.dp, if (isFocused) Color(0xFF3B82F6) else Color.White.copy(alpha=0.1f), RoundedCornerShape(8.dp))
+                .background(Color(0xFF0F172A)) // El azul oscuro elegante de StreamVault
         ) {
             AsyncImage(
                 model = coil.request.ImageRequest.Builder(LocalContext.current).data(imageUrl).crossfade(true).build(),
@@ -281,14 +281,33 @@ fun AppPosterCard(imageUrl: String?, title: String, subtitle: String?, isLandsca
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
+            
+            // 🔥 LA INSIGNIA ESTILO STREAMVAULT (Arriba a la izquierda)
+            if (!isLandscape) {
+                Box(
+                    modifier = Modifier
+                        .padding(6.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color.Black.copy(alpha = 0.7f))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                        .align(Alignment.TopStart)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("★", fontSize = 10.sp, color = Color(0xFFFACC15)) // Estrella amarilla
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("8.5/10", fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
         }
         Column(modifier = Modifier.padding(horizontal = 4.dp)) {
-            Text(text = title, color = if (isFocused) Color.White else Color.LightGray, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(text = title, color = if (isFocused) Color.White else Color(0xFF94A3B8), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (subtitle != null) {
-                Text(text = subtitle, color = Color.Gray, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(text = subtitle, color = Color(0xFF64748B), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
+}
 }
 
 @Composable
