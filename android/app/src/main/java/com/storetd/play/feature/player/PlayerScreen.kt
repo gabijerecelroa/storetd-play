@@ -1414,7 +1414,50 @@ private fun PlayerCenterControl(selected: Boolean, isPlaying: Boolean, onClick: 
     Surface(modifier = modifier.clickable { onClick() }, color = bgColor, shape = RoundedCornerShape(50), border = BorderStroke(2.dp, if (selected) Color.White else Color.Transparent)) {
         Text(text = if (isPlaying) "⏸ Pausa" else "▶ Reproducir", color = textColor, fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(horizontal = 32.dp, vertical = 14.dp))
     }
-},
+}
+
+
+
+@Composable
+private fun ReportDialog(
+    isSending: Boolean,
+    onDismiss: () -> Unit,
+    onSend: (String) -> Unit
+) {
+    val options = listOf(
+        "No reproduce",
+        "Se corta",
+        "Sin audio",
+        "Sin video",
+        "Canal incorrecto",
+        "Baja calidad",
+        "Audio desfasado",
+        "Subtitulos incorrectos",
+        "Otro problema"
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Reportar canal") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Selecciona el problema detectado.")
+
+                options.forEach { option ->
+                    OutlinedButton(
+                        onClick = { onSend(option) },
+                        enabled = !isSending,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(option)
+                    }
+                }
+
+                if (isSending) {
+                    Text("Enviando reporte...")
+                }
+            }
+        },
         confirmButton = {},
         dismissButton = {
             TextButton(
@@ -1428,9 +1471,7 @@ private fun PlayerCenterControl(selected: Boolean, isPlaying: Boolean, onClick: 
 }
 
 @Composable
-private fun PlayerBottomOverlay(
-    channel: SavedChannel, isFavorite: Boolean, canPrevious: Boolean, canNext: Boolean, resizeModeLabel: String, currentProgram: EpgProgram?, nextProgram: EpgProgram?, isLandscape: Boolean, isVodContent: Boolean, currentPositionMs: Long, durationMs: Long, selectedControlIndex: Int, onPrevious: () -> Unit, onNext: () -> Unit, onFavorite: () -> Unit, onReport: () -> Unit, onRetry: () -> Unit, onChangeResizeMode: () -> Unit, onBack: () -> Unit
-) {
+private fun PlayerBottomOverlay(channel: SavedChannel, isFavorite: Boolean, canPrevious: Boolean, canNext: Boolean, resizeModeLabel: String, currentProgram: EpgProgram?, nextProgram: EpgProgram?, isLandscape: Boolean, isVodContent: Boolean, currentPositionMs: Long, durationMs: Long, selectedControlIndex: Int, onPrevious: () -> Unit, onNext: () -> Unit, onFavorite: () -> Unit, onReport: () -> Unit, onRetry: () -> Unit, onChangeResizeMode: () -> Unit, onBack: () -> Unit) {
     Box(modifier = Modifier.fillMaxWidth().background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color(0xFF07111B).copy(alpha = 0.95f)))).padding(horizontal = if (isLandscape) 48.dp else 16.dp, vertical = 24.dp)) {
         Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Column {
@@ -1450,6 +1491,8 @@ private fun PlayerBottomOverlay(
     }
 }
 
+
+
 @Composable
 private fun PlayerControlChip(label: String, selected: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
     val bgColor = if (selected) Color(0xFF69A8FF) else Color(0xFF162338).copy(alpha = 0.8f)
@@ -1458,6 +1501,25 @@ private fun PlayerControlChip(label: String, selected: Boolean, enabled: Boolean
         Text(text = label, color = textColor, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp))
     }
 }
+
+
+
+
+@Composable
+private fun PlayerProgressBar(currentPositionMs: Long, durationMs: Long) {
+    val progress = (currentPositionMs.toFloat() / durationMs.coerceAtLeast(1L).toFloat()).coerceIn(0f, 1f)
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Box(modifier = Modifier.fillMaxWidth().height(4.dp).background(Color(0xFF223754), RoundedCornerShape(50))) {
+            Box(modifier = Modifier.fillMaxWidth(progress).height(4.dp).background(Color(0xFF69A8FF), RoundedCornerShape(50)))
+        }
+        Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(formatPlaybackTime(currentPositionMs), color = Color(0xFFBBC6D8), fontSize = 12.sp)
+            Text(formatPlaybackTime(durationMs), color = Color(0xFFBBC6D8), fontSize = 12.sp)
+        }
+    }
+}
+
+
 
 @Composable
 private fun PlayerEpgInfo(
@@ -1553,6 +1615,9 @@ private fun PlayerPortraitBackButton(onBack: () -> Unit, modifier: Modifier = Mo
         Text("⬅ Volver", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp))
     }
 }
+
+
+
 
 private fun friendlyPlaybackErrorMessage(error: PlaybackException): String {
     val raw = listOfNotNull(
