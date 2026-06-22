@@ -3344,6 +3344,7 @@ fun NetflixCategoryCard(title: String, onClick: () -> Unit) {
     }
 }
 
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @androidx.compose.runtime.Composable
 fun MiniPlayerPreview(itemUrl: String) {
     val context = androidx.compose.ui.platform.LocalContext.current
