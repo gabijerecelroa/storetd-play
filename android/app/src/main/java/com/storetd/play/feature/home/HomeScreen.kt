@@ -103,7 +103,7 @@ fun HomeScreen(
 
     Box(modifier = Modifier.fillMaxSize().background(Color(0xFF09090B))) {
         // MOTOR CINEMÁTICO: Fondo Difuminado Dinámico Animado
-        Crossfade(targetState = currentBgUrl, animationSpec = tween(700), label = "bgFade") { bgUrl ->
+        Crossfade(targetState = currentBgUrl, animationSpec = tween(150), label = "bgFade") { bgUrl ->
             if (!bgUrl.isNullOrBlank() && bgUrl != "-") {
                 AsyncImage(
                     model = ImageRequest.Builder(context).data(bgUrl).crossfade(true).build(),

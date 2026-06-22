@@ -576,10 +576,10 @@ fun LiveTvScreen(
         modifier = Modifier.fillMaxSize().background(Color(0xFF09090B))
     ) {
         val boxMaxWidth = maxWidth
-        val isCompact = true
+        val isCompact = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 700
         androidx.compose.runtime.LaunchedEffect(isCompact) { LiveTvBgState.isCompact = boxMaxWidth < 700.dp }
         
-        Crossfade(targetState = LiveTvBgState.currentBgUrl, animationSpec = tween(700), label = "bgFade") { bgUrl ->
+        Crossfade(targetState = LiveTvBgState.currentBgUrl, animationSpec = tween(150), label = "bgFade") { bgUrl ->
             if (!bgUrl.isNullOrBlank() && bgUrl != "-") {
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current).data(bgUrl).crossfade(true).build(),
@@ -607,7 +607,7 @@ fun LiveTvScreen(
             modifier = Modifier.fillMaxSize().navigationBarsPadding().padding(20.dp)
         ) {
             val maxWidth = boxMaxWidth
-            val isCompact = true
+            val isCompact = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 700
         val usingLazyBackendContent =
             contentMode == ContentMode.Series || contentMode == ContentMode.Movies
 
@@ -673,7 +673,8 @@ fun LiveTvScreen(
             }
         }
 
-        if (isCompact) {
+        val isTvMode = !isCompact
+        if (!isTvMode || contentMode != ContentMode.LiveTv) {
             LazyColumn(
                 state = contentListState,
                 verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -752,63 +753,43 @@ fun LiveTvScreen(
                 )
             }
         } else {
-            Row(modifier = Modifier.fillMaxSize()) {
-                Column(
-                    modifier = Modifier
-                        .width(360.dp)
-                        .fillMaxHeight()
-                ) {
-                    PremiumSectionHeader(
-                        mode = contentMode,
-                        refreshMessage = refreshMessage,
-                        isLoading = state.isLoading || state.isFiltering || isLazySeriesLoading || isLazyMoviesLoading
-                    )
-
-                    
-
+            // 📺 STREAMVAULT: 3 COLUMNAS (EXCLUSIVO TV EN VIVO LANDSCAPE)
+            Row(modifier = Modifier.fillMaxSize().padding(top = 16.dp)) {
+                // Columna 1: Categorías
+                Column(modifier = Modifier.weight(0.22f).fillMaxHeight().padding(start = 24.dp)) {
+                    PremiumSectionHeader(mode = contentMode, refreshMessage = refreshMessage, isLoading = state.isLoading || state.isFiltering || isLazySeriesLoading || isLazyMoviesLoading)
                     if (!usingLazyBackendContent) {
-                        Spacer(Modifier.height(24.dp))
-
-                        CategoryRow(
-                            groups = state.groups,
-                            selectedGroup = state.selectedGroup,
-                            onSelectGroup = viewModel::selectGroup
-                        )
+                        Spacer(Modifier.height(16.dp))
+                        CategoryColumn(groups = state.groups, selectedGroup = state.selectedGroup, onSelectGroup = viewModel::selectGroup)
                     }
                 }
 
-                Spacer(Modifier.width(24.dp))
+                Spacer(Modifier.width(16.dp))
 
-                LazyColumn(
-                    state = contentListState,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
+                // Columna 2: Lista Elegante de Canales
+                LazyColumn(state = contentListState, verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.weight(0.35f)) {
                     if (!usingLazyBackendContent) {
-                        item {
-                            StatusBlock(state = state, mode = contentMode)
-                        }
+                        item { StatusBlock(state = state, mode = contentMode) }
                     }
-
                     contentItems(
-                        state = state,
-                        contentMode = contentMode,
-                        selectedSeriesKey = selectedSeriesKey,
-                        selectedSeriesGroup = selectedSeriesGroup,
-                        onSelectSeries = {
+                    state = state,
+                    contentMode = contentMode,
+                    selectedSeriesKey = selectedSeriesKey,
+                    selectedSeriesGroup = selectedSeriesGroup,
+                    onSelectSeries = {
                         lastSeriesFocusKey = it
                         selectedSeriesKey = it
                     },
-                        onClearSeries = { /* MUTED_AMNESIA */ },
-                        onSelectSeriesGroup = { group ->
-                            /* MUTED_AMNESIA */
-                            selectedSeriesGroup = group
-                        },
-                        onClearSeriesGroup = {
-                            /* MUTED_AMNESIA */
-                            /* MUTED_AMNESIA */
-                        },
-                        lazySeriesFolders = lazySeriesFolders,
+                    onClearSeries = { /* MUTED_AMNESIA */ },
+                    onSelectSeriesGroup = { group ->
+                        /* MUTED_AMNESIA */
+                        selectedSeriesGroup = group
+                    },
+                    onClearSeriesGroup = {
+                        /* MUTED_AMNESIA */
+                        /* MUTED_AMNESIA */
+                    },
+                    lazySeriesFolders = lazySeriesFolders,
                     lazySeriesEpisodes = lazySeriesEpisodes,
                     isLazySeriesLoading = isLazySeriesLoading,
                     selectedMovieCategoryKey = selectedMovieCategoryKey,
@@ -836,7 +817,23 @@ fun LiveTvScreen(
                         showLazySearch = !showLazySearch
                     },
                     onPlay = onPlay
-                    )
+                )
+                }
+
+                Spacer(Modifier.width(16.dp))
+
+                // Columna 3: Vista Previa 16:9
+                Column(modifier = Modifier.weight(0.43f).fillMaxHeight().padding(end = 24.dp)) {
+                    androidx.compose.material3.Text("Vista previa del canal", color = androidx.compose.ui.graphics.Color(0xFFBBC6D8), fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp, top = 24.dp))
+                    androidx.compose.foundation.layout.Box(
+                        modifier = Modifier.fillMaxWidth().aspectRatio(16f/9f).clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp)).background(androidx.compose.ui.graphics.Color(0xFF0B1724)).border(1.dp, androidx.compose.ui.graphics.Color(0x264C6D95), androidx.compose.foundation.shape.RoundedCornerShape(12.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(16.dp)) {
+                            androidx.compose.material3.Text("Seleccione un canal", color = androidx.compose.ui.graphics.Color.White, fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                            androidx.compose.material3.Text("En modo Pro, el primer clic previsualiza la transmisión y el segundo abre la reproducción completa.", color = androidx.compose.ui.graphics.Color(0xFFBBC6D8), fontSize = 12.sp, textAlign = TextAlign.Center)
+                        }
+                    }
                 }
             }
         }
@@ -928,7 +925,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
             }
 
             if (movieSearchText.isBlank()) {
-                val cols = if (LiveTvBgState.isCompact) 2 else 4
+                val cols = if (contentMode == ContentMode.LiveTv && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 700) 1 else if (LiveTvBgState.isCompact) 2 else 4
             val chunked = lazyMovieCategories.chunked(cols)
             items(items = chunked, key = { it.hashCode() }, contentType = { "grid_row" }) { rowItems ->
                 Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -957,7 +954,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                     }
                 }
 
-                val cols = if (LiveTvBgState.isCompact) 3 else 6
+                val cols = if (contentMode == ContentMode.LiveTv && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 700) 1 else if (LiveTvBgState.isCompact) 3 else 6
             val chunked = visibleMovieResults.chunked(cols)
             items(items = chunked, key = { it.hashCode() }, contentType = { "grid_row" }) { rowItems ->
                 Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -978,7 +975,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                 )
             }
 
-            val cols = if (LiveTvBgState.isCompact) 3 else 6
+            val cols = if (contentMode == ContentMode.LiveTv && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 700) 1 else if (LiveTvBgState.isCompact) 3 else 6
             val chunked = lazyMovieItems.chunked(cols)
             items(items = chunked, key = { it.hashCode() }, contentType = { "grid_row" }) { rowItems ->
                 Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -1057,7 +1054,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
             }
 
             if (selectedGroupKey.isNullOrBlank() && seriesSearchText.isBlank()) {
-                val cols = if (LiveTvBgState.isCompact) 2 else 4
+                val cols = if (contentMode == ContentMode.LiveTv && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 700) 1 else if (LiveTvBgState.isCompact) 2 else 4
             val chunked = sourceGroups.chunked(cols)
             items(items = chunked, key = { it.hashCode() }, contentType = { "grid_row" }) { rowItems ->
                 Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -1080,7 +1077,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                     }
                 }
 
-                val cols = if (LiveTvBgState.isCompact) 3 else 6
+                val cols = if (contentMode == ContentMode.LiveTv && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 700) 1 else if (LiveTvBgState.isCompact) 3 else 6
             val chunked = visibleSeriesFolders.chunked(cols)
             items(items = chunked, key = { it.hashCode() }, contentType = { "grid_row" }) { rowItems ->
                 Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -1102,7 +1099,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                 )
             }
 
-            val cols = if (LiveTvBgState.isCompact) 2 else 4
+            val cols = if (contentMode == ContentMode.LiveTv && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 700) 1 else if (LiveTvBgState.isCompact) 2 else 4
             val chunked = lazySeriesEpisodes.chunked(cols)
             items(items = chunked, key = { it.hashCode() }, contentType = { "grid_row" }) { rowItems ->
                 Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -1121,7 +1118,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
 
     if (contentMode != ContentMode.Series) {
         if (contentMode == ContentMode.Movies) {
-            val cols = if (LiveTvBgState.isCompact) 3 else 6
+            val cols = if (contentMode == ContentMode.LiveTv && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 700) 1 else if (LiveTvBgState.isCompact) 3 else 6
             val chunked = state.visibleChannels.chunked(cols)
             items(items = chunked, key = { it.hashCode() }, contentType = { "grid_row" }) { rowItems ->
                 Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -1134,7 +1131,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                 }
             }
         } else {
-            val cols = if (LiveTvBgState.isCompact) 2 else 4
+            val cols = if (contentMode == ContentMode.LiveTv && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 700) 1 else if (LiveTvBgState.isCompact) 2 else 4
             val chunked = state.visibleChannels.chunked(cols)
             items(items = chunked, key = { it.hashCode() }, contentType = { "grid_row" }) { rowItems ->
                 Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -1162,7 +1159,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
         }
 
 
-        val cols = if (LiveTvBgState.isCompact) 3 else 6
+        val cols = if (contentMode == ContentMode.LiveTv && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 700) 1 else if (LiveTvBgState.isCompact) 3 else 6
         val chunked = folders.chunked(cols)
         items(items = chunked, key = { it.hashCode() }, contentType = { "grid_row" }) { rowItems ->
             Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -1182,7 +1179,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
             )
         }
 
-        val cols = if (LiveTvBgState.isCompact) 2 else 4
+        val cols = if (contentMode == ContentMode.LiveTv && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 700) 1 else if (LiveTvBgState.isCompact) 2 else 4
         val chunked = selectedFolder.episodes.chunked(cols)
         items(items = chunked, key = { it.hashCode() }, contentType = { "grid_row" }) { rowItems ->
             Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -1471,6 +1468,29 @@ Surface(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 28.dp, vertical = 10.dp)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CategoryColumn(groups: List<String>, selectedGroup: String, onSelectGroup: (String) -> Unit) {
+    val visibleGroups = groups.filter { it.isNotBlank() }.distinct()
+    if (visibleGroups.isEmpty()) return
+    androidx.compose.foundation.lazy.LazyColumn(modifier = Modifier.fillMaxWidth().padding(end = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)) {
+        items(items = visibleGroups, key = { it.hashCode() }, contentType = { "category_item" }) { group ->
+            var focused by androidx.compose.runtime.remember(group, selectedGroup) { androidx.compose.runtime.mutableStateOf(false) }
+            val active = group == selectedGroup || focused
+            val scale by androidx.compose.animation.core.animateFloatAsState(if (focused) 1.05f else 1f, label = "scale")
+            val bgColor = if (active) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color.Transparent
+            val textColor = if (active) androidx.compose.ui.graphics.Color.Black else androidx.compose.ui.graphics.Color(0xFFBBC6D8)
+            androidx.compose.material3.Surface(
+                modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 40.dp).graphicsLayer { scaleX = scale; scaleY = scale }.onFocusChanged { focused = it.isFocused || it.hasFocus }.clickable { onSelectGroup(group) },
+                color = bgColor, shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp), border = if (!active) androidx.compose.foundation.BorderStroke(1.dp, androidx.compose.ui.graphics.Color(0x264C6D95)) else null
+            ) {
+                androidx.compose.foundation.layout.Box(contentAlignment = Alignment.CenterStart, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                    androidx.compose.material3.Text(text = group, color = textColor, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, fontSize = 12.sp, lineHeight = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
             }
         }
     }
