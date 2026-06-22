@@ -25,7 +25,7 @@ import com.storetd.play.navigation.Routes
 @Composable
 fun PremiumSideMenu(navController: NavController, currentRoute: String?) {
     var isMenuFocused by remember { mutableStateOf(false) }
-    val width by animateDpAsState(if (isMenuFocused) 220.dp else 65.dp)
+    val width by animateDpAsState(if (isMenuFocused) 220.dp else 65.dp, animationSpec = androidx.compose.animation.core.tween(0))
     val scrollState = rememberScrollState()
 
     Column(
@@ -63,7 +63,7 @@ fun PremiumSideMenu(navController: NavController, currentRoute: String?) {
 @Composable
 fun MenuButton(icon: String, title: String, isSelected: Boolean, isExpanded: Boolean, onFocused: () -> Unit, onClick: () -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (isFocused) 1.05f else 1f)
+    val scale by animateFloatAsState(if (isFocused) 1.05f else 1f, animationSpec = androidx.compose.animation.core.tween(0))
 
     // Colores Oficiales StreamVault
     val bgColor = if (isFocused) Color(0xFF69A8FF) else if (isSelected) Color(0xFF162338) else Color.Transparent

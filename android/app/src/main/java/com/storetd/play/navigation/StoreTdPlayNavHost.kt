@@ -309,11 +309,11 @@ fun checkAccountStatus() {
 
         composable(Routes.Home) {
             HomeScreen(
-                onOpenLiveTv = { navController.navigate(Routes.LiveTv) { popUpTo(navController.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true } },
-                onOpenMovies = { navController.navigate(Routes.Movies) { popUpTo(navController.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true } },
-                onOpenSeries = { navController.navigate(Routes.Series) { popUpTo(navController.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true } },
-                onOpenFavorites = { navController.navigate(Routes.Favorites) { popUpTo(navController.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true } },
-                onOpenHistory = { navController.navigate(Routes.History) { popUpTo(navController.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true } },
+                onOpenLiveTv = { navController.navigate(Routes.LiveTv) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } },
+                onOpenMovies = { navController.navigate(Routes.Movies) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } },
+                onOpenSeries = { navController.navigate(Routes.Series) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } },
+                onOpenFavorites = { navController.navigate(Routes.Favorites) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } },
+                onOpenHistory = { navController.navigate(Routes.History) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } },
                 onOpenVodDetail = { item ->
                     val encName = android.net.Uri.encode(item.name)
                     val encUrl = android.net.Uri.encode(item.streamUrl)
@@ -331,10 +331,10 @@ fun checkAccountStatus() {
                         "player/${Uri.encode(item.name)}/${Uri.encode(item.streamUrl)}/${Uri.encode(item.group)}/${Uri.encode(item.logoUrl.orEmpty())}"
                     )
                 },
-                onOpenEpg = { navController.navigate(Routes.Epg) { popUpTo(navController.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true } },
-                onOpenAccount = { navController.navigate(Routes.Account) { popUpTo(navController.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true } },
-                onOpenSupport = { navController.navigate(Routes.Support) { popUpTo(navController.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true } },
-                onOpenSettings = { navController.navigate(Routes.Settings) { popUpTo(navController.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true } },
+                onOpenEpg = { navController.navigate(Routes.Epg) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } },
+                onOpenAccount = { navController.navigate(Routes.Account) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } },
+                onOpenSupport = { navController.navigate(Routes.Support) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } },
+                onOpenSettings = { navController.navigate(Routes.Settings) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } },
                 config = appConfig
             )
         }
