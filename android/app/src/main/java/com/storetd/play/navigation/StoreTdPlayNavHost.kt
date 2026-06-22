@@ -308,11 +308,11 @@ fun checkAccountStatus() {
 
         composable(Routes.Home) {
             HomeScreen(
-                onOpenLiveTv = { navController.navigate(Routes.LiveTv) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } },
-                onOpenMovies = { navController.navigate(Routes.Movies) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } },
-                onOpenSeries = { navController.navigate(Routes.Series) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } },
-                onOpenFavorites = { navController.navigate(Routes.Favorites) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } },
-                onOpenHistory = { navController.navigate(Routes.History) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } },
+                onOpenLiveTv = { navController.navigate(Routes.LiveTv) { popUpTo(0) { inclusive = true }; launchSingleTop = true } },
+                onOpenMovies = { navController.navigate(Routes.Movies) { popUpTo(0) { inclusive = true }; launchSingleTop = true } },
+                onOpenSeries = { navController.navigate(Routes.Series) { popUpTo(0) { inclusive = true }; launchSingleTop = true } },
+                onOpenFavorites = { navController.navigate(Routes.Favorites) { popUpTo(0) { inclusive = true }; launchSingleTop = true } },
+                onOpenHistory = { navController.navigate(Routes.History) { popUpTo(0) { inclusive = true }; launchSingleTop = true } },
                 onOpenVodDetail = { item ->
                     val encName = android.net.Uri.encode(item.name)
                     val encUrl = android.net.Uri.encode(item.streamUrl)
@@ -330,10 +330,10 @@ fun checkAccountStatus() {
                         "player/${Uri.encode(item.name)}/${Uri.encode(item.streamUrl)}/${Uri.encode(item.group)}/${Uri.encode(item.logoUrl.orEmpty())}"
                     )
                 },
-                onOpenEpg = { navController.navigate(Routes.Epg) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } },
-                onOpenAccount = { navController.navigate(Routes.Account) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } },
-                onOpenSupport = { navController.navigate(Routes.Support) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } },
-                onOpenSettings = { navController.navigate(Routes.Settings) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } },
+                onOpenEpg = { navController.navigate(Routes.Epg) { popUpTo(0) { inclusive = true }; launchSingleTop = true } },
+                onOpenAccount = { navController.navigate(Routes.Account) { popUpTo(0) { inclusive = true }; launchSingleTop = true } },
+                onOpenSupport = { navController.navigate(Routes.Support) { popUpTo(0) { inclusive = true }; launchSingleTop = true } },
+                onOpenSettings = { navController.navigate(Routes.Settings) { popUpTo(0) { inclusive = true }; launchSingleTop = true } },
                 config = appConfig
             )
         }

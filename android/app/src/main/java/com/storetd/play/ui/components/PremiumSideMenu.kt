@@ -27,6 +27,20 @@ fun PremiumSideMenu(navController: NavController, currentRoute: String?) {
     var isMenuFocused by remember { mutableStateOf(false) }
     val width by animateDpAsState(if (isMenuFocused) 220.dp else 65.dp, animationSpec = androidx.compose.animation.core.tween(250))
     val scrollState = rememberScrollState()
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    androidx.compose.runtime.LaunchedEffect(currentRoute) {
+        var retries = 0
+        while (retries < 4) {
+            kotlinx.coroutines.delay(150)
+            if (isMenuFocused) {
+                focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Right)
+            } else {
+                break
+            }
+            retries++
+        }
+    }
+
 
     Column(
         modifier = Modifier
@@ -39,24 +53,24 @@ fun PremiumSideMenu(navController: NavController, currentRoute: String?) {
         horizontalAlignment = Alignment.Start,
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        MenuButton("🏠", "Inicio", currentRoute == Routes.Home, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Home) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } }
-        MenuButton("▶", "TV en vivo", currentRoute == Routes.LiveTv, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.LiveTv) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } }
-        MenuButton("★", "Películas", currentRoute == Routes.Movies, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Movies) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } }
-        MenuButton("≡", "Series", currentRoute == Routes.Series, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Series) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } }
+        MenuButton("🏠", "Inicio", currentRoute == Routes.Home, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Home) { popUpTo(0) { inclusive = true }; launchSingleTop = true } }
+        MenuButton("▶", "TV en vivo", currentRoute == Routes.LiveTv, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.LiveTv) { popUpTo(0) { inclusive = true }; launchSingleTop = true } }
+        MenuButton("★", "Películas", currentRoute == Routes.Movies, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Movies) { popUpTo(0) { inclusive = true }; launchSingleTop = true } }
+        MenuButton("≡", "Series", currentRoute == Routes.Series, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Series) { popUpTo(0) { inclusive = true }; launchSingleTop = true } }
 
         Spacer(modifier = Modifier.height(12.dp))
 
         if (isMenuFocused) Text("MI CONTENIDO", color = Color(0xFF7F8DA5), fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 22.dp, bottom = 4.dp))
-        MenuButton("📑", "Guía EPG", currentRoute == Routes.Epg, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Epg) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } }
-        MenuButton("❤️", "Favoritos", currentRoute == Routes.Favorites, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Favorites) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } }
-        MenuButton("⏱️", "Historial", currentRoute == Routes.History, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.History) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } }
+        MenuButton("📑", "Guía EPG", currentRoute == Routes.Epg, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Epg) { popUpTo(0) { inclusive = true }; launchSingleTop = true } }
+        MenuButton("❤️", "Favoritos", currentRoute == Routes.Favorites, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Favorites) { popUpTo(0) { inclusive = true }; launchSingleTop = true } }
+        MenuButton("⏱️", "Historial", currentRoute == Routes.History, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.History) { popUpTo(0) { inclusive = true }; launchSingleTop = true } }
 
         Spacer(modifier = Modifier.height(12.dp))
 
         if (isMenuFocused) Text("SISTEMA", color = Color(0xFF7F8DA5), fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 22.dp, bottom = 4.dp))
-        MenuButton("👤", "Mi Cuenta", currentRoute == Routes.Account, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Account) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } }
-        MenuButton("🎧", "Soporte", currentRoute == Routes.Support, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Support) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } }
-        MenuButton("⚙️", "Ajustes", currentRoute == Routes.Settings, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Settings) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } }
+        MenuButton("👤", "Mi Cuenta", currentRoute == Routes.Account, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Account) { popUpTo(0) { inclusive = true }; launchSingleTop = true } }
+        MenuButton("🎧", "Soporte", currentRoute == Routes.Support, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Support) { popUpTo(0) { inclusive = true }; launchSingleTop = true } }
+        MenuButton("⚙️", "Ajustes", currentRoute == Routes.Settings, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Settings) { popUpTo(0) { inclusive = true }; launchSingleTop = true } }
     }
 }
 
