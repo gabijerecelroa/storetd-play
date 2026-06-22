@@ -217,7 +217,28 @@ fun HomeScreen(
 }
 
 @Composable
-fun TopBarItem(text: String, icon: String, isSelected: Boolean = false, onFocused: () -> Unit, onClick: () -> Unit) { /* Menú central extirpado */ }
+fun TopBarItem(text: String, icon: String, isSelected: Boolean = false, onFocused: () -> Unit, onClick: () -> Unit) {
+    var isFocused by remember { mutableStateOf(false) }
+    val bgColor = if (isFocused || isSelected) Color(0xFF69A8FF) else Color.Transparent // Azul StreamVault
+    val contentColor = if (isFocused || isSelected) Color.White else Color(0xFFBBC6D8) // Gris claro elegante
+
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50)) // Borde 100% circular (Píldora)
+            .background(bgColor)
+            .onFocusChanged {
+                isFocused = it.isFocused || it.hasFocus
+                if (isFocused) onFocused()
+            }
+            .clickable { onClick() }
+            .padding(horizontal = 18.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(icon, color = contentColor, fontSize = 16.sp)
+        Text(text, color = contentColor, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+    }
+}
 
 @Composable
 fun <T> AppCategoryRow(title: String, items: List<T>, keySelector: (T) -> Any, itemContent: @Composable (T) -> Unit) {
