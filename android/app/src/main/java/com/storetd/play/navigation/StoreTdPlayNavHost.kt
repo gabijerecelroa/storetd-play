@@ -1,9 +1,5 @@
 package com.storetd.play.navigation
-
-import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.key
-import com.storetd.play.ui.components.globalLastLeftPressTime
+import androidx.compose.ui.input.key.*
 
 
 import androidx.compose.foundation.layout.Box
@@ -279,8 +275,14 @@ fun checkAccountStatus() {
             ))
     ) {
         androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize().onPreviewKeyEvent { 
-        if (it.key == Key.DirectionLeft) { 
-            globalLastLeftPressTime = System.currentTimeMillis() 
+        if (it.key == Key.DirectionLeft) com.storetd.play.ui.components.globalLastKeyName = "LEFT"
+        else if (it.key == Key.DirectionRight) com.storetd.play.ui.components.globalLastKeyName = "RIGHT"
+        else if (it.key == Key.DirectionUp) com.storetd.play.ui.components.globalLastKeyName = "UP"
+        else if (it.key == Key.DirectionDown) com.storetd.play.ui.components.globalLastKeyName = "DOWN"
+        else if (it.key == Key.DirectionCenter || it.key == Key.Enter) com.storetd.play.ui.components.globalLastKeyName = "OK"
+        
+        if (it.key == Key.DirectionLeft || it.key == Key.DirectionRight || it.key == Key.DirectionUp || it.key == Key.DirectionDown || it.key == Key.DirectionCenter || it.key == Key.Enter) {
+            com.storetd.play.ui.components.globalLastKeyTime = System.currentTimeMillis()
         }
         false 
     }) {
