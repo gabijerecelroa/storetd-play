@@ -925,7 +925,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
             }
 
             if (movieSearchText.isBlank()) {
-                val cols = if (contentMode == ContentMode.LiveTv && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 700) 1 else if (LiveTvBgState.isCompact) 2 else 4
+                val cols = if (contentMode == ContentMode.LiveTv && !LiveTvBgState.isCompact) 1 else if (LiveTvBgState.isCompact) 2 else 4
             val chunked = lazyMovieCategories.chunked(cols)
             items(items = chunked, key = { it.hashCode() }, contentType = { "grid_row" }) { rowItems ->
                 Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -954,7 +954,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                     }
                 }
 
-                val cols = if (contentMode == ContentMode.LiveTv && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 700) 1 else if (LiveTvBgState.isCompact) 3 else 6
+                val cols = if (contentMode == ContentMode.LiveTv && !LiveTvBgState.isCompact) 1 else if (LiveTvBgState.isCompact) 3 else 6
             val chunked = visibleMovieResults.chunked(cols)
             items(items = chunked, key = { it.hashCode() }, contentType = { "grid_row" }) { rowItems ->
                 Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -975,7 +975,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                 )
             }
 
-            val cols = if (contentMode == ContentMode.LiveTv && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 700) 1 else if (LiveTvBgState.isCompact) 3 else 6
+            val cols = if (contentMode == ContentMode.LiveTv && !LiveTvBgState.isCompact) 1 else if (LiveTvBgState.isCompact) 3 else 6
             val chunked = lazyMovieItems.chunked(cols)
             items(items = chunked, key = { it.hashCode() }, contentType = { "grid_row" }) { rowItems ->
                 Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -1054,7 +1054,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
             }
 
             if (selectedGroupKey.isNullOrBlank() && seriesSearchText.isBlank()) {
-                val cols = if (contentMode == ContentMode.LiveTv && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 700) 1 else if (LiveTvBgState.isCompact) 2 else 4
+                val cols = if (contentMode == ContentMode.LiveTv && !LiveTvBgState.isCompact) 1 else if (LiveTvBgState.isCompact) 2 else 4
             val chunked = sourceGroups.chunked(cols)
             items(items = chunked, key = { it.hashCode() }, contentType = { "grid_row" }) { rowItems ->
                 Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -1077,7 +1077,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                     }
                 }
 
-                val cols = if (contentMode == ContentMode.LiveTv && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 700) 1 else if (LiveTvBgState.isCompact) 3 else 6
+                val cols = if (contentMode == ContentMode.LiveTv && !LiveTvBgState.isCompact) 1 else if (LiveTvBgState.isCompact) 3 else 6
             val chunked = visibleSeriesFolders.chunked(cols)
             items(items = chunked, key = { it.hashCode() }, contentType = { "grid_row" }) { rowItems ->
                 Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -1099,7 +1099,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                 )
             }
 
-            val cols = if (contentMode == ContentMode.LiveTv && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 700) 1 else if (LiveTvBgState.isCompact) 2 else 4
+            val cols = if (contentMode == ContentMode.LiveTv && !LiveTvBgState.isCompact) 1 else if (LiveTvBgState.isCompact) 2 else 4
             val chunked = lazySeriesEpisodes.chunked(cols)
             items(items = chunked, key = { it.hashCode() }, contentType = { "grid_row" }) { rowItems ->
                 Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -1118,7 +1118,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
 
     if (contentMode != ContentMode.Series) {
         if (contentMode == ContentMode.Movies) {
-            val cols = if (contentMode == ContentMode.LiveTv && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 700) 1 else if (LiveTvBgState.isCompact) 3 else 6
+            val cols = if (contentMode == ContentMode.LiveTv && !LiveTvBgState.isCompact) 1 else if (LiveTvBgState.isCompact) 3 else 6
             val chunked = state.visibleChannels.chunked(cols)
             items(items = chunked, key = { it.hashCode() }, contentType = { "grid_row" }) { rowItems ->
                 Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -1131,7 +1131,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
                 }
             }
         } else {
-            val cols = if (contentMode == ContentMode.LiveTv && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 700) 1 else if (LiveTvBgState.isCompact) 2 else 4
+            val cols = if (contentMode == ContentMode.LiveTv && !LiveTvBgState.isCompact) 1 else if (LiveTvBgState.isCompact) 2 else 4
             val chunked = state.visibleChannels.chunked(cols)
             items(items = chunked, key = { it.hashCode() }, contentType = { "grid_row" }) { rowItems ->
                 Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -1159,7 +1159,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
         }
 
 
-        val cols = if (contentMode == ContentMode.LiveTv && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 700) 1 else if (LiveTvBgState.isCompact) 3 else 6
+        val cols = if (contentMode == ContentMode.LiveTv && !LiveTvBgState.isCompact) 1 else if (LiveTvBgState.isCompact) 3 else 6
         val chunked = folders.chunked(cols)
         items(items = chunked, key = { it.hashCode() }, contentType = { "grid_row" }) { rowItems ->
             Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -1179,7 +1179,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.contentItems(
             )
         }
 
-        val cols = if (contentMode == ContentMode.LiveTv && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 700) 1 else if (LiveTvBgState.isCompact) 2 else 4
+        val cols = if (contentMode == ContentMode.LiveTv && !LiveTvBgState.isCompact) 1 else if (LiveTvBgState.isCompact) 2 else 4
         val chunked = selectedFolder.episodes.chunked(cols)
         items(items = chunked, key = { it.hashCode() }, contentType = { "grid_row" }) { rowItems ->
             Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, start = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -1485,7 +1485,7 @@ private fun CategoryColumn(groups: List<String>, selectedGroup: String, onSelect
             val bgColor = if (active) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color.Transparent
             val textColor = if (active) androidx.compose.ui.graphics.Color.Black else androidx.compose.ui.graphics.Color(0xFFBBC6D8)
             androidx.compose.material3.Surface(
-                modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 40.dp).graphicsLayer { scaleX = scale; scaleY = scale }.onFocusChanged { focused = it.isFocused || it.hasFocus }.clickable { onSelectGroup(group) },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp).graphicsLayer { scaleX = scale; scaleY = scale }.onFocusChanged { focused = it.isFocused || it.hasFocus }.clickable { onSelectGroup(group) },
                 color = bgColor, shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp), border = if (!active) androidx.compose.foundation.BorderStroke(1.dp, androidx.compose.ui.graphics.Color(0x264C6D95)) else null
             ) {
                 androidx.compose.foundation.layout.Box(contentAlignment = Alignment.CenterStart, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
