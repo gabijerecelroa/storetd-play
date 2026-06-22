@@ -1,5 +1,12 @@
 package com.storetd.play.ui.components
 
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import androidx.compose.ui.focus.FocusDirection
+
+
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
@@ -22,21 +29,15 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.storetd.play.navigation.Routes
 
+var globalLastLeftPressTime = 0L
+
 @Composable
 fun PremiumSideMenu(navController: NavController, currentRoute: String?) {
     var isMenuFocused by remember { mutableStateOf(false) }
     val width by animateDpAsState(if (isMenuFocused) 220.dp else 65.dp, animationSpec = androidx.compose.animation.core.tween(250))
     val scrollState = rememberScrollState()
-    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
-    androidx.compose.runtime.LaunchedEffect(currentRoute) {
-        var retries = 0
-        while (retries < 4) {
-            kotlinx.coroutines.delay(150)
-            if (isMenuFocused) {
-                focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Right)
-            } else {
-                break
-            }
+    val focusManager = LocalFocusManager.current
+    val coroutineScope = rememberCoroutineScope()
             retries++
         }
     }
@@ -48,7 +49,23 @@ fun PremiumSideMenu(navController: NavController, currentRoute: String?) {
             .fillMaxHeight()
             .background(Color(0xFF07111B).copy(alpha = 0.95f)) // Fondo Canvas StreamVault
             .padding(vertical = 24.dp)
-            .onFocusChanged { isMenuFocused = it.hasFocus }
+            .onFocusChanged { state ->
+        if (state.hasFocus) {
+            // Si apretaste 'IZQUIERDA' hace menos de 1 segundo, ábrete.
+            if (System.currentTimeMillis() - globalLastLeftPressTime < 1000) {
+                isMenuFocused = true
+            } else {
+                // Instinto de Pánico de TV detectado. Rechazamos el foco automáticamente.
+                isMenuFocused = false
+                coroutineScope.launch {
+                    delay(50)
+                    focusManager.moveFocus(FocusDirection.Right)
+                }
+            }
+        } else {
+            isMenuFocused = false
+        }
+    }
             .verticalScroll(scrollState),
         horizontalAlignment = Alignment.Start,
         verticalArrangement = Arrangement.spacedBy(6.dp)

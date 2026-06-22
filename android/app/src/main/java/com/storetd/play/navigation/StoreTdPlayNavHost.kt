@@ -1,5 +1,10 @@
 package com.storetd.play.navigation
 
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.key
+
+
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -272,7 +277,12 @@ fun checkAccountStatus() {
                 colors = listOf(Color(0xFF000000), Color(0xFF09090B))
             ))
     ) {
-        androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize()) {
+        androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize().onPreviewKeyEvent { 
+        if (it.key == Key.DirectionLeft) { 
+            com.storetd.play.ui.components.globalLastLeftPressTime = System.currentTimeMillis() 
+        }
+        false 
+    }) {
             androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize().padding(start = if (showSideMenu) 65.dp else 0.dp)) {
                 NavHost(navController = navController, startDestination = startDestination) {
         composable(Routes.Activation) {
