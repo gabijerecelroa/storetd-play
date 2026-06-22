@@ -3,6 +3,7 @@ package com.storetd.play.navigation
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
+import com.storetd.play.ui.components.globalLastLeftPressTime
 
 
 import androidx.compose.foundation.layout.Box
@@ -279,7 +280,7 @@ fun checkAccountStatus() {
     ) {
         androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize().onPreviewKeyEvent { 
         if (it.key == Key.DirectionLeft) { 
-            com.storetd.play.ui.components.globalLastLeftPressTime = System.currentTimeMillis() 
+            globalLastLeftPressTime = System.currentTimeMillis() 
         }
         false 
     }) {
