@@ -579,7 +579,7 @@ fun LiveTvScreen(
         val isCompact = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 700
         androidx.compose.runtime.LaunchedEffect(isCompact) { LiveTvBgState.isCompact = boxMaxWidth < 700.dp }
         
-        Crossfade(targetState = LiveTvBgState.currentBgUrl, animationSpec = tween(150), label = "bgFade") { bgUrl ->
+        Crossfade(targetState = LiveTvBgState.currentBgUrl, animationSpec = tween(50), label = "bgFade") { bgUrl ->
             if (!bgUrl.isNullOrBlank() && bgUrl != "-") {
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current).data(bgUrl).crossfade(true).build(),
@@ -3367,7 +3367,10 @@ fun MiniPlayerPreview(itemUrl: String) {
         factory = { ctx ->
             androidx.media3.ui.PlayerView(ctx).apply {
                 player = exoPlayer
-                useController = true // Controles sutiles activados
+                useController = false // Sin controles
+                isFocusable = false
+                isClickable = false
+                descendantFocusability = android.view.ViewGroup.FOCUS_BLOCK_DESCENDANTS
                 setShowNextButton(false)
                 setShowPreviousButton(false)
                 layoutParams = android.view.ViewGroup.LayoutParams(
