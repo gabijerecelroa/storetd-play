@@ -674,6 +674,7 @@ fun LiveTvScreen(
         }
 
         val isTvMode = !isCompact
+        var previewItem by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<Any?>(null) }
         if (!isTvMode || contentMode != ContentMode.LiveTv) {
             LazyColumn(
                 state = contentListState,
@@ -816,7 +817,7 @@ fun LiveTvScreen(
                         }
                         showLazySearch = !showLazySearch
                     },
-                    onPlay = onPlay
+                    onPlay = { item -> if (previewItem == item) onPlay(item) else previewItem = item }
                 )
                 }
 
@@ -829,9 +830,24 @@ fun LiveTvScreen(
                         modifier = Modifier.fillMaxWidth().aspectRatio(16f/9f).clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp)).background(androidx.compose.ui.graphics.Color(0xFF0B1724)).border(1.dp, androidx.compose.ui.graphics.Color(0x264C6D95), androidx.compose.foundation.shape.RoundedCornerShape(12.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(16.dp)) {
-                            androidx.compose.material3.Text("Seleccione un canal", color = androidx.compose.ui.graphics.Color.White, fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
-                            androidx.compose.material3.Text("En modo Pro, el primer clic previsualiza la transmisión y el segundo abre la reproducción completa.", color = androidx.compose.ui.graphics.Color(0xFFBBC6D8), fontSize = 12.sp, textAlign = TextAlign.Center)
+                        if (previewItem != null) {
+                            val itemString = previewItem.toString()
+                            val urlRegex = "(?i)(?:url|stream_url|streamUrl)=([^,\\s)]+)".toRegex()
+                            val match = urlRegex.find(itemString)
+                            val itemUrl = match?.groups?.get(1)?.value?.trim()?.removeSurrounding("\"")?.removeSurrounding("'")
+                            
+                            if (!itemUrl.isNullOrBlank() && itemUrl.startsWith("http")) {
+                                MiniPlayerPreview(itemUrl)
+                            } else {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(16.dp)) {
+                                    androidx.compose.material3.Text("Cargando conexión...", color = androidx.compose.ui.graphics.Color.White, fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                                }
+                            }
+                        } else {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(16.dp)) {
+                                androidx.compose.material3.Text("Seleccione un canal", color = androidx.compose.ui.graphics.Color.White, fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                                androidx.compose.material3.Text("En modo Pro, el primer clic previsualiza la transmisión y el segundo abre la reproducción completa.", color = androidx.compose.ui.graphics.Color(0xFFBBC6D8), fontSize = 12.sp, textAlign = TextAlign.Center)
+                            }
                         }
                     }
                 }
@@ -1485,11 +1501,11 @@ private fun CategoryColumn(groups: List<String>, selectedGroup: String, onSelect
             val bgColor = if (active) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color.Transparent
             val textColor = if (active) androidx.compose.ui.graphics.Color.Black else androidx.compose.ui.graphics.Color(0xFFBBC6D8)
             androidx.compose.material3.Surface(
-                modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp).graphicsLayer { scaleX = scale; scaleY = scale }.onFocusChanged { focused = it.isFocused || it.hasFocus }.clickable { onSelectGroup(group) },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 34.dp).graphicsLayer { scaleX = scale; scaleY = scale }.onFocusChanged { focused = it.isFocused || it.hasFocus }.clickable { onSelectGroup(group) },
                 color = bgColor, shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp), border = if (!active) androidx.compose.foundation.BorderStroke(1.dp, androidx.compose.ui.graphics.Color(0x264C6D95)) else null
             ) {
-                androidx.compose.foundation.layout.Box(contentAlignment = Alignment.CenterStart, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                    androidx.compose.material3.Text(text = group, color = textColor, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, fontSize = 12.sp, lineHeight = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                androidx.compose.foundation.layout.Box(contentAlignment = Alignment.CenterStart, modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
+                    androidx.compose.material3.Text(text = group, color = textColor, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, fontSize = 10.sp, lineHeight = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
@@ -3326,4 +3342,39 @@ fun NetflixCategoryCard(title: String, onClick: () -> Unit) {
     ) {
         androidx.compose.material3.Text(text = title, color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.padding(12.dp))
     }
+}
+
+@androidx.compose.runtime.Composable
+fun MiniPlayerPreview(itemUrl: String) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val exoPlayer = androidx.compose.runtime.remember {
+        androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
+            playWhenReady = true
+            volume = 0.5f // Arranca a mitad de volumen por elegancia
+        }
+    }
+    androidx.compose.runtime.DisposableEffect(itemUrl) {
+        val mediaItem = androidx.media3.common.MediaItem.fromUri(itemUrl)
+        exoPlayer.setMediaItem(mediaItem)
+        exoPlayer.prepare()
+        onDispose { exoPlayer.stop() }
+    }
+    androidx.compose.runtime.DisposableEffect(exoPlayer) {
+        onDispose { exoPlayer.release() }
+    }
+    androidx.compose.ui.viewinterop.AndroidView(
+        factory = { ctx ->
+            androidx.media3.ui.PlayerView(ctx).apply {
+                player = exoPlayer
+                useController = true // Controles sutiles activados
+                setShowNextButton(false)
+                setShowPreviousButton(false)
+                layoutParams = android.view.ViewGroup.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                )
+            }
+        },
+        modifier = androidx.compose.ui.Modifier.fillMaxSize()
+    )
 }

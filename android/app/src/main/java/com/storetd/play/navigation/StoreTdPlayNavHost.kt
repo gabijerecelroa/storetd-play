@@ -309,11 +309,11 @@ fun checkAccountStatus() {
 
         composable(Routes.Home) {
             HomeScreen(
-                onOpenLiveTv = { navController.navigate(Routes.LiveTv) },
-                onOpenMovies = { navController.navigate(Routes.Movies) },
-                onOpenSeries = { navController.navigate(Routes.Series) },
-                onOpenFavorites = { navController.navigate(Routes.Favorites) },
-                onOpenHistory = { navController.navigate(Routes.History) },
+                onOpenLiveTv = { navController.navigate(Routes.LiveTv) { popUpTo(navController.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true } },
+                onOpenMovies = { navController.navigate(Routes.Movies) { popUpTo(navController.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true } },
+                onOpenSeries = { navController.navigate(Routes.Series) { popUpTo(navController.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true } },
+                onOpenFavorites = { navController.navigate(Routes.Favorites) { popUpTo(navController.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true } },
+                onOpenHistory = { navController.navigate(Routes.History) { popUpTo(navController.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true } },
                 onOpenVodDetail = { item ->
                     val encName = android.net.Uri.encode(item.name)
                     val encUrl = android.net.Uri.encode(item.streamUrl)
@@ -331,10 +331,10 @@ fun checkAccountStatus() {
                         "player/${Uri.encode(item.name)}/${Uri.encode(item.streamUrl)}/${Uri.encode(item.group)}/${Uri.encode(item.logoUrl.orEmpty())}"
                     )
                 },
-                onOpenEpg = { navController.navigate(Routes.Epg) },
-                onOpenAccount = { navController.navigate(Routes.Account) },
-                onOpenSupport = { navController.navigate(Routes.Support) },
-                onOpenSettings = { navController.navigate(Routes.Settings) },
+                onOpenEpg = { navController.navigate(Routes.Epg) { popUpTo(navController.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true } },
+                onOpenAccount = { navController.navigate(Routes.Account) { popUpTo(navController.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true } },
+                onOpenSupport = { navController.navigate(Routes.Support) { popUpTo(navController.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true } },
+                onOpenSettings = { navController.navigate(Routes.Settings) { popUpTo(navController.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true } },
                 config = appConfig
             )
         }
