@@ -817,7 +817,7 @@ fun LiveTvScreen(
                         }
                         showLazySearch = !showLazySearch
                     },
-                    onPlay = { item -> if (previewItem == item) onPlay(item) else previewItem = item }
+                    onPlay = { item, playlist -> if (previewItem == item) onPlay(item, playlist) else previewItem = item }
                 )
                 }
 
