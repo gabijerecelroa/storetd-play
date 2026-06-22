@@ -25,7 +25,7 @@ import com.storetd.play.navigation.Routes
 @Composable
 fun PremiumSideMenu(navController: NavController, currentRoute: String?) {
     var isMenuFocused by remember { mutableStateOf(false) }
-    val width by animateDpAsState(if (isMenuFocused) 220.dp else 65.dp, animationSpec = androidx.compose.animation.core.tween(0))
+    val width by animateDpAsState(if (isMenuFocused) 220.dp else 65.dp, animationSpec = androidx.compose.animation.core.tween(250))
     val scrollState = rememberScrollState()
 
     Column(
@@ -39,31 +39,31 @@ fun PremiumSideMenu(navController: NavController, currentRoute: String?) {
         horizontalAlignment = Alignment.Start,
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        MenuButton("🏠", "Inicio", currentRoute == Routes.Home, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Home) { launchSingleTop = true } }
-        MenuButton("▶", "TV en vivo", currentRoute == Routes.LiveTv, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.LiveTv) { launchSingleTop = true } }
-        MenuButton("★", "Películas", currentRoute == Routes.Movies, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Movies) { launchSingleTop = true } }
-        MenuButton("≡", "Series", currentRoute == Routes.Series, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Series) { launchSingleTop = true } }
+        MenuButton("🏠", "Inicio", currentRoute == Routes.Home, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Home) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } }
+        MenuButton("▶", "TV en vivo", currentRoute == Routes.LiveTv, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.LiveTv) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } }
+        MenuButton("★", "Películas", currentRoute == Routes.Movies, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Movies) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } }
+        MenuButton("≡", "Series", currentRoute == Routes.Series, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Series) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } }
 
         Spacer(modifier = Modifier.height(12.dp))
 
         if (isMenuFocused) Text("MI CONTENIDO", color = Color(0xFF7F8DA5), fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 22.dp, bottom = 4.dp))
-        MenuButton("📑", "Guía EPG", currentRoute == Routes.Epg, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Epg) { launchSingleTop = true } }
-        MenuButton("❤️", "Favoritos", currentRoute == Routes.Favorites, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Favorites) { launchSingleTop = true } }
-        MenuButton("⏱️", "Historial", currentRoute == Routes.History, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.History) { launchSingleTop = true } }
+        MenuButton("📑", "Guía EPG", currentRoute == Routes.Epg, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Epg) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } }
+        MenuButton("❤️", "Favoritos", currentRoute == Routes.Favorites, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Favorites) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } }
+        MenuButton("⏱️", "Historial", currentRoute == Routes.History, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.History) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } }
 
         Spacer(modifier = Modifier.height(12.dp))
 
         if (isMenuFocused) Text("SISTEMA", color = Color(0xFF7F8DA5), fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 22.dp, bottom = 4.dp))
-        MenuButton("👤", "Mi Cuenta", currentRoute == Routes.Account, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Account) { launchSingleTop = true } }
-        MenuButton("🎧", "Soporte", currentRoute == Routes.Support, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Support) { launchSingleTop = true } }
-        MenuButton("⚙️", "Ajustes", currentRoute == Routes.Settings, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Settings) { launchSingleTop = true } }
+        MenuButton("👤", "Mi Cuenta", currentRoute == Routes.Account, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Account) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } }
+        MenuButton("🎧", "Soporte", currentRoute == Routes.Support, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Support) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } }
+        MenuButton("⚙️", "Ajustes", currentRoute == Routes.Settings, isMenuFocused, { isMenuFocused = true }) { navController.navigate(Routes.Settings) { popUpTo(navController.graph.startDestinationId) { saveState = false }; launchSingleTop = true; restoreState = false } }
     }
 }
 
 @Composable
 fun MenuButton(icon: String, title: String, isSelected: Boolean, isExpanded: Boolean, onFocused: () -> Unit, onClick: () -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (isFocused) 1.05f else 1f, animationSpec = androidx.compose.animation.core.tween(0))
+    val scale by animateFloatAsState(if (isFocused) 1.05f else 1f, animationSpec = androidx.compose.animation.core.tween(250))
 
     // Colores Oficiales StreamVault
     val bgColor = if (isFocused) Color(0xFF69A8FF) else if (isSelected) Color(0xFF162338) else Color.Transparent

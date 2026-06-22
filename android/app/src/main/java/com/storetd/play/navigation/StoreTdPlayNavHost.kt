@@ -9,6 +9,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import android.net.Uri
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -270,11 +272,8 @@ fun checkAccountStatus() {
                 colors = listOf(Color(0xFF000000), Color(0xFF09090B))
             ))
     ) {
-        Row(modifier = Modifier.fillMaxSize()) {
-            if (showSideMenu) {
-                com.storetd.play.ui.components.PremiumSideMenu(navController = navController, currentRoute = currentRoute)
-            }
-            Box(modifier = Modifier.weight(1f)) {
+        androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize()) {
+            androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize().padding(start = if (showSideMenu) 65.dp else 0.dp)) {
                 NavHost(navController = navController, startDestination = startDestination) {
         composable(Routes.Activation) {
             ActivationScreen(
@@ -623,7 +622,11 @@ composable(
         }
     }
             }
-        }
+        
+            if (showSideMenu) {
+                com.storetd.play.ui.components.PremiumSideMenu(navController = navController, currentRoute = currentRoute)
+            }
+    }
     }
 }
 
