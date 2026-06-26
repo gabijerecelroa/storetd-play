@@ -41,6 +41,7 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v3
+        gradle-version: "9.5.1"
 
       - name: Grant execute permission to Gradle
         working-directory: android
@@ -93,6 +94,7 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v3
+        gradle-version: "9.5.1"
 
       - name: Grant execute permission to Gradle
         working-directory: android
