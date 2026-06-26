@@ -4,15 +4,13 @@ import com.storetd.play.core.model.Channel
 import com.storetd.play.core.parser.M3uParser
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import com.storetd.play.core.network.NetworkModule
 import java.io.File
 import java.util.concurrent.TimeUnit
 
 class IptvRepository(
     private val parser: M3uParser = M3uParser(),
-    private val client: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(45, TimeUnit.SECONDS)
-        .build()
+    private val client: OkHttpClient = NetworkModule.okHttpClient
 ) {
     // 🧠 MAGIA: VARIABLE INMORTAL
     // Esta variable guarda la lista ya procesada. Si está llena, no vuelve a leer nada.
@@ -33,7 +31,6 @@ class IptvRepository(
         return try {
             val request = Request.Builder()
                 .url(url)
-                .header("User-Agent", "StoreTDPlay/1.0")
                 .build()
 
             client.newCall(request).execute().use { response ->

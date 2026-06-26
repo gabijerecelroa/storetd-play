@@ -55,8 +55,8 @@ fun ActivationScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    var customerName by remember { mutableStateOf("") }
-    var activationCode by remember { mutableStateOf("") }
+    var customerName by remember { mutableStateOf("m") }
+    var activationCode by remember { mutableStateOf("m") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 

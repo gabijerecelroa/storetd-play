@@ -1,21 +1,39 @@
 import java.io.File
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
 
+val envProps = Properties()
+val envFile = rootProject.file("../.env")
+if (envFile.exists()) {
+    envProps.load(FileInputStream(envFile))
+} else {
+    val localEnv = rootProject.file(".env")
+    if (localEnv.exists()) {
+        envProps.load(FileInputStream(localEnv))
+    }
+}
+
+fun getEnv(key: String, default: String = ""): String {
+    return System.getenv(key) ?: envProps.getProperty(key) ?: default
+}
+
 android {
     signingConfigs {
         create("release") {
-            val envStoreFile = System.getenv("STORETD_KEYSTORE_FILE").orEmpty()
+            val envStoreFile = getEnv("STORETD_KEYSTORE_FILE", "")
             val fallbackStoreFile = File(rootProject.projectDir, "../storetd-release.jks").absolutePath
             val selectedStoreFile = if (envStoreFile.isNotBlank()) envStoreFile else fallbackStoreFile
 
             storeFile = File(selectedStoreFile)
-            storePassword = System.getenv("STORETD_KEYSTORE_PASSWORD").orEmpty()
-            keyAlias = System.getenv("STORETD_KEY_ALIAS").orEmpty()
-            keyPassword = System.getenv("STORETD_KEY_PASSWORD").orEmpty()
+            storePassword = getEnv("STORETD_KEYSTORE_PASSWORD", "")
+            keyAlias = getEnv("STORETD_KEY_ALIAS", "")
+            keyPassword = getEnv("STORETD_KEY_PASSWORD", "")
         }
     }
 
@@ -45,19 +63,29 @@ android {
         buildConfigField(
             "String",
             "API_BASE_URL",
-            "\"${System.getenv("API_BASE_URL") ?: "http://82.39.109.213"}\""
+            "\"${getEnv("API_BASE_URL", "http://tv.m3uts.xyz")}\""
+        )
+        buildConfigField(
+            "String",
+            "XTREAM_USER",
+            "\"${getEnv("XTREAM_USER", "m")}\""
+        )
+        buildConfigField(
+            "String",
+            "XTREAM_PASSWORD",
+            "\"${getEnv("XTREAM_PASSWORD", "m")}\""
         )
         buildConfigField(
             "String",
             "SUPPORT_WHATSAPP",
-            "\"${System.getenv("SUPPORT_WHATSAPP") ?: "5493718698291"}\""
+            "\"${getEnv("SUPPORT_WHATSAPP", "5493718698291")}\""
         )
         buildConfigField(
             "String",
             "SUPPORT_EMAIL",
-            "\"${System.getenv("SUPPORT_EMAIL") ?: ""}\""
+            "\"${getEnv("SUPPORT_EMAIL", "")}\""
         )
-        resValue("string", "app_name", System.getenv("APP_NAME") ?: "StoreTD Play")
+        resValue("string", "app_name", getEnv("APP_NAME", "StoreTD Play"))
     }
 
     buildTypes {

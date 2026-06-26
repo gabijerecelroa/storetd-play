@@ -7,6 +7,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 import java.net.URLEncoder
+import com.storetd.play.core.network.NetworkModule
 
 data class TmdbResult(
     val title: String, val overview: String, val posterPath: String?,
@@ -14,7 +15,7 @@ data class TmdbResult(
 )
 
 class TmdbRepository {
-    private val client = OkHttpClient()
+    private val client = NetworkModule.okHttpClient
 
     suspend fun searchContent(name: String, isSeries: Boolean): TmdbResult? = withContext(Dispatchers.IO) {
         val apiKey = Secrets.TMDB_API_KEY
