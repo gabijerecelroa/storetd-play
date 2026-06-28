@@ -167,6 +167,48 @@ private suspend fun obtenerUrlSeguraMagma(context: android.content.Context, stre
     }
 }
 
+private suspend fun reportMagmaError(
+    context: android.content.Context,
+    streamId: String,
+    errorMessage: String,
+    attemptedUrl: String
+) {
+    try {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val activationCode = LocalAccount.getAccount(context).activationCode
+            val timestamp = System.currentTimeMillis()
+            
+            val url = java.net.URL("http://82.39.109.213:5000/api/debug/magma-error")
+            val connection = (url.openConnection() as java.net.HttpURLConnection).apply {
+                requestMethod = "POST"
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json")
+                connectTimeout = 5000
+                readTimeout = 5000
+            }
+            
+            val jsonPayload = """
+                {
+                    "activationCode": "${activationCode.replace("\"", "\\\"")}",
+                    "streamId": "${streamId.replace("\"", "\\\"")}",
+                    "errorMessage": "${errorMessage.replace("\"", "\\\"")}",
+                    "attemptedUrl": "${attemptedUrl.replace("\"", "\\\"")}",
+                    "timestamp": $timestamp
+                }
+            """.trimIndent()
+            
+            val bytes = jsonPayload.toByteArray(Charsets.UTF_8)
+            connection.setRequestProperty("Content-Length", bytes.size.toString())
+            connection.outputStream.use { it.write(bytes) }
+            
+            connection.responseCode
+            connection.disconnect()
+        }
+    } catch (e: Exception) {
+        // Ignored to prevent crashes
+    }
+}
+
 @OptIn(UnstableApi::class)
 @Composable
 fun PlayerScreen(
