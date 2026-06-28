@@ -442,71 +442,19 @@ fun PlayerScreen(
             object : androidx.media3.datasource.HttpDataSource by defaultSource {
                 override fun open(dataSpec: androidx.media3.datasource.DataSpec): Long {
                     val urlStr = dataSpec.uri.toString()
-                    var finalSpec = dataSpec
 
                     val isMagma = urlStr.contains("tv.m3uts.xyz") || 
                                   urlStr.contains("magma-lite") || 
                                   urlStr.contains("m3uts")
 
-                    if (isMagma && urlStr.contains(".m3u8")) {
+                    if (isMagma) {
                         MagmaDiagnostics.isMagmaDetected = true
-                        MagmaDiagnostics.preFlightAttempted = true
-                        val streamId = try { urlStr.substringAfterLast("/").substringBefore(".m3u8") } catch (e: Exception) { "unknown" }
-                        try {
-                            val postUrl = java.net.URL("http://tv.m3uts.xyz/stream/gen/$streamId")
-                            val connection = postUrl.openConnection() as java.net.HttpURLConnection
-
-                            connection.requestMethod = "POST"
-                            connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
-                            connection.setRequestProperty("User-Agent", "Dalvik/2.1.0 (Linux; U; Android 15; moto g84 5G)")
-                            connection.doOutput = true
-
-                            val deviceId = "c0041021c5c95679"
-                            val postData = "id=$streamId&cast=false&device=$deviceId&code="
-                            connection.outputStream.write(postData.toByteArray())
-
-                            val responseCode = connection.responseCode
-                            MagmaDiagnostics.httpResponseCode = responseCode
-                            if (responseCode == 200) {
-                                val urlSegura = connection.inputStream.bufferedReader().readText().trim()
-                                if (urlSegura.startsWith("http")) {
-                                    MagmaDiagnostics.secureUrlReturned = true
-                                    MagmaDiagnostics.finalUrlToPlay = urlSegura
-                                    finalSpec = dataSpec.buildUpon().setUri(android.net.Uri.parse(urlSegura)).build()
-                                } else {
-                                    MagmaDiagnostics.secureUrlReturned = false
-                                    MagmaDiagnostics.realErrorMessage = "URL Segura Inválida"
-                                    MagmaDiagnostics.finalUrlToPlay = urlStr
-                                    
-                                    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-                                        reportMagmaError(context, streamId, "URL Segura Inválida en interceptor: $urlSegura", urlStr)
-                                    }
-                                }
-                            } else {
-                                MagmaDiagnostics.secureUrlReturned = false
-                                MagmaDiagnostics.realErrorMessage = "HTTP $responseCode"
-                                MagmaDiagnostics.finalUrlToPlay = urlStr
-                                
-                                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-                                    reportMagmaError(context, streamId, "HTTP $responseCode en interceptor", urlStr)
-                                }
-                            }
-                        } catch (e: Exception) {
-                            MagmaDiagnostics.secureUrlReturned = false
-                            MagmaDiagnostics.realErrorMessage = e.message ?: "Exception in pre-flight interceptor"
+                        if (MagmaDiagnostics.finalUrlToPlay.isEmpty()) {
                             MagmaDiagnostics.finalUrlToPlay = urlStr
-                            android.util.Log.e("MagmaInterceptor", "Error en pre-flight Magma", e)
-                            
-                            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-                                reportMagmaError(context, streamId, e.message ?: "Exception in pre-flight interceptor", urlStr)
-                            }
                         }
-                    } else if (isMagma) {
-                        MagmaDiagnostics.isMagmaDetected = true
-                        MagmaDiagnostics.finalUrlToPlay = urlStr
                     }
 
-                    return defaultSource.open(finalSpec)
+                    return defaultSource.open(dataSpec)
                 }
             }
         }
@@ -590,11 +538,15 @@ fun PlayerScreen(
             .setMediaSourceFactory(iptvMediaSourceFactory)
             .setLoadControl(normalLoadControl)
             .build()
-            .apply {
-                setMediaItem(androidx.media3.common.MediaItem.fromUri(forceHlsUrl(context, currentChannel.streamUrl)))
-                prepare()
-                playWhenReady = true
-            }
+    }
+
+    LaunchedEffect(player, currentChannel.streamUrl) {
+        val safeUrl = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            forceHlsUrl(context, currentChannel.streamUrl)
+        }
+        player.setMediaItem(androidx.media3.common.MediaItem.fromUri(safeUrl))
+        player.prepare()
+        player.playWhenReady = true
     }
 
     LaunchedEffect(player, currentChannel.streamUrl, isVodContent) {
@@ -746,9 +698,15 @@ fun PlayerScreen(
         player.stop()
         player.clearMediaItems()
         player.seekTo(0) // Vaciado forzoso del chip físico
-        player.setMediaItem(androidx.media3.common.MediaItem.fromUri(forceHlsUrl(context, currentChannel.streamUrl)))
-        player.prepare()
-        player.playWhenReady = true
+        
+        scope.launch {
+            val safeUrl = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                forceHlsUrl(context, currentChannel.streamUrl)
+            }
+            player.setMediaItem(androidx.media3.common.MediaItem.fromUri(safeUrl))
+            player.prepare()
+            player.playWhenReady = true
+        }
     }
 
     fun retryPlayback() {
@@ -2055,7 +2013,7 @@ private fun shouldAutoRetryForPlaybackError(error: PlaybackException): Boolean {
 
 
 // 🔥 MUTADOR HLS ANDROID 🔥
-fun forceHlsUrl(context: android.content.Context, originalUrl: String): String {
+suspend fun forceHlsUrl(context: android.content.Context, originalUrl: String): String {
     
     try {
         // 1. Nuevo flujo exclusivo para Magma
@@ -2066,7 +2024,7 @@ fun forceHlsUrl(context: android.content.Context, originalUrl: String): String {
             MagmaDiagnostics.finalUrlToPlay = originalUrl
             
             android.util.Log.d("MagmaFix", "Detectada URL de Magma en forceHlsUrl: $originalUrl")
-            android.os.Handler(android.os.Looper.getMainLooper()).post {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                 android.widget.Toast.makeText(context, "Magma: Detectada URL de tv.m3uts.xyz", android.widget.Toast.LENGTH_SHORT).show()
             }
             try {
@@ -2075,34 +2033,39 @@ fun forceHlsUrl(context: android.content.Context, originalUrl: String): String {
                 val streamId = clean.split("/").last()
                 android.util.Log.d("MagmaFix", "StreamId extraído de la URL: $streamId")
                 
-                // Llamamos a la función asíncrona bloqueando temporalmente con Dispatchers.IO
-                val urlSegura = kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.IO) {
-                    try {
+                // Llamamos a la función asíncrona de manera segura (hilo de fondo, con timeout corto)
+                val urlSegura = try {
+                    kotlinx.coroutines.withTimeout(5000L) {
                         obtenerUrlSeguraMagma(context, streamId)
-                    } catch (e: Exception) {
-                        MagmaDiagnostics.realErrorMessage = e.message ?: "Exception in runBlocking"
-                        null
                     }
+                } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                    MagmaDiagnostics.realErrorMessage = "Timeout en pre-flight de Magma"
+                    android.util.Log.e("MagmaFix", "Timeout al obtener URL segura para Magma")
+                    null
+                } catch (e: Exception) {
+                    MagmaDiagnostics.realErrorMessage = e.message ?: "Exception in pre-flight"
+                    android.util.Log.e("MagmaFix", "Excepción al obtener URL segura: ${e.message}")
+                    null
                 }
                 
                 if (urlSegura != null) {
                     MagmaDiagnostics.finalUrlToPlay = urlSegura
                     android.util.Log.d("MagmaFix", "obtenerUrlSeguraMagma devolvió URL segura, usando URL final: $urlSegura")
-                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                         android.widget.Toast.makeText(context, "Magma: URL final -> MediaItem", android.widget.Toast.LENGTH_SHORT).show()
                     }
                     return urlSegura
                 } else {
                     android.util.Log.d("MagmaFix", "obtenerUrlSeguraMagma devolvió null")
                     android.util.Log.d("MagmaFix", "Magma: URL segura fallida. URL final a usar: $originalUrl")
-                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                         android.widget.Toast.makeText(context, "Magma: Falló la URL segura → usando original", android.widget.Toast.LENGTH_LONG).show()
                     }
                 }
             } catch (e: Exception) {
                 MagmaDiagnostics.realErrorMessage = "Error en forceHlsUrl: ${e.message}"
                 android.util.Log.e("MagmaFix", "Error en forceHlsUrl para Magma: ${e.message}")
-                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                     android.widget.Toast.makeText(context, "Magma Exception: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
                 }
             }
