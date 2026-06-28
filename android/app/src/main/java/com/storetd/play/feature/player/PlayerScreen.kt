@@ -267,8 +267,7 @@ fun PlayerScreen(
                 override fun open(dataSpec: androidx.media3.datasource.DataSpec): Long {
                     val urlStr = dataSpec.uri.toString()
                     var finalSpec = dataSpec
-                    val isMagmaLive = urlStr.contains("tv.m3uts.xyz") || urlStr.contains("magma-lite") || urlStr.contains("m3uts")
-                    if (isMagmaLive && urlStr.contains(".m3u8")) {
+                    if (urlStr.contains("tv.m3uts.xyz") && urlStr.contains(".m3u8")) {
                         try {
                             val streamId = urlStr.substringAfterLast("/").substringBefore(".m3u8")
                             val postUrl = java.net.URL("http://tv.m3uts.xyz/stream/gen/$streamId")
@@ -277,8 +276,8 @@ fun PlayerScreen(
                             connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
                             connection.setRequestProperty("User-Agent", "Dalvik/2.1.0 (Linux; U; Android 15; moto g84 5G)")
                             connection.doOutput = true
-                            val deviceId = com.storetd.play.core.Secrets.MAGMA_DEVICE_ID
-                            val postData = "id=$streamId&cast=false&device=$deviceId&code="
+                            // FIX: Usamos el ID de dispositivo hardcodeado que sabemos que funciona
+                            val postData = "id=$streamId&cast=false&device=c0041021c5c95679&code="
                             connection.outputStream.write(postData.toByteArray())
                             if (connection.responseCode == 200) {
                                 val urlSegura = connection.inputStream.bufferedReader().readText().trim()
@@ -287,7 +286,7 @@ fun PlayerScreen(
                                 }
                             }
                         } catch (e: Exception) {
-                            android.util.Log.e("StreamInterceptor", "Error pre-flight HTTP", e)
+                            android.util.Log.e("StreamInterceptor", "Error silencioso", e)
                         }
                     }
                     return defaultSource.open(finalSpec)
