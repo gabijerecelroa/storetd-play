@@ -258,7 +258,7 @@ fun PlayerScreen(
         // INTERCEPTOR INTELIGENTE MAGMA LITE
         val dataSourceFactory = androidx.media3.datasource.DataSource.Factory {
             val defaultSource = androidx.media3.datasource.DefaultHttpDataSource.Factory()
-                .setUserAgent("Dalvik/2.1.0 (Linux; U; Android 15; moto g84 5G)")
+                .setUserAgent("Magma Player/10")
                 .setAllowCrossProtocolRedirects(true)
                 .setConnectTimeoutMs(30_000)
                 .setReadTimeoutMs(120_000)
