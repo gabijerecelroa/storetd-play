@@ -132,8 +132,10 @@ private fun isMagmaLiveStreamUrl(url: String): Boolean {
 private val magmaSecureCache = mutableMapOf<String, String>()
 
 private suspend fun obtenerUrlSeguraMagma(streamId: String): String? {
+    android.util.Log.d("MagmaFix", "Entrando a obtenerUrlSeguraMagma para streamId: $streamId")
+    
     magmaSecureCache[streamId]?.let { cachedUrl ->
-        android.util.Log.d("MagmaFix", "Usando URL en caché para stream $streamId")
+        android.util.Log.d("MagmaFix", "URL encontrada en caché para streamId $streamId: $cachedUrl")
         return cachedUrl
     }
 
@@ -151,19 +153,25 @@ private suspend fun obtenerUrlSeguraMagma(streamId: String): String? {
         val postData = "id=$streamId&cast=false&device=c0041021c5c95679&code="
         connection.outputStream.use { it.write(postData.toByteArray(Charsets.UTF_8)) }
 
-        if (connection.responseCode == java.net.HttpURLConnection.HTTP_OK) {
+        val responseCode = connection.responseCode
+        android.util.Log.d("MagmaFix", "Código de respuesta HTTP del POST para streamId $streamId: $responseCode")
+
+        if (responseCode == java.net.HttpURLConnection.HTTP_OK) {
             val secureUrl = connection.inputStream.bufferedReader().use { it.readText().trim() }
             
             if (secureUrl.startsWith("http://") || secureUrl.startsWith("https://")) {
                 magmaSecureCache[streamId] = secureUrl
-                android.util.Log.d("MagmaFix", "URL segura obtenida para $streamId: $secureUrl")
+                android.util.Log.d("MagmaFix", "URL segura válida obtenida para streamId $streamId: $secureUrl")
                 return secureUrl
+            } else {
+                android.util.Log.e("MagmaFix", "La URL segura devuelta no es válida para streamId $streamId: $secureUrl")
             }
+        } else {
+            android.util.Log.e("MagmaFix", "Fallo al obtener URL segura para stream $streamId, código HTTP: $responseCode")
         }
-        android.util.Log.e("MagmaFix", "Fallo al obtener URL segura para stream $streamId. Código: ${connection.responseCode}")
         null
     } catch (e: Exception) {
-        android.util.Log.e("MagmaFix", "Excepción en pre-flight para stream $streamId: ${e.message}")
+        android.util.Log.e("MagmaFix", "Excepción en obtenerUrlSeguraMagma para stream $streamId: ${e.message}")
         null
     }
 }
@@ -1830,10 +1838,12 @@ fun forceHlsUrl(context: android.content.Context, originalUrl: String): String {
     
     // 1. Nuevo flujo exclusivo para Magma
     if (originalUrl.contains("tv.m3uts.xyz")) {
+        android.util.Log.d("MagmaFix", "Detectada URL de Magma en forceHlsUrl: $originalUrl")
         try {
             // Extraer el streamId de la URL original limpiando sufijos y parámetros
             val clean = originalUrl.substringBefore("?").replace(".ts", "").replace(".m3u8", "")
             val streamId = clean.split("/").last()
+            android.util.Log.d("MagmaFix", "StreamId extraído de la URL: $streamId")
             
             // Llamamos a la función asíncrona bloqueando temporalmente con Dispatchers.IO
             val urlSegura = kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.IO) {
@@ -1841,13 +1851,17 @@ fun forceHlsUrl(context: android.content.Context, originalUrl: String): String {
             }
             
             if (urlSegura != null) {
+                android.util.Log.d("MagmaFix", "obtenerUrlSeguraMagma devolvió URL segura, usando URL final: $urlSegura")
                 return urlSegura
+            } else {
+                android.util.Log.d("MagmaFix", "obtenerUrlSeguraMagma devolvió null")
             }
         } catch (e: Exception) {
             android.util.Log.e("MagmaFix", "Error en forceHlsUrl para Magma: ${e.message}")
         }
         
         // Fallback: Si no devolvió nada o falló, usar la original, evitando la mutación a ".m3u8"
+        android.util.Log.d("MagmaFix", "Usando URL original como fallback (URL final): $originalUrl")
         return originalUrl
     }
 
