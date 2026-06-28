@@ -2,6 +2,61 @@ const { supabase } = require("./db");
 
 const CACHE_TABLE = "playlist_cache";
 
+function xtreamNumber(obj, ...keys) {
+  if (!obj) return 0;
+
+  for (const key of keys) {
+    const value = obj[key];
+    if (value !== undefined && value !== null && value !== "") {
+      const num = Number(value);
+      if (!isNaN(num)) {
+        return num;
+      }
+    }
+  }
+  return 0;
+}
+
+function xtreamString(obj, ...keys) {
+  if (!obj) return "";
+
+  for (const key of keys) {
+    const value = obj[key];
+    if (value !== undefined && value !== null) {
+      const str = String(value).trim();
+      if (str) return str;
+    }
+  }
+  return "";
+}
+
+function xtreamGroupName(type, name) {
+  // type puede ser "live", "movie", o "series"
+  // name es el nombre original de la categoría (con emojis, etc.)
+  return String(name || "").trim() || "Sin Categoria";
+}
+
+async function fetchXtreamJson(playlistUrl, action, extraParams = {}) {
+  const url = new URL(playlistUrl);
+  url.searchParams.set("action", action);
+
+  for (const [key, value] of Object.entries(extraParams)) {
+    url.searchParams.set(key, value);
+  }
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      "User-Agent": "StoreTD-Play-Backend/1.0"
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Xtream action '${action}' failed with HTTP ${response.status}`);
+  }
+
+  return response.json();
+}
+
 function normalizeCode(code) {
   return String(code || "").trim().toUpperCase();
 }
@@ -990,6 +1045,25 @@ function xtreamCategoryMatches(row, categoryId) {
   return xtreamCategoryIds(row).includes(safeCategoryId);
 }
 
+function xtreamCategoryMap(categories) {
+  const map = new Map();
+
+  (Array.isArray(categories) ? categories : []).forEach((cat) => {
+    const id = String(cat.category_id || "").trim();
+    const name = String(cat.category_name || "").trim();
+
+    if (id && name) {
+      map.set(id, name);
+    }
+  });
+
+  return map;
+}
+
+function xtreamCategoryName(categoryMap, categoryId, fallback = "Sin Categoria") {
+  return categoryMap.get(String(categoryId)) || fallback;
+}
+
 function buildXtreamMovieCategoriesPayload({ activationCode, playlistUrl, rows, categoryMap }) {
   const categoriesById = new Map();
 
@@ -1842,6 +1916,8 @@ async function getMovieCategoryByKey({ activationCode, key, autoRefresh = true }
 
   if (isXtreamContentMode() && category?.source?.provider === "xtream") {
     const categoryId = String(category.source.categoryId || "").trim();
+    const client = await getClientByActivationCode(activationCode);
+    const playlistUrl = client.playlist_url;
     const movieRows = await fetchXtreamJson(playlistUrl, "get_vod_streams");
     const filteredRows = Array.isArray(movieRows)
       ? movieRows.filter((row) => xtreamCategoryMatches(row, categoryId))
