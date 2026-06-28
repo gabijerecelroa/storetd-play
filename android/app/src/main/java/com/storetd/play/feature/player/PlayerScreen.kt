@@ -345,50 +345,22 @@ fun PlayerScreen(
         }
 
         // 1. DataSource Inteligente: Cambia el User-Agent dinámicamente
-        val magmaDataSourceFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
-            .setUserAgent("Magma Player/10")
-            .setAllowCrossProtocolRedirects(true)
-            .setConnectTimeoutMs(15000)
-            .setReadTimeoutMs(15000)
+        val isMagmaChannel = currentChannel.streamUrl.let { url ->
+            url.contains("tv.m3uts.xyz") || url.contains("magma-lite") || url.contains("m3uts")
+        }
 
-        val vlcDataSourceFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
-            .setUserAgent("VLC/3.0.9 LibVLC/3.0.9")
-            .setAllowCrossProtocolRedirects(true)
-            .setConnectTimeoutMs(15000)
-            .setReadTimeoutMs(15000)
-
-        val dynamicDataSourceFactory = androidx.media3.datasource.DataSource.Factory {
-            val magmaSource = magmaDataSourceFactory.createDataSource()
-            val vlcSource = vlcDataSourceFactory.createDataSource()
-
-            object : androidx.media3.datasource.DataSource {
-                private var currentSource: androidx.media3.datasource.DataSource? = null
-
-                override fun addTransferListener(transferListener: androidx.media3.datasource.TransferListener) {
-                    magmaSource.addTransferListener(transferListener)
-                    vlcSource.addTransferListener(transferListener)
-                }
-
-                override fun open(dataSpec: androidx.media3.datasource.DataSpec): Long {
-                    val urlStr = dataSpec.uri.toString()
-                    val isMagma = urlStr.contains("tv.m3uts.xyz") || urlStr.contains("magma-lite") || urlStr.contains("m3uts")
-                    
-                    val sourceToUse = if (isMagma) magmaSource else vlcSource
-                    currentSource = sourceToUse
-                    
-                    return sourceToUse.open(dataSpec)
-                }
-
-                override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
-                    return currentSource?.read(buffer, offset, length) ?: -1
-                }
-
-                override fun getUri(): android.net.Uri? = currentSource?.uri
-                
-                override fun close() {
-                    currentSource?.close()
-                }
-            }
+        val finalDataSourceFactory = if (isMagmaChannel) {
+            androidx.media3.datasource.DefaultHttpDataSource.Factory()
+                .setUserAgent("Magma Player/10")
+                .setAllowCrossProtocolRedirects(true)
+                .setConnectTimeoutMs(15000)
+                .setReadTimeoutMs(15000)
+        } else {
+            androidx.media3.datasource.DefaultHttpDataSource.Factory()
+                .setUserAgent("VLC/3.0.9 LibVLC/3.0.9")
+                .setAllowCrossProtocolRedirects(true)
+                .setConnectTimeoutMs(15000)
+                .setReadTimeoutMs(15000)
         }
 
         // 2. EL SECRETO (POLÍTICA DE ERRORES): En lugar de rendirse a los 3 errores de red, intentará reconectar silenciosamente 25 veces seguidas.
@@ -403,7 +375,7 @@ fun PlayerScreen(
             )
 
         val finalMediaSourceFactory = androidx.media3.exoplayer.source.DefaultMediaSourceFactory(context, extractorsFactory)
-            .setDataSourceFactory(dynamicDataSourceFactory)
+            .setDataSourceFactory(finalDataSourceFactory)
             .setLoadErrorHandlingPolicy(loadErrorPolicy)
 
         // 3. HARDWARE PURO PARA TODOS (Cura de Congelamiento en TV)

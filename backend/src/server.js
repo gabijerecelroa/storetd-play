@@ -3062,15 +3062,20 @@ app.get("/api/app-update", (req, res) => {
   const latestVersionCode = Number(process.env.APP_LATEST_VERSION_CODE || 8);
   const latestVersionName = process.env.APP_LATEST_VERSION_NAME || "1.0.7";
   const apkUrl = process.env.APP_LATEST_APK_URL || "";
-  const forceUpdate = String(process.env.APP_FORCE_UPDATE || "0") === "1";
+  let forceUpdate = String(process.env.APP_FORCE_UPDATE || "0") === "1";
   const changelog = process.env.APP_UPDATE_CHANGELOG ||
     "Mejoras de estabilidad, reproducción y correcciones generales.";
 
-  const updateAvailable =
+  let updateAvailable =
     latestVersionCode > 0 &&
     currentVersionCode > 0 &&
     latestVersionCode > currentVersionCode &&
     apkUrl.trim() !== "";
+
+  if (currentVersionCode >= 118) {
+    forceUpdate = false;
+    updateAvailable = false;
+  }
 
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
   res.json({
