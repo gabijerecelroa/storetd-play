@@ -256,19 +256,44 @@ fun PlayerScreen(
 
         // 1. TIEMPOS DE ESPERA EXTREMOS: Si tu Wi-Fi se congela, esperamos hasta 2 minutos sin cancelar el video
         // INTERCEPTOR INTELIGENTE MAGMA LITE
-        val dataSourceFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
-            .setUserAgent("Magma Player/10")
-            .setDefaultRequestProperties(
-                mapOf(
-                    "X-App" to "di",
-                    "X-Version" to "10/1.0.9",
-                    "X-Did" to "c0041021c5c95679",
-                    "X-Hash" to "MVRUcQA5ddQ6Q7uvtD3Ms8ucj_Sj0SSzBNyfWBAeDrWPiwDugKt5m7OlmmsvMbJ4Gqc7qoaTbR47HgkHQ0kyHjk2Q20f5TMexj3o9gNRhmprUJmWXWpDQYyx-xAOEx1MV9R0m9Q-GYH2CqzKS_rIlpb0hge4Moy7FRomMTQpPK047WahnRTpbycnW517aYWIdb20KEZy9RVbHoVZ4gIwY19ZxfLB-QRXubBGyTPFkxLfrZh2cnh-AsdaNbkQKuBqbu0F1Ya-VaQb4tb1C2O3Er14lNrP-R9MnXbltt_yahHYND94F90kqLRacnURZP76e6r6d9xTzl3940FLneH-UpYdPxnuNc9C7S-cwYrs2DMHdNE5WWZ3s-FuesB9Mz25tZd0rIRGGb7dnjZY_FjAx08R3hzsywOLpGWUBT_4OCH051l21jTc29hXwiwj-1vo3eRbjUkgzXJlwvTBS2RAAld5NzPs6kFVjxSr729niVrf9j4WtOJnVQfAESCIFbNnDudLB4VdBeb2w58rTAGo-Q"
-                )
-            )
-            .setAllowCrossProtocolRedirects(true)
-            .setConnectTimeoutMs(30_000)
-            .setReadTimeoutMs(120_000)
+        val dataSourceFactory = androidx.media3.datasource.DataSource.Factory {
+            val defaultSource = androidx.media3.datasource.DefaultHttpDataSource.Factory()
+                .setUserAgent("Dalvik/2.1.0 (Linux; U; Android 15; moto g84 5G)")
+                .setAllowCrossProtocolRedirects(true)
+                .setConnectTimeoutMs(30_000)
+                .setReadTimeoutMs(120_000)
+                .createDataSource()
+            object : androidx.media3.datasource.HttpDataSource by defaultSource {
+                override fun open(dataSpec: androidx.media3.datasource.DataSpec): Long {
+                    val urlStr = dataSpec.uri.toString()
+                    var finalSpec = dataSpec
+                    val isMagmaLive = urlStr.contains("tv.m3uts.xyz") || urlStr.contains("magma-lite") || urlStr.contains("m3uts")
+                    if (isMagmaLive && urlStr.contains(".m3u8")) {
+                        try {
+                            val streamId = urlStr.substringAfterLast("/").substringBefore(".m3u8")
+                            val postUrl = java.net.URL("http://tv.m3uts.xyz/stream/gen/$streamId")
+                            val connection = postUrl.openConnection() as java.net.HttpURLConnection
+                            connection.requestMethod = "POST"
+                            connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+                            connection.setRequestProperty("User-Agent", "Dalvik/2.1.0 (Linux; U; Android 15; moto g84 5G)")
+                            connection.doOutput = true
+                            val deviceId = com.storetd.play.core.Secrets.MAGMA_DEVICE_ID
+                            val postData = "id=$streamId&cast=false&device=$deviceId&code="
+                            connection.outputStream.write(postData.toByteArray())
+                            if (connection.responseCode == 200) {
+                                val urlSegura = connection.inputStream.bufferedReader().readText().trim()
+                                if (urlSegura.startsWith("http")) {
+                                    finalSpec = dataSpec.buildUpon().setUri(android.net.Uri.parse(urlSegura)).build()
+                                }
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("StreamInterceptor", "Error pre-flight HTTP", e)
+                        }
+                    }
+                    return defaultSource.open(finalSpec)
+                }
+            }
+        }
 
         // 2. EL SECRETO (POLÍTICA DE ERRORES): En lugar de rendirse a los 3 errores de red, intentará reconectar silenciosamente 25 veces seguidas.
         val loadErrorPolicy = androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy(25)

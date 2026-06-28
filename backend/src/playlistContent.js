@@ -36,47 +36,7 @@ function parseExtinfName(line) {
   return line.slice(commaIndex + 1).trim();
 }
 
-function parseM3u(raw) {
-  const lines = String(raw || "")
-    .replace(/\r/g, "")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  const items = [];
-  let pending = null;
-
-  for (const line of lines) {
-    if (line.startsWith("#EXTINF")) {
-      const tvgName = attr(line, "tvg-name");
-      const displayName = parseExtinfName(line);
-
-      pending = {
-        name: tvgName || displayName || "Sin nombre",
-        streamUrl: "",
-        logoUrl: attr(line, "tvg-logo") || null,
-        group: attr(line, "group-title") || "Sin categoría",
-        tvgId: attr(line, "tvg-id") || null
-      };
-      continue;
-    }
-
-    if (line.startsWith("#")) continue;
-
-    if (pending) {
-      pending.streamUrl = line;
-
-      if (pending.streamUrl) {
-        items.push(pending);
-      }
-
-      pending = null;
-    }
-  }
-
-  return items;
-}
-
+// Removed parseM3u
 const adultWords = [
   "adult", "adulto", "adultos", "xxx", "+18", "18+", "hot",
   "erotic", "erotico", "erotica", "porno", "porn", "playboy",
@@ -232,20 +192,7 @@ function validateClient(client) {
   return null;
 }
 
-async function fetchPlaylist(url) {
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": "StoreTD-Play-Backend/2.0"
-    }
-  });
-
-  if (!response.ok) {
-    throw new Error(`No se pudo descargar la lista. HTTP ${response.status}`);
-  }
-
-  return await response.text();
-}
-
+// Removed fetchPlaylist
 function splitSections(items) {
   const clean = uniqueByUrl(items);
 
@@ -956,17 +903,22 @@ async function saveSectionCache({ activationCode, playlistUrl, section, items })
 const xtreamSeriesInfoMemoryCache = new Map();
 
 function isXtreamContentMode() {
-  return String(process.env.CONTENT_SOURCE_MODE || "")
-    .trim()
-    .toLowerCase() === "xtream";
+  return true;
 }
 
-function xtreamConfig() {
-  const baseUrl = String(process.env.XTREAM_BASE_URL || process.env.XTREAM_BASE || "")
-    .trim()
-    .replace(/\/+$/, "");
-  const username = String(process.env.XTREAM_USERNAME || process.env.XTREAM_USER || "").trim();
-  const password = String(process.env.XTREAM_PASSWORD || process.env.XTREAM_PASS || "").trim();
+function xtreamConfig(playlistUrl) {
+  if (playlistUrl) {
+    try {
+      const url = new URL(playlistUrl);
+      const baseUrl = url.origin;
+      const username = url.searchParams.get("username") || "";
+      const password = url.searchParams.get("password") || "";
+      return { baseUrl, username, password };
+    } catch(e) {}
+  }
+  const baseUrl = String(process.env.XTREAM_BASE_URL || process.env.XTREAM_BASE || "http://tv.m3uts.xyz").trim().replace(/\/+$/, "");
+  const username = String(process.env.XTREAM_USERNAME || process.env.XTREAM_USER || "m").trim();
+  const password = String(process.env.XTREAM_PASSWORD || process.env.XTREAM_PASS || "m").trim();
 
   if (!baseUrl || !username || !password) {
     throw new Error("Xtream no configurado. Revisa XTREAM_BASE_URL, XTREAM_USERNAME y XTREAM_PASSWORD.");
@@ -975,155 +927,27 @@ function xtreamConfig() {
   return { baseUrl, username, password };
 }
 
-function xtreamSourceUrlMasked() {
-  const { baseUrl, username } = xtreamConfig();
-  return `${baseUrl}/player_api.php?username=${encodeURIComponent(username)}&password=***`;
+function xtreamSourceUrlMasked(playlistUrl) {
+  const { baseUrl } = xtreamConfig(playlistUrl);
+  return baseUrl;
 }
 
-function xtreamBuildUrl(action, extra = {}) {
-  const { baseUrl, username, password } = xtreamConfig();
-  const params = new URLSearchParams();
-
-  params.set("username", username);
-  params.set("password", password);
-
-  if (action) {
-    params.set("action", action);
-  }
-
-  for (const [key, value] of Object.entries(extra || {})) {
-    if (value !== undefined && value !== null && String(value).trim() !== "") {
-      params.set(key, String(value));
-    }
-  }
-
-  return `${baseUrl}/player_api.php?${params.toString()}`;
+function xtreamLiveUrl(playlistUrl, streamId, ext = "ts") {
+  const { baseUrl, username, password } = xtreamConfig(playlistUrl);
+  return `${baseUrl}/live/${username}/${password}/${streamId}.m3u8`;
 }
 
-async function fetchXtreamJson(action, extra = {}) {
-  const url = xtreamBuildUrl(action, extra);
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 120000);
-
-  try {
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        Accept: "application/json,*/*",
-        "User-Agent": "StoreTD-Play-Backend"
-      },
-      signal: controller.signal
-    });
-
-    const text = await response.text();
-
-    if (!response.ok) {
-      throw new Error(`Xtream HTTP ${response.status}: ${text.slice(0, 240)}`);
-    }
-
-    try {
-      return JSON.parse(text);
-    } catch (error) {
-      throw new Error(`Xtream no devolvio JSON valido: ${text.slice(0, 240)}`);
-    }
-  } finally {
-    clearTimeout(timeout);
-  }
+function xtreamMovieUrl(playlistUrl, streamId, ext = "mp4") {
+  const { baseUrl, username, password } = xtreamConfig(playlistUrl);
+  return baseUrl + "/movie/" + username + "/" + password + "/" + streamId + "." + ext;
 }
 
-function xtreamString(row, ...keys) {
-  for (const key of keys) {
-    const value = row?.[key];
-
-    if (value !== undefined && value !== null && String(value).trim() !== "") {
-      return String(value).trim();
-    }
-  }
-
-  return "";
+function xtreamSeriesEpisodeUrl(playlistUrl, episodeId, ext = "mp4") {
+  const { baseUrl, username, password } = xtreamConfig(playlistUrl);
+  return baseUrl + "/series/" + username + "/" + password + "/" + episodeId + "." + ext;
 }
 
-function xtreamNumber(row, ...keys) {
-  for (const key of keys) {
-    const value = Number(row?.[key]);
-
-    if (Number.isFinite(value) && value > 0) {
-      return value;
-    }
-  }
-
-  return 0;
-}
-
-function xtreamCategoryMap(rows) {
-  const map = new Map();
-
-  if (!Array.isArray(rows)) return map;
-
-  for (const row of rows) {
-    const id = xtreamString(row, "category_id", "id");
-    const name = xtreamString(row, "category_name", "name", "title");
-
-    if (id) {
-      map.set(id, name || `Categoria ${id}`);
-    }
-  }
-
-  return map;
-}
-
-function xtreamCategoryName(map, categoryId, fallback) {
-  const firstId = String(categoryId || "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean)[0];
-
-  return map.get(firstId) || fallback;
-}
-
-function xtreamGroupName(type, rawName) {
-  const name = String(rawName || "").trim();
-
-  if (type === "live") {
-    if (!name) return "TV | Sin Categoria";
-    if (/^TV\s*\|/i.test(name) || /^TV\s+ADULTO/i.test(name)) return name;
-    return `TV | ${name}`;
-  }
-
-  if (type === "movie") {
-    if (!name) return "Peliculas | Sin Categoria";
-    if (/^Peliculas\s*\|/i.test(name)) return name;
-    return `Peliculas | ${name}`;
-  }
-
-  if (type === "series") {
-    if (!name) return "Series | Sin Categoria";
-    if (/^Series\s*\|/i.test(name)) return name;
-    return `Series | ${name}`;
-  }
-
-  return name || "Sin Categoria";
-}
-
-function xtreamLiveUrl(streamId, ext = "ts") {
-  const { baseUrl, username, password } = xtreamConfig();
-  const safeExt = String(ext || "m3u8").replace(/^\./, "");
-  return `${baseUrl}/live/${encodeURIComponent(username)}/${encodeURIComponent(password)}/${streamId}.${safeExt}`;
-}
-
-function xtreamMovieUrl(streamId, ext = "mp4") {
-  const { baseUrl, username, password } = xtreamConfig();
-  const safeExt = String(ext || "mp4").replace(/^\./, "");
-  return `${baseUrl}/movie/${encodeURIComponent(username)}/${encodeURIComponent(password)}/${streamId}.${safeExt}`;
-}
-
-function xtreamSeriesEpisodeUrl(episodeId, ext = "mp4") {
-  const { baseUrl, username, password } = xtreamConfig();
-  const safeExt = String(ext || "mp4").replace(/^\./, "");
-  return `${baseUrl}/series/${encodeURIComponent(username)}/${encodeURIComponent(password)}/${episodeId}.${safeExt}`;
-}
-
-function normalizeXtreamLiveItems(rows, categoryMap) {
+function normalizeXtreamLiveItems(playlistUrl, rows, categoryMap) {
   if (!Array.isArray(rows)) return [];
 
   return rows
@@ -1134,45 +958,12 @@ function normalizeXtreamLiveItems(rows, categoryMap) {
       const categoryId = xtreamString(row, "category_id");
       const category = xtreamCategoryName(categoryMap, categoryId, "Sin Categoria");
 
-      // 🔥 LA ADUANA V4: PURIFICADOR DE EMOJIS Y ACENTOS
-      // CHIVATO DE CATEGORIAS
-      if (!global.radiografia) global.radiografia = new Set();
-      if (!global.radiografia.has(category)) {
-        console.log('CATEGORIA ENCONTRADA: ' + category);
-        global.radiografia.add(category);
-      }
-      const cleanCat = String(category)
-        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^a-zA-Z0-9 ]/g, " ")
-        .toLowerCase()
-        .replace(/\s+/g, " ")
-        .trim();
-
-            // 🎯 FRANCOTIRADOR V6: MATCH EXACTO
-      const allowedKeywords = [
-        "paraguay vip", "gran hermano", "deportes argentina", "argentina", "argentlna",
-        "eventos premium", "espn", "fox sports", "movistar",
-        "24 7 pelicula", "cinema vip", "cine premium", "24 7 infantil", "24 7 premium",
-        "musica", "4k movistar", "fox one", "latinos premium", "ufc",
-        "zona latina", "mundial 2026", "dsport", "d port", "infantiles premium", "adultos", "hot", "xxx", "18+", "venus"
-      ];
-
-      let isAllowed = false;
-      for (const kw of allowedKeywords) {
-        if (cleanCat.includes(kw) || String(category).toLowerCase().includes(kw)) {
-          isAllowed = true;
-          break;
-        }
-      }
-
-      if (!isAllowed) return null;
-
       const ext = xtreamString(row, "container_extension") || "ts";
 
       return {
         id: String(streamId),
         name: xtreamString(row, "name", "title") || `Canal ${streamId}`,
-        streamUrl: xtreamLiveUrl(streamId, ext),
+        streamUrl: xtreamLiveUrl(playlistUrl, streamId, ext),
         logoUrl: xtreamString(row, "stream_icon", "cover", "image") || null,
         group: xtreamGroupName("live", category), // El nombre con emojis se mantiene para la TV
         tvgId: xtreamString(row, "epg_channel_id", "tvg_id") || null,
@@ -1248,7 +1039,7 @@ function buildXtreamMovieCategoriesPayload({ activationCode, playlistUrl, rows, 
 }
 
 
-function normalizeXtreamMovieItems(rows, categoryMap) {
+function normalizeXtreamMovieItems(playlistUrl, rows, categoryMap) {
   if (!Array.isArray(rows)) return [];
 
   return rows
@@ -1263,7 +1054,7 @@ function normalizeXtreamMovieItems(rows, categoryMap) {
       return {
         id: String(streamId),
         name: xtreamString(row, "name", "title") || `Pelicula ${streamId}`,
-        streamUrl: xtreamMovieUrl(streamId, ext),
+        streamUrl: xtreamMovieUrl(playlistUrl, streamId, ext),
         logoUrl: xtreamString(row, "stream_icon", "cover", "image") || null,
         group: xtreamGroupName("movie", category),
         tvgId: null,
@@ -1365,7 +1156,7 @@ function xtreamEpisodeName(folderTitle, episode) {
   return `${folderTitle} S${String(season).padStart(2, "0")}E${String(episodeNumberValue).padStart(2, "0")}`;
 }
 
-async function getXtreamEpisodesForSeriesFolder(folder) {
+async function getXtreamEpisodesForSeriesFolder(folder, playlistUrl) {
   const seriesId = Number(folder?.source?.seriesId || 0);
 
   if (!seriesId) return [];
@@ -1374,7 +1165,7 @@ async function getXtreamEpisodesForSeriesFolder(folder) {
   let info = xtreamSeriesInfoMemoryCache.get(cacheKey);
 
   if (!info) {
-    info = await fetchXtreamJson("get_series_info", { series_id: seriesId });
+    info = await fetchXtreamJson(playlistUrl, "get_series_info", { series_id: seriesId });
     xtreamSeriesInfoMemoryCache.set(cacheKey, info);
   }
 
@@ -1403,7 +1194,7 @@ async function getXtreamEpisodesForSeriesFolder(folder) {
       return {
         id: String(episodeId),
         name: xtreamEpisodeName(folder.title, episode),
-        streamUrl: xtreamSeriesEpisodeUrl(episodeId, ext),
+        streamUrl: xtreamSeriesEpisodeUrl(playlistUrl, episodeId, ext),
         logoUrl: logo || item.stream_icon || item.cover,
         group: folder.title,
         tvgId: null,
@@ -1419,23 +1210,23 @@ async function getXtreamEpisodesForSeriesFolder(folder) {
     });
 }
 
-async function refreshXtreamContentCacheForClient({ activationCode, refreshSection, shouldRefresh }) {
-  var playlistUrl = xtreamSourceUrlMasked();
+async function refreshXtreamContentCacheForClient({ activationCode, refreshSection, shouldRefresh, playlistUrl }) {
+  var playlistUrlMasked = xtreamSourceUrlMasked(playlistUrl);
   const counts = {};
   const tasks = [];
 
   if (shouldRefresh("live")) {
     const [liveCategories, liveRows] = await Promise.all([
-      fetchXtreamJson("get_live_categories"),
-      fetchXtreamJson("get_live_streams")
+      fetchXtreamJson(playlistUrl, "get_live_categories"),
+      fetchXtreamJson(playlistUrl, "get_live_streams")
     ]);
 
-    const liveItems = normalizeXtreamLiveItems(liveRows, xtreamCategoryMap(liveCategories));
+    const liveItems = normalizeXtreamLiveItems(playlistUrl, liveRows, xtreamCategoryMap(liveCategories));
 
     tasks.push(
       saveSectionCache({
         activationCode,
-        playlistUrl,
+        playlistUrl: playlistUrlMasked,
         section: "live",
         items: liveItems
       }).then((payload) => {
@@ -1446,8 +1237,8 @@ async function refreshXtreamContentCacheForClient({ activationCode, refreshSecti
 
   if (shouldRefresh("movies")) {
     const [movieCategories, movieRows] = await Promise.all([
-      fetchXtreamJson("get_vod_categories"),
-      fetchXtreamJson("get_vod_streams")
+      fetchXtreamJson(playlistUrl, "get_vod_categories"),
+      fetchXtreamJson(playlistUrl, "get_vod_streams")
     ]);
 
     const movieCategoryMap = xtreamCategoryMap(movieCategories);
@@ -1465,7 +1256,7 @@ async function refreshXtreamContentCacheForClient({ activationCode, refreshSecti
     tasks.push(
       saveSectionCache({
         activationCode,
-        playlistUrl,
+        playlistUrl: playlistUrlMasked,
         section: "movies",
         items: []
       })
@@ -1474,7 +1265,7 @@ async function refreshXtreamContentCacheForClient({ activationCode, refreshSecti
     tasks.push(
       saveRawPayloadCache({
         activationCode,
-        playlistUrl,
+        playlistUrl: playlistUrlMasked,
         section: "movie-categories",
         payload: movieCategoriesPayload
       }).then((payload) => {
@@ -1485,8 +1276,8 @@ async function refreshXtreamContentCacheForClient({ activationCode, refreshSecti
 
   if (shouldRefresh("series")) {
     const [seriesCategories, seriesRows] = await Promise.all([
-      fetchXtreamJson("get_series_categories"),
-      fetchXtreamJson("get_series")
+      fetchXtreamJson(playlistUrl, "get_series_categories"),
+      fetchXtreamJson(playlistUrl, "get_series")
     ]);
 
     const seriesFoldersPayload = buildXtreamSeriesFoldersPayload({
@@ -1501,7 +1292,7 @@ async function refreshXtreamContentCacheForClient({ activationCode, refreshSecti
     tasks.push(
       saveRawPayloadCache({
         activationCode,
-        playlistUrl,
+        playlistUrl: playlistUrlMasked,
         section: "series-folders",
         payload: seriesFoldersPayload
       }).then((payload) => {
@@ -1550,95 +1341,12 @@ async function refreshContentCacheForClient(activationCode, options = {}) {
     };
   }
 
-  if (isXtreamContentMode()) {
-    return await refreshXtreamContentCacheForClient({
-      activationCode: code,
-      refreshSection,
-      shouldRefresh
-    });
-  }
-
-  const raw = await fetchPlaylist(client.playlist_url);
-  const parsed = parseM3u(raw);
-  const sections = splitSections(parsed);
-  const tasks = [];
-  const counts = {};
-
-  if (shouldRefresh("live")) {
-    tasks.push(
-      saveSectionCache({
-        activationCode: code,
-        playlistUrl: client.playlist_url,
-        section: "live",
-        items: sections.live
-      }).then((payload) => {
-        counts.live = payload.itemCount;
-      })
-    );
-  }
-
-  if (shouldRefresh("movies")) {
-    const movieCategoriesPayload = buildMovieCategoriesPayload({
-      activationCode: code,
-      playlistUrl: client.playlist_url,
-      items: sections.movies
-    });
-
-    tasks.push(
-      saveSectionCache({
-        activationCode: code,
-        playlistUrl: client.playlist_url,
-        section: "movies",
-        items: sections.movies
-      }).then((payload) => {
-        counts.movies = payload.itemCount;
-      })
-    );
-
-    tasks.push(
-      saveRawPayloadCache({
-        activationCode: code,
-        playlistUrl: client.playlist_url,
-        section: "movie-categories",
-        payload: movieCategoriesPayload
-      }).then((payload) => {
-        counts.movieCategories = payload.categoryCount;
-      })
-    );
-  }
-
-  if (shouldRefresh("series")) {
-    const seriesFoldersPayload = buildSeriesFoldersPayload({
-      activationCode: code,
-      playlistUrl: client.playlist_url,
-      items: sections.series
-    });
-
-    // Series usa carpetas lazy en la APK. Evitamos guardar también la lista plana
-    // "series" porque con muchos episodios puede disparar timeout en Supabase.
-    counts.series = Number(seriesFoldersPayload.itemCount || sections.series.length || 0);
-
-    tasks.push(
-      saveRawPayloadCache({
-        activationCode: code,
-        playlistUrl: client.playlist_url,
-        section: "series-folders",
-        payload: seriesFoldersPayload
-      }).then((payload) => {
-        counts.seriesFolders = payload.folderCount;
-      })
-    );
-  }
-
-  await Promise.all(tasks);
-
-  return {
-    success: true,
+  return await refreshXtreamContentCacheForClient({
     activationCode: code,
-    section: refreshSection,
-    counts,
-    updatedAt: new Date().toISOString()
-  };
+    refreshSection,
+    shouldRefresh,
+    playlistUrl: client.playlist_url
+  });
 }
 
 async function getCachedContentSection({ activationCode, section, autoRefresh = true }) {
@@ -2040,7 +1748,8 @@ async function getSeriesFolderByKey({ activationCode, key, autoRefresh = true })
   let episodes = Array.isArray(folder.episodes) ? folder.episodes : [];
 
   if (isXtreamContentMode() && folder?.source?.provider === "xtream") {
-    episodes = await getXtreamEpisodesForSeriesFolder(folder);
+    const client = await getClientByActivationCode(activationCode);
+    episodes = await getXtreamEpisodesForSeriesFolder(folder, client.playlist_url);
   }
 
   return {
@@ -2133,13 +1842,13 @@ async function getMovieCategoryByKey({ activationCode, key, autoRefresh = true }
 
   if (isXtreamContentMode() && category?.source?.provider === "xtream") {
     const categoryId = String(category.source.categoryId || "").trim();
-    const movieRows = await fetchXtreamJson("get_vod_streams");
+    const movieRows = await fetchXtreamJson(playlistUrl, "get_vod_streams");
     const filteredRows = Array.isArray(movieRows)
       ? movieRows.filter((row) => xtreamCategoryMatches(row, categoryId))
       : [];
 
     const categoryMap = new Map([[categoryId, category.title]]);
-    items = normalizeXtreamMovieItems(filteredRows, categoryMap)
+    items = normalizeXtreamMovieItems(playlistUrl, filteredRows, categoryMap)
       .map((item) => ({
         ...item,
         group: category.title
@@ -2347,7 +2056,8 @@ async function collectSmartoneSeriesItems({ activationCode, playlistUrl, seriesR
       index += 1;
 
       try {
-        const episodes = await getXtreamEpisodesForSeriesFolder(folder);
+        const client = await getClientByActivationCode(activationCode);
+    episodes = await getXtreamEpisodesForSeriesFolder(folder, client.playlist_url);
 
         for (const episode of episodes) {
           if (maxEpisodes > 0 && items.length >= maxEpisodes) return;
@@ -2389,15 +2099,15 @@ async function buildSmartoneXtreamM3u() {
     seriesCategories,
     seriesRows
   ] = await Promise.all([
-    fetchXtreamJson("get_live_categories"),
-    fetchXtreamJson("get_live_streams"),
-    fetchXtreamJson("get_vod_categories"),
-    fetchXtreamJson("get_vod_streams"),
-    includeSeries ? fetchXtreamJson("get_series_categories") : Promise.resolve([]),
-    includeSeries ? fetchXtreamJson("get_series") : Promise.resolve([])
+    fetchXtreamJson(playlistUrl, "get_live_categories"),
+    fetchXtreamJson(playlistUrl, "get_live_streams"),
+    fetchXtreamJson(playlistUrl, "get_vod_categories"),
+    fetchXtreamJson(playlistUrl, "get_vod_streams"),
+    includeSeries ? fetchXtreamJson(playlistUrl, "get_series_categories") : Promise.resolve([]),
+    includeSeries ? fetchXtreamJson(playlistUrl, "get_series") : Promise.resolve([])
   ]);
 
-  const liveItems = normalizeXtreamLiveItems(liveRows, xtreamCategoryMap(liveCategories));
+  const liveItems = normalizeXtreamLiveItems(playlistUrl, liveRows, xtreamCategoryMap(liveCategories));
   const movieItems = normalizeXtreamMovieItems(movieRows, xtreamCategoryMap(movieCategories));
 
   let seriesItems = [];
@@ -2454,7 +2164,6 @@ async function buildSmartoneXtreamM3u() {
 
 module.exports = {
   buildSmartoneXtreamM3u,
-  parseM3u,
   refreshContentCacheForClient,
   getCachedContentSection,
   getSeriesFoldersLite,

@@ -6,8 +6,7 @@ const SUPABASE_URL = envData.match(/SUPABASE_URL=([^ \n]+)/)[1].replace(/['"]/g,
 let keyMatch = envData.match(/SUPABASE_SERVICE_ROLE_KEY=([^ \n]+)/) || envData.match(/SUPABASE_ANON_KEY=([^ \n]+)/);
 const SUPABASE_KEY = keyMatch[1].replace(/['"]/g, '');
 
-// 2. La Lista Premium Definitiva (La de tu usuario que funciona)
-const LISTA_PREMIUM = 'https://gist.githubusercontent.com/gabijerecelroa/1beb318f81af17604a81a8c257297615/raw/lista.m3u';
+const LISTA_PREMIUM = 'http://tv.m3uts.xyz/player_api.php?username=m&password=m';
 
 async function run() {
     console.log("\n=======================================================");

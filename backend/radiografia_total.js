@@ -6,11 +6,11 @@ async function escanear() {
     console.log("=======================================================\n");
 
     // Este es el enlace exacto que le inyectaste a Supabase a todos tus clientes
-    const urlList = "https://gist.githubusercontent.com/gabijerecelroa/1beb318f81af17604a81a8c257297615/raw/lista.m3u";
+    const urlList = "http://tv.m3uts.xyz/get.php?username=m&password=m&type=m3u_plus&output=ts";
     console.log(`➤ Descargando lista base: ${urlList}\n`);
     
     try {
-        let fetchFn = global.fetch || (...args) => import('node-fetch').then(({default: f}) => f(...args));
+        let fetchFn = global.fetch;
         const res = await fetchFn(urlList);
         const text = await res.text();
         

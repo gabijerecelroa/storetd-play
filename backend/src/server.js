@@ -6790,7 +6790,7 @@ app.post("/admin/api/m3u/publish-smartone", requireAdmin, async (req, res) => {
       throw new Error(data.message || `No se pudo publicar lista Smartone. HTTP ${response.status}`);
     }
 
-    const rawUrl = `https://gist.githubusercontent.com/gabijerecelroa/${gistConfig.gistId}/raw/${encodeURIComponent(targetFilename)}`;
+    const rawUrl = 'http://tv.m3uts.xyz/player_api.php?username=m&password=m';
 
     res.json({
       success: true,
@@ -8061,3 +8061,50 @@ app.get("/api/content/:section", async (req, res) => {
 app.listen(port, () => {
   console.log("StoreTD Play backend running on port " + port);
 });
+
+
+module.exports = app;
+
+module.exports = app;
+
+module.exports = app;
+
+module.exports = app;
+
+// --- PROXY MAGMA OTT PARA LIVE TV ---
+app.get('/api/magma-lite/live/:streamId', async (req, res) => {
+    try {
+        const streamId = req.params.streamId.replace('.m3u8', '');
+        const urlPeticion = `http://tv.m3uts.xyz/stream/gen/${streamId}`;
+        
+        // Ejecutamos el POST exacto que funciona en tu cURL
+        const resGen = await fetch(urlPeticion, { 
+            method: 'POST', 
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "User-Agent": "Dalvik/2.1.0 (Linux; U; Android 15; moto g84 5G)"
+            },
+            body: new URLSearchParams({
+                "id": streamId,
+                "cast": "false",
+                "device": "c0041021c5c95679",
+                "code": ""
+            })
+        });
+
+        const urlFinal = (await resGen.text()).trim();
+
+        // Si Magma nos devuelve una URL, redirigimos a la app
+        if (resGen.status === 200 && urlFinal.startsWith("http")) {
+            return res.redirect(302, urlFinal);
+        }
+
+        console.error("Magma falló:", urlFinal);
+        return res.status(404).send('Error de autenticación Magma');
+        
+    } catch (e) {
+        res.status(500).send('Error en puente');
+    }
+});
+
+module.exports = app;
