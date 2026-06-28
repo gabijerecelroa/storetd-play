@@ -143,6 +143,21 @@ fun WebViewPlayerScreen(
                 .build()
         }
         
+        val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+        DisposableEffect(lifecycleOwner, exoPlayer) {
+            val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                when (event) {
+                    androidx.lifecycle.Lifecycle.Event.ON_PAUSE -> exoPlayer.pause()
+                    androidx.lifecycle.Lifecycle.Event.ON_RESUME -> exoPlayer.play()
+                    else -> {}
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose {
+                lifecycleOwner.lifecycle.removeObserver(observer)
+            }
+        }
+
         DisposableEffect(directVideoUrl) {
             val listener = object : Player.Listener {
                 override fun onPlayerError(error: PlaybackException) {

@@ -3348,18 +3348,64 @@ fun NetflixCategoryCard(title: String, onClick: () -> Unit) {
 @androidx.compose.runtime.Composable
 fun MiniPlayerPreview(itemUrl: String) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val exoPlayer = androidx.compose.runtime.remember {
-        androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
+    val exoPlayer = androidx.compose.runtime.remember(itemUrl) {
+        val isMagmaChannel = itemUrl.contains("tv.m3uts.xyz") || itemUrl.contains("magma-lite") || itemUrl.contains("m3uts")
+        
+        val dataSourceFactory = if (isMagmaChannel) {
+            androidx.media3.datasource.DefaultHttpDataSource.Factory()
+                .setUserAgent("Magma Player/10")
+                .setAllowCrossProtocolRedirects(true)
+        } else {
+            androidx.media3.datasource.DefaultHttpDataSource.Factory()
+                .setUserAgent("VLC/3.0.9 LibVLC/3.0.9")
+                .setAllowCrossProtocolRedirects(true)
+        }
+        val mediaSourceFactory = androidx.media3.exoplayer.source.DefaultMediaSourceFactory(context)
+            .setDataSourceFactory(dataSourceFactory)
+
+        androidx.media3.exoplayer.ExoPlayer.Builder(context)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .build().apply {
             playWhenReady = true
             volume = 0.5f // Arranca a mitad de volumen por elegancia
         }
     }
-    androidx.compose.runtime.DisposableEffect(itemUrl) {
-        val mediaItem = androidx.media3.common.MediaItem.fromUri(itemUrl)
-        exoPlayer.setMediaItem(mediaItem)
+    
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner, exoPlayer) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            when (event) {
+                androidx.lifecycle.Lifecycle.Event.ON_PAUSE -> exoPlayer.pause()
+                androidx.lifecycle.Lifecycle.Event.ON_RESUME -> exoPlayer.play()
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    androidx.compose.runtime.LaunchedEffect(itemUrl) {
+        val safeUrl = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            com.storetd.play.feature.player.forceHlsUrl(context, itemUrl)
+        }
+        val isMagma = itemUrl.contains("tv.m3uts.xyz") || itemUrl.contains("magma-lite")
+        val mimeType = if (isMagma || safeUrl.contains(".m3u8")) {
+            androidx.media3.common.MimeTypes.APPLICATION_M3U8
+        } else null
+        
+        val mediaItemBuilder = androidx.media3.common.MediaItem.Builder().setUri(safeUrl)
+        if (mimeType != null) mediaItemBuilder.setMimeType(mimeType)
+        
+        exoPlayer.setMediaItem(mediaItemBuilder.build())
         exoPlayer.prepare()
+    }
+    
+    androidx.compose.runtime.DisposableEffect(itemUrl) {
         onDispose { exoPlayer.stop() }
     }
+    
     androidx.compose.runtime.DisposableEffect(exoPlayer) {
         onDispose { exoPlayer.release() }
     }
