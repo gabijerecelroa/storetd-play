@@ -129,7 +129,44 @@ private fun isMagmaLiveStreamUrl(url: String): Boolean {
         )
 }
 
+private val magmaSecureCache = mutableMapOf<String, String>()
 
+private suspend fun obtenerUrlSeguraMagma(streamId: String): String? {
+    magmaSecureCache[streamId]?.let { cachedUrl ->
+        android.util.Log.d("MagmaFix", "Usando URL en caché para stream $streamId")
+        return cachedUrl
+    }
+
+    return try {
+        val postUrl = "http://tv.m3uts.xyz/stream/gen/$streamId"
+        val connection = (java.net.URL(postUrl).openConnection() as java.net.HttpURLConnection).apply {
+            requestMethod = "POST"
+            doOutput = true
+            setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+            setRequestProperty("User-Agent", "Dalvik/2.1.0 (Linux; U; Android 15; moto g84 5G)")
+            connectTimeout = 10000
+            readTimeout = 10000
+        }
+
+        val postData = "id=$streamId&cast=false&device=c0041021c5c95679&code="
+        connection.outputStream.use { it.write(postData.toByteArray(Charsets.UTF_8)) }
+
+        if (connection.responseCode == java.net.HttpURLConnection.HTTP_OK) {
+            val secureUrl = connection.inputStream.bufferedReader().use { it.readText().trim() }
+            
+            if (secureUrl.startsWith("http://") || secureUrl.startsWith("https://")) {
+                magmaSecureCache[streamId] = secureUrl
+                android.util.Log.d("MagmaFix", "URL segura obtenida para $streamId: $secureUrl")
+                return secureUrl
+            }
+        }
+        android.util.Log.e("MagmaFix", "Fallo al obtener URL segura para stream $streamId. Código: ${connection.responseCode}")
+        null
+    } catch (e: Exception) {
+        android.util.Log.e("MagmaFix", "Excepción en pre-flight para stream $streamId: ${e.message}")
+        null
+    }
+}
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -270,20 +307,9 @@ fun PlayerScreen(
                     if (urlStr.contains("tv.m3uts.xyz") && urlStr.contains(".m3u8")) {
                         try {
                             val streamId = urlStr.substringAfterLast("/").substringBefore(".m3u8")
-                            val postUrl = java.net.URL("http://tv.m3uts.xyz/stream/gen/$streamId")
-                            val connection = postUrl.openConnection() as java.net.HttpURLConnection
-                            connection.requestMethod = "POST"
-                            connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
-                            connection.setRequestProperty("User-Agent", "Dalvik/2.1.0 (Linux; U; Android 15; moto g84 5G)")
-                            connection.doOutput = true
-                            // FIX: Usamos el ID de dispositivo hardcodeado que sabemos que funciona
-                            val postData = "id=$streamId&cast=false&device=c0041021c5c95679&code="
-                            connection.outputStream.write(postData.toByteArray())
-                            if (connection.responseCode == 200) {
-                                val urlSegura = connection.inputStream.bufferedReader().readText().trim()
-                                if (urlSegura.startsWith("http")) {
-                                    finalSpec = dataSpec.buildUpon().setUri(android.net.Uri.parse(urlSegura)).build()
-                                }
+                            val urlSegura = kotlinx.coroutines.runBlocking { obtenerUrlSeguraMagma(streamId) }
+                            if (urlSegura != null) {
+                                finalSpec = dataSpec.buildUpon().setUri(android.net.Uri.parse(urlSegura)).build()
                             }
                         } catch (e: Exception) {
                             android.util.Log.e("StreamInterceptor", "Error silencioso", e)
@@ -1801,6 +1827,31 @@ private fun shouldAutoRetryForPlaybackError(error: PlaybackException): Boolean {
 
 // 🔥 MUTADOR HLS ANDROID 🔥
 fun forceHlsUrl(context: android.content.Context, originalUrl: String): String {
+    
+    // 1. Nuevo flujo exclusivo para Magma
+    if (originalUrl.contains("tv.m3uts.xyz")) {
+        try {
+            // Extraer el streamId de la URL original limpiando sufijos y parámetros
+            val clean = originalUrl.substringBefore("?").replace(".ts", "").replace(".m3u8", "")
+            val streamId = clean.split("/").last()
+            
+            // Llamamos a la función asíncrona bloqueando temporalmente con Dispatchers.IO
+            val urlSegura = kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.IO) {
+                obtenerUrlSeguraMagma(streamId)
+            }
+            
+            if (urlSegura != null) {
+                return urlSegura
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("MagmaFix", "Error en forceHlsUrl para Magma: ${e.message}")
+        }
+        
+        // Fallback: Si no devolvió nada o falló, usar la original, evitando la mutación a ".m3u8"
+        return originalUrl
+    }
+
+    // 2. Comportamiento original para otras URLs (el mutador normal)
     var finalUrl = originalUrl
     try {
         if (!finalUrl.contains(".m3u8") && !finalUrl.contains("movie") && !finalUrl.contains("series")) {
