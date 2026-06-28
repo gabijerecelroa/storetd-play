@@ -183,6 +183,7 @@ private suspend fun reportMagmaError(
                 requestMethod = "POST"
                 doOutput = true
                 setRequestProperty("Content-Type", "application/json")
+                setRequestProperty("User-Agent", "StoreTD-Play-Android")
                 connectTimeout = 5000
                 readTimeout = 5000
             }

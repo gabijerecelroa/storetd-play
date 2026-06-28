@@ -9,8 +9,16 @@ object NetworkModule {
     
     val userAgentInterceptor = Interceptor { chain ->
         val original = chain.request()
+        val host = original.url.host
+
+        val userAgent = when {
+            host == "82.39.109.213" || host.contains("storetd") -> "StoreTD-Play-Android"
+            host == "tv.m3uts.xyz" || host.contains("magma") || host.contains("m3uts") -> "Dalvik/2.1.0 (Linux; U; Android 15; moto g84 5G)"
+            else -> "Dalvik/2.1.0 (Linux; U; Android 15; moto g84 5G Build/V1TCS35H.88-20-1-6-1)"
+        }
+
         val request = original.newBuilder()
-            .header("User-Agent", "Dalvik/2.1.0 (Linux; U; Android 15; moto g84 5G Build/V1TCS35H.88-20-1-6-1)")
+            .header("User-Agent", userAgent)
             .build()
         chain.proceed(request)
     }
