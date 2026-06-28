@@ -3347,6 +3347,16 @@ app.post("/auth/activate", async (req, res) => {
   }
 });
 
+app.post("/api/debug/magma-error", (req, res) => {
+  const { activationCode, streamId, errorMessage, attemptedUrl, timestamp } = req.body || {};
+  let logMsg = `[MAGMA ERROR] activationCode=${activationCode} | streamId=${streamId} | error=${errorMessage} | url=${attemptedUrl}`;
+  if (timestamp) {
+    logMsg += ` | timestamp=${timestamp}`;
+  }
+  console.log(logMsg);
+  res.status(200).json({ success: true });
+});
+
 app.post("/reports/channel", async (req, res) => {
   if (!requireDb(res)) return;
 
