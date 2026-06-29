@@ -154,59 +154,12 @@ private suspend fun obtenerUrlSeguraMagma(context: android.content.Context, stre
                 
                 if (secureUrl.startsWith("http://") || secureUrl.startsWith("https://")) {
                     return@withContext secureUrl
-                } else {
-                    reportMagmaError(context, streamId, "URL Segura Inválida: $secureUrl", postUrl)
                 }
-            } else {
-                reportMagmaError(context, streamId, "HTTP $responseCode", postUrl)
             }
         } catch (e: Exception) {
-            reportMagmaError(context, streamId, "Excepción pre-flight: ${e.message}", postUrl)
+            // Silencioso
         }
         null
-    }
-}
-
-private suspend fun reportMagmaError(
-    context: android.content.Context,
-    streamId: String,
-    errorMessage: String,
-    attemptedUrl: String
-) {
-    try {
-        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            val activationCode = LocalAccount.getAccount(context).activationCode
-            val timestamp = System.currentTimeMillis()
-            
-            val url = java.net.URL("http://82.39.109.213:5000/api/debug/magma-error")
-            val connection = (url.openConnection() as java.net.HttpURLConnection).apply {
-                requestMethod = "POST"
-                doOutput = true
-                setRequestProperty("Content-Type", "application/json")
-                setRequestProperty("User-Agent", "StoreTD-Play-Android")
-                connectTimeout = 5000
-                readTimeout = 5000
-            }
-            
-            val jsonPayload = """
-                {
-                    "activationCode": "${activationCode.replace("\"", "\\\"")}",
-                    "streamId": "${streamId.replace("\"", "\\\"")}",
-                    "errorMessage": "${errorMessage.replace("\"", "\\\"")}",
-                    "attemptedUrl": "${attemptedUrl.replace("\"", "\\\"")}",
-                    "timestamp": $timestamp
-                }
-            """.trimIndent()
-            
-            val bytes = jsonPayload.toByteArray(Charsets.UTF_8)
-            connection.setRequestProperty("Content-Length", bytes.size.toString())
-            connection.outputStream.use { it.write(bytes) }
-            
-            connection.responseCode
-            connection.disconnect()
-        }
-    } catch (e: Exception) {
-        // Ignored to prevent crashes
     }
 }
 
@@ -518,31 +471,15 @@ fun PlayerScreen(
 
             override fun onPlayerError(error: PlaybackException) {
                 val friendlyError = friendlyPlaybackErrorMessage(error)
-                val isMagma = currentChannel.streamUrl.contains("tv.m3uts.xyz")
 
                 shouldAutoRetryPlayback = shouldAutoRetryForPlaybackError(error)
                 
-                errorMessage = if (isMagma && !friendlyError.contains("Magma", ignoreCase = true)) {
-                    "Error de conexión Magma: $friendlyError"
-                } else {
-                    friendlyError
-                }
-
-                if (isMagma) {
-                    val streamId = try { currentChannel.streamUrl.substringAfterLast("/").substringBefore(".m3u8") } catch (e: Exception) { "unknown" }
-                    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-                        reportMagmaError(context, streamId, friendlyError, currentChannel.streamUrl)
-                    }
-                }
+                errorMessage = friendlyError
 
                 reconnectMessage = if (shouldAutoRetryPlayback) {
                     "Detectamos un problema de reproducción."
                 } else {
-                    if (isMagma) {
-                        "El enlace seguro de Magma expiró o no se pudo abrir."
-                    } else {
-                        "El contenido no respondió como video válido."
-                    }
+                    "El contenido no respondió como video válido."
                 }
 
                 showControls = true
@@ -603,14 +540,9 @@ fun PlayerScreen(
 
     fun showPlaybackUnavailable(message: String) {
         shouldAutoRetryPlayback = false
-        val isMagma = currentChannel.streamUrl.contains("tv.m3uts.xyz")
         
-        errorMessage = if (isMagma) "Error Magma: $message" else message
-        reconnectMessage = if (isMagma) {
-            "Error Magma: No se pudo obtener o reproducir el enlace seguro.\nReintentá o reportá el canal."
-        } else {
-            "Contenido no disponible. Puedes reintentar, pasar al siguiente, reportar o volver."
-        }
+        errorMessage = message
+        reconnectMessage = "Contenido no disponible. Puedes reintentar, pasar al siguiente, reportar o volver."
         selectedErrorActionIndex = 0
         showControls = true
 
@@ -654,12 +586,7 @@ fun PlayerScreen(
             delay(1800L * nextAttempt)
             restartPlayback()
         } else if (errorMessage != null && !shouldAutoRetryPlayback) {
-            val isMagma = currentChannel.streamUrl.contains("tv.m3uts.xyz")
-            reconnectMessage = if (isMagma) {
-                "Error Magma: No se pudo obtener el enlace seguro del servidor.\nReintentá o reportá el canal."
-            } else {
-                "Contenido no disponible. Puedes reportarlo o volver."
-            }
+            reconnectMessage = "Contenido no disponible. Puedes reportarlo o volver."
         } else if (errorMessage != null && retryAttempt >= 9999) {
             reconnectMessage = "No se pudo recuperar la reproducción. Prueba Reintentar o Reportar."
         }
@@ -1346,7 +1273,7 @@ private fun PlaybackErrorCard(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
-                text = if (message.contains("Magma", ignoreCase = true)) "Error de Magma" else "Contenido no disponible",
+                text = "Contenido no disponible",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.error,
                 fontWeight = FontWeight.Bold
