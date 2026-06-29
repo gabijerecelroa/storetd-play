@@ -135,6 +135,7 @@ object GlobalPlayMemory {
     var lastMovieCategoryFocusKey = androidx.compose.runtime.mutableStateOf<String?>(null)
     var lazySeriesEpisodes = androidx.compose.runtime.mutableStateOf<List<Channel>>(emptyList())
     var lazyMovieItems = androidx.compose.runtime.mutableStateOf<List<Channel>>(emptyList())
+    var lastFocusedChannelUrl = androidx.compose.runtime.mutableStateOf<String?>(null)
 }
 
 private object PremiumContentSessionCache {
@@ -3188,9 +3189,11 @@ object LiveTvBgState {
 fun NetflixMovieCard(channel: Channel, onClick: () -> Unit) {
     var isFocused by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     val scale by animateFloatAsState(if (isFocused) 1.08f else 1f, label = "scale")
+    val focusRequester = androidx.compose.runtime.remember { androidx.compose.ui.focus.FocusRequester() }
 
     androidx.compose.foundation.layout.Box(
         modifier = Modifier
+            .focusRequester(focusRequester)
             .fillMaxWidth()
             .aspectRatio(0.66f)
             .graphicsLayer { scaleX = scale; scaleY = scale }
@@ -3200,7 +3203,10 @@ fun NetflixMovieCard(channel: Channel, onClick: () -> Unit) {
             .background(Color(0xFF18181B))
             .onFocusChanged { 
                 isFocused = it.isFocused || it.hasFocus
-                if (isFocused) LiveTvBgState.currentBgUrl = channel.logoUrl
+                if (isFocused) {
+                    LiveTvBgState.currentBgUrl = channel.logoUrl
+                    GlobalPlayMemory.lastFocusedChannelUrl.value = channel.streamUrl
+                }
             }
             .clickable { onClick() }
     ) {
@@ -3212,6 +3218,13 @@ fun NetflixMovieCard(channel: Channel, onClick: () -> Unit) {
             }
         }
         if (isFocused) androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha=0.15f)))
+    }
+    
+    androidx.compose.runtime.LaunchedEffect(channel.streamUrl, GlobalPlayMemory.lastFocusedChannelUrl.value) {
+        if (GlobalPlayMemory.lastFocusedChannelUrl.value == channel.streamUrl) {
+            kotlinx.coroutines.delay(50)
+            runCatching { focusRequester.requestFocus() }
+        }
     }
 }
 
@@ -3289,9 +3302,11 @@ fun NetflixFolderCard(title: String, onClick: () -> Unit) {
 fun NetflixLandscapeCard(channel: Channel, onClick: () -> Unit) {
     var isFocused by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     val scale by animateFloatAsState(if (isFocused) 1.05f else 1f, label = "scale")
+    val focusRequester = androidx.compose.runtime.remember { androidx.compose.ui.focus.FocusRequester() }
 
     androidx.compose.foundation.layout.Box(
         modifier = Modifier
+            .focusRequester(focusRequester)
             .fillMaxWidth()
             .aspectRatio(1.77f)
             .graphicsLayer { scaleX = scale; scaleY = scale }
@@ -3301,7 +3316,10 @@ fun NetflixLandscapeCard(channel: Channel, onClick: () -> Unit) {
             .background(Color(0xFF18181B))
             .onFocusChanged { 
                 isFocused = it.isFocused || it.hasFocus
-                if (isFocused) LiveTvBgState.currentBgUrl = channel.logoUrl
+                if (isFocused) {
+                    LiveTvBgState.currentBgUrl = channel.logoUrl
+                    GlobalPlayMemory.lastFocusedChannelUrl.value = channel.streamUrl
+                }
             }
             .clickable { onClick() }
     ) {
@@ -3316,6 +3334,13 @@ fun NetflixLandscapeCard(channel: Channel, onClick: () -> Unit) {
         androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxWidth().height(36.dp).align(Alignment.BottomCenter).background(Color(0xFF09090B).copy(alpha = 0.95f)))
         androidx.compose.material3.Text(text = channel.name, color = Color.White, fontSize = 13.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp, start = 8.dp, end = 8.dp))
         if (isFocused) androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha=0.15f)))
+    }
+    
+    androidx.compose.runtime.LaunchedEffect(channel.streamUrl, GlobalPlayMemory.lastFocusedChannelUrl.value) {
+        if (GlobalPlayMemory.lastFocusedChannelUrl.value == channel.streamUrl) {
+            kotlinx.coroutines.delay(50)
+            runCatching { focusRequester.requestFocus() }
+        }
     }
 }
 
@@ -3388,9 +3413,6 @@ fun MiniPlayerPreview(itemUrl: String) {
         },
         update = { view ->
             view.player = exoPlayer
-        },
-        onRelease = { view ->
-            view.player = null // Desconectamos la vista del reproductor
         },
         modifier = androidx.compose.ui.Modifier.fillMaxSize()
     )

@@ -566,14 +566,18 @@ fun checkAccountStatus() {
             )
         }
 
-composable(
+        composable(
             route = "${Routes.Player}/{name}/{url}/{group}/{logo}",
             arguments = listOf(
                 navArgument("name") { type = NavType.StringType },
                 navArgument("url") { type = NavType.StringType },
                 navArgument("group") { type = NavType.StringType },
                 navArgument("logo") { type = NavType.StringType }
-            )
+            ),
+            enterTransition = { androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(0)) },
+            exitTransition = { androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(0)) },
+            popEnterTransition = { androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(0)) },
+            popExitTransition = { androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(0)) }
         ) { entry ->
             val logo = entry.arguments?.getString("logo").orEmpty()
 

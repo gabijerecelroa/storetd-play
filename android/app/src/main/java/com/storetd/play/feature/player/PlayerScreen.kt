@@ -754,6 +754,7 @@ fun PlayerScreen(
     }
 
     LaunchedEffect(currentChannel.streamUrl) {
+        com.storetd.play.feature.live.GlobalPlayMemory.lastFocusedChannelUrl.value = currentChannel.streamUrl
         selectedErrorActionIndex = 0
         runCatching {
             playerFocusRequester.requestFocus()
@@ -903,7 +904,7 @@ fun PlayerScreen(
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
                 factory = {
-                    PlayerView(it).apply {
+                    androidx.media3.ui.PlayerView(it).apply {
                     /* PANTALLA LIMPIA: Error de Google evitado */
                         keepScreenOn = true
                         useController = false
