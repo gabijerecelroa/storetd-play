@@ -274,86 +274,7 @@ fun PlayerScreen(
 
 
     val player = remember(currentChannel.streamUrl) {
-        val renderersFactory = DefaultRenderersFactory(context)
-            .setEnableDecoderFallback(true)
-
-        // --- INICIO MOTOR SUPERVIVENCIA LOCAL (V1.4.6) ---
-        val trackSelector = androidx.media3.exoplayer.trackselection.DefaultTrackSelector(
-            context,
-            androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection.Factory()
-        ).apply {
-            // 🛑 APAGAR TUNNELING y FORZAR MÁXIMA CALIDAD
-            setParameters(buildUponParameters()
-                .setTunnelingEnabled(false)
-                .setViewportSizeToPhysicalDisplaySize(context, true)
-                .setForceHighestSupportedBitrate(true)
-            )
-        }
-
-        // 1. DataSource Inteligente: Cambia el User-Agent dinámicamente
-        val isMagmaChannel = currentChannel.streamUrl.let { url ->
-            url.contains("tv.m3uts.xyz") || url.contains("magma-lite") || url.contains("m3uts")
-        }
-
-        val finalDataSourceFactory = if (isMagmaChannel) {
-            androidx.media3.datasource.DefaultHttpDataSource.Factory()
-                .setUserAgent("Magma Player/10")
-                .setAllowCrossProtocolRedirects(true)
-                .setConnectTimeoutMs(15000)
-                .setReadTimeoutMs(20000)
-                .setDefaultRequestProperties(
-                    mapOf(
-                        "X-App" to "di",
-                        "X-Version" to "10/1.0.9",
-                        "X-Did" to "c0041021c5c95679",
-                        "X-Hash" to "MVRUcQA5ddQ6Q7uvtD3Ms8ucj_Sj0SSzBNyfWBAeDrWPiwDugKt5m7OlmmsvMbJ4Gqc7qoaTbR47HgkHQ0kyHjk2Q20f5TMexj3o9gNRhmprUJmWXWpDQYyx-xAOEx1MV9R0m9Q-GYH2CqzKS_rIlpb0hge4Moy7FRomMTQpPK047WahnRTpbycnW517aYWIdb20KEZy9RVbHoVZ4gIwY19ZxfLB-QRXubBGyTPFkxLfrZh2cnh-AsdaNbkQKuBqbu0F1Ya-VaQb4tb1C2O3Er14lNrP-R9MnXbltt_yahHYND94F90kqLRacnURZP76e6r6d9xTzl3940FLneH-UpYdPxnuNc9C7S-cwYrs2DMHdNE5WWZ3s-FuesB9Mz25tZd0rIRGGb7dnjZY_FjAx08R3hzsywOLpGWUBT_4OCH051l21jTc29hXwiwj-1vo3eRbjUkgzXJlwvTBS2RAAld5NzPs6kFVjxSr729niVrf9j4WtOJnVQfAESCIFbNnDudLB4VdBeb2w58rTAGo-Q"
-                    )
-                )
-        } else {
-            androidx.media3.datasource.DefaultHttpDataSource.Factory()
-                .setUserAgent("VLC/3.0.9 LibVLC/3.0.9")
-                .setAllowCrossProtocolRedirects(true)
-                .setConnectTimeoutMs(15000)
-                .setReadTimeoutMs(20000)
-        }
-
-        // 2. EL SECRETO (POLÍTICA DE ERRORES): En lugar de rendirse a los 3 errores de red, intentará reconectar silenciosamente 3 veces seguidas.
-        val loadErrorPolicy = androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy(3)
-
-        // 🛡️ EL ESCUDO DEFINITIVO: Obliga al TV a ignorar los cambios bruscos de formato en el fútbol
-        val extractorsFactory = androidx.media3.extractor.DefaultExtractorsFactory()
-            .setTsExtractorFlags(
-                androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES or
-                androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS or
-                androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.FLAG_IGNORE_SPLICE_INFO_STREAM
-            )
-
-        val finalMediaSourceFactory = androidx.media3.exoplayer.source.DefaultMediaSourceFactory(context, extractorsFactory)
-            .setDataSourceFactory(finalDataSourceFactory)
-            .setLoadErrorHandlingPolicy(loadErrorPolicy)
-
-        // 3. HARDWARE PURO PARA TODOS (Cura de Congelamiento en TV)
-        val smartRenderersFactory = androidx.media3.exoplayer.DefaultRenderersFactory(context)
-            .setEnableDecoderFallback(true)
-
-        // 4. BÚFER AGRESIVO (Para evitar stuttering/saltos temporales en IPTV)
-        val normalLoadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
-            .setBufferDurationsMs(
-                15000,   // minBufferMs (aumentado para pre-cargar mas antes de reproducir si la red cae)
-                120000,  // maxBufferMs (hasta 2 minutos de memoria cacheada si la red da)
-                1500,    // bufferForPlaybackMs (espera al menos 5s de datos antes de arrancar)
-                2000     // bufferForPlaybackAfterRebufferMs (espera 10s tras un cuelgue)
-            )
-            .setBackBuffer(10000, true)
-            .setTargetBufferBytes(-1)
-            .setPrioritizeTimeOverSizeThresholds(true)
-            .build()
-
-        androidx.media3.exoplayer.ExoPlayer.Builder(context, smartRenderersFactory)
-            .setMediaSourceFactory(finalMediaSourceFactory)
-            .setLoadControl(normalLoadControl)
-            .setTrackSelector(trackSelector)
-            .build()
+        com.storetd.play.core.player.GlobalStreamManager.getPlayer(context, currentChannel.streamUrl)
     }
 
     val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
@@ -372,20 +293,8 @@ fun PlayerScreen(
     }
 
     LaunchedEffect(player, currentChannel.streamUrl) {
-        val safeUrl = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            forceHlsUrl(context, currentChannel.streamUrl)
-        }
-        val isMagma = currentChannel.streamUrl.contains("tv.m3uts.xyz") || currentChannel.streamUrl.contains("magma-lite")
-        val mimeType = if (safeUrl.contains(".m3u8")) {
-            androidx.media3.common.MimeTypes.APPLICATION_M3U8
-        } else null
-        
-        val mediaItemBuilder = androidx.media3.common.MediaItem.Builder().setUri(safeUrl)
-        if (mimeType != null) mediaItemBuilder.setMimeType(mimeType)
-        
-        player.setMediaItem(mediaItemBuilder.build())
-        player.prepare()
-        player.playWhenReady = true
+        player.volume = 1.0f
+        com.storetd.play.core.player.GlobalStreamManager.playUrl(context, currentChannel.streamUrl)
     }
 
     LaunchedEffect(player, currentChannel.streamUrl, isVodContent) {
@@ -487,14 +396,7 @@ fun PlayerScreen(
 
         onDispose {
             player.removeListener(listener)
-
-            runCatching {
-                player.playWhenReady = false
-                player.stop()
-                player.clearMediaItems()
-            }
-
-            player.release()
+            // No detenemos ni liberamos el player global aquí para permitir una transición limpia
         }
     }
 
@@ -505,26 +407,8 @@ fun PlayerScreen(
         playbackLoadAttempt += 1
         showControls = true
 
-        player.playWhenReady = false
-        player.stop()
-        player.clearMediaItems()
-        player.seekTo(0) // Vaciado forzoso del chip físico
-        
         scope.launch {
-            val safeUrl = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                forceHlsUrl(context, currentChannel.streamUrl)
-            }
-            val isMagma = currentChannel.streamUrl.contains("tv.m3uts.xyz") || currentChannel.streamUrl.contains("magma-lite")
-            val mimeType = if (safeUrl.contains(".m3u8")) {
-                androidx.media3.common.MimeTypes.APPLICATION_M3U8
-            } else null
-            
-            val mediaItemBuilder = androidx.media3.common.MediaItem.Builder().setUri(safeUrl)
-            if (mimeType != null) mediaItemBuilder.setMimeType(mimeType)
-            
-            player.setMediaItem(mediaItemBuilder.build())
-            player.prepare()
-            player.playWhenReady = true
+            com.storetd.play.core.player.GlobalStreamManager.restartCurrentUrl(context)
         }
     }
 

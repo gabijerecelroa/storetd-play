@@ -3348,68 +3348,14 @@ fun NetflixCategoryCard(title: String, onClick: () -> Unit) {
 @androidx.compose.runtime.Composable
 fun MiniPlayerPreview(itemUrl: String) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val exoPlayer = androidx.compose.runtime.remember(itemUrl) {
-        val isMagmaChannel = itemUrl.contains("tv.m3uts.xyz") || itemUrl.contains("magma-lite") || itemUrl.contains("m3uts")
-        
-        val dataSourceFactory = if (isMagmaChannel) {
-            androidx.media3.datasource.DefaultHttpDataSource.Factory()
-                .setUserAgent("Magma Player/10")
-                .setAllowCrossProtocolRedirects(true)
-                .setConnectTimeoutMs(15000)
-                .setReadTimeoutMs(20000)
-                .setDefaultRequestProperties(
-                    mapOf(
-                        "X-App" to "di",
-                        "X-Version" to "10/1.0.9",
-                        "X-Did" to "c0041021c5c95679",
-                        "X-Hash" to "MVRUcQA5ddQ6Q7uvtD3Ms8ucj_Sj0SSzBNyfWBAeDrWPiwDugKt5m7OlmmsvMbJ4Gqc7qoaTbR47HgkHQ0kyHjk2Q20f5TMexj3o9gNRhmprUJmWXWpDQYyx-xAOEx1MV9R0m9Q-GYH2CqzKS_rIlpb0hge4Moy7FRomMTQpPK047WahnRTpbycnW517aYWIdb20KEZy9RVbHoVZ4gIwY19ZxfLB-QRXubBGyTPFkxLfrZh2cnh-AsdaNbkQKuBqbu0F1Ya-VaQb4tb1C2O3Er14lNrP-R9MnXbltt_yahHYND94F90kqLRacnURZP76e6r6d9xTzl3940FLneH-UpYdPxnuNc9C7S-cwYrs2DMHdNE5WWZ3s-FuesB9Mz25tZd0rIRGGb7dnjZY_FjAx08R3hzsywOLpGWUBT_4OCH051l21jTc29hXwiwj-1vo3eRbjUkgzXJlwvTBS2RAAld5NzPs6kFVjxSr729niVrf9j4WtOJnVQfAESCIFbNnDudLB4VdBeb2w58rTAGo-Q"
-                    )
-                )
-        } else {
-            androidx.media3.datasource.DefaultHttpDataSource.Factory()
-                .setUserAgent("VLC/3.0.9 LibVLC/3.0.9")
-                .setAllowCrossProtocolRedirects(true)
-                .setConnectTimeoutMs(15000)
-                .setReadTimeoutMs(20000)
-        }
-        val extractorsFactory = androidx.media3.extractor.DefaultExtractorsFactory()
-            .setTsExtractorFlags(
-                androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES or
-                androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS or
-                androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.FLAG_IGNORE_SPLICE_INFO_STREAM
-            )
-
-        val mediaSourceFactory = androidx.media3.exoplayer.source.DefaultMediaSourceFactory(context, extractorsFactory)
-            .setDataSourceFactory(dataSourceFactory)
-            .setLoadErrorHandlingPolicy(androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy(3))
-
-        val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
-            .setBufferDurationsMs(
-                15000,   // minBufferMs
-                60000,   // maxBufferMs
-                1500,    // bufferForPlaybackMs
-                2000     // bufferForPlaybackAfterRebufferMs
-            )
-            .setBackBuffer(10000, true)
-            .setTargetBufferBytes(-1)
-            .setPrioritizeTimeOverSizeThresholds(true)
-            .build()
-
-        androidx.media3.exoplayer.ExoPlayer.Builder(context)
-            .setMediaSourceFactory(mediaSourceFactory)
-            .setLoadControl(loadControl)
-            .build().apply {
-            playWhenReady = true
-            volume = 0.5f // Arranca a mitad de volumen por elegancia
-        }
-    }
+    val exoPlayer = com.storetd.play.core.player.GlobalStreamManager.getPlayer(context, itemUrl)
     
     val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
-    androidx.compose.runtime.DisposableEffect(lifecycleOwner, exoPlayer) {
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             when (event) {
-                androidx.lifecycle.Lifecycle.Event.ON_PAUSE -> exoPlayer.pause()
-                androidx.lifecycle.Lifecycle.Event.ON_RESUME -> exoPlayer.play()
+                androidx.lifecycle.Lifecycle.Event.ON_PAUSE -> com.storetd.play.core.player.GlobalStreamManager.pause()
+                androidx.lifecycle.Lifecycle.Event.ON_RESUME -> com.storetd.play.core.player.GlobalStreamManager.resume()
                 else -> {}
             }
         }
@@ -3420,28 +3366,10 @@ fun MiniPlayerPreview(itemUrl: String) {
     }
 
     androidx.compose.runtime.LaunchedEffect(itemUrl) {
-        val safeUrl = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            com.storetd.play.feature.player.forceHlsUrl(context, itemUrl)
-        }
-        val isMagma = itemUrl.contains("tv.m3uts.xyz") || itemUrl.contains("magma-lite")
-        val mimeType = if (isMagma || safeUrl.contains(".m3u8")) {
-            androidx.media3.common.MimeTypes.APPLICATION_M3U8
-        } else null
-        
-        val mediaItemBuilder = androidx.media3.common.MediaItem.Builder().setUri(safeUrl)
-        if (mimeType != null) mediaItemBuilder.setMimeType(mimeType)
-        
-        exoPlayer.setMediaItem(mediaItemBuilder.build())
-        exoPlayer.prepare()
+        exoPlayer.volume = 0.5f // Arranca a mitad de volumen por elegancia
+        com.storetd.play.core.player.GlobalStreamManager.playUrl(context, itemUrl)
     }
     
-    androidx.compose.runtime.DisposableEffect(itemUrl) {
-        onDispose { exoPlayer.stop() }
-    }
-    
-    androidx.compose.runtime.DisposableEffect(exoPlayer) {
-        onDispose { exoPlayer.release() }
-    }
     androidx.compose.ui.viewinterop.AndroidView(
         factory = { ctx ->
             androidx.media3.ui.PlayerView(ctx).apply {
@@ -3460,6 +3388,9 @@ fun MiniPlayerPreview(itemUrl: String) {
         },
         update = { view ->
             view.player = exoPlayer
+        },
+        onRelease = { view ->
+            view.player = null // Desconectamos la vista del reproductor
         },
         modifier = androidx.compose.ui.Modifier.fillMaxSize()
     )
