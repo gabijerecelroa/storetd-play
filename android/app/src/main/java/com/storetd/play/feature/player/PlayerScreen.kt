@@ -329,8 +329,12 @@ fun PlayerScreen(
             context,
             androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection.Factory()
         ).apply {
-            // 🛑 APAGAR TUNNELING: El causante #1 de que los Smart TV se cuelguen con IPTV
-            setParameters(buildUponParameters().setTunnelingEnabled(false))
+            // 🛑 APAGAR TUNNELING y FORZAR MÁXIMA CALIDAD
+            setParameters(buildUponParameters()
+                .setTunnelingEnabled(false)
+                .setViewportSizeToPhysicalDisplaySize(context, true)
+                .setForceHighestSupportedBitrate(true)
+            )
         }
 
         // 1. DataSource Inteligente: Cambia el User-Agent dinámicamente
@@ -379,13 +383,13 @@ fun PlayerScreen(
         val smartRenderersFactory = androidx.media3.exoplayer.DefaultRenderersFactory(context)
             .setEnableDecoderFallback(true)
 
-        // 4. BÚFER NORMAL (Carga optimizada)
+        // 4. BÚFER AGRESIVO (Para evitar stuttering/saltos temporales en IPTV)
         val normalLoadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
             .setBufferDurationsMs(
-                12000,   // minBufferMs
-                60000,   // maxBufferMs
-                2500,    // bufferForPlaybackMs
-                5000     // bufferForPlaybackAfterRebufferMs
+                32000,   // minBufferMs (aumentado para pre-cargar mas antes de reproducir si la red cae)
+                120000,  // maxBufferMs (hasta 2 minutos de memoria cacheada si la red da)
+                5000,    // bufferForPlaybackMs (espera al menos 5s de datos antes de arrancar)
+                10000    // bufferForPlaybackAfterRebufferMs (espera 10s tras un cuelgue)
             )
             .setBackBuffer(10000, true)
             .setTargetBufferBytes(-1)
@@ -395,6 +399,7 @@ fun PlayerScreen(
         androidx.media3.exoplayer.ExoPlayer.Builder(context, smartRenderersFactory)
             .setMediaSourceFactory(finalMediaSourceFactory)
             .setLoadControl(normalLoadControl)
+            .setTrackSelector(trackSelector)
             .build()
     }
 
