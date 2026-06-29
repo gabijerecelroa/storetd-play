@@ -137,9 +137,24 @@ fun WebViewPlayerScreen(
                 .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
                 .setDefaultRequestProperties(mapOf("Referer" to url))
                 .setAllowCrossProtocolRedirects(true)
+                .setConnectTimeoutMs(15000)
+                .setReadTimeoutMs(20000)
+
+            val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
+                .setBufferDurationsMs(
+                    12000,   // minBufferMs
+                    60000,   // maxBufferMs
+                    2500,    // bufferForPlaybackMs
+                    5000     // bufferForPlaybackAfterRebufferMs
+                )
+                .setBackBuffer(10000, true)
+                .setTargetBufferBytes(-1)
+                .setPrioritizeTimeOverSizeThresholds(true)
+                .build()
 
             ExoPlayer.Builder(context)
                 .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
+                .setLoadControl(loadControl)
                 .build()
         }
         
