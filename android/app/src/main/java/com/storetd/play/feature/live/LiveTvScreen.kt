@@ -3372,15 +3372,23 @@ fun MiniPlayerPreview(itemUrl: String) {
                 .setConnectTimeoutMs(15000)
                 .setReadTimeoutMs(20000)
         }
-        val mediaSourceFactory = androidx.media3.exoplayer.source.DefaultMediaSourceFactory(context)
+        val extractorsFactory = androidx.media3.extractor.DefaultExtractorsFactory()
+            .setTsExtractorFlags(
+                androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES or
+                androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS or
+                androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.FLAG_IGNORE_SPLICE_INFO_STREAM
+            )
+
+        val mediaSourceFactory = androidx.media3.exoplayer.source.DefaultMediaSourceFactory(context, extractorsFactory)
             .setDataSourceFactory(dataSourceFactory)
+            .setLoadErrorHandlingPolicy(androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy(3))
 
         val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
             .setBufferDurationsMs(
-                12000,   // minBufferMs
+                15000,   // minBufferMs
                 60000,   // maxBufferMs
-                2500,    // bufferForPlaybackMs
-                5000     // bufferForPlaybackAfterRebufferMs
+                1500,    // bufferForPlaybackMs
+                2000     // bufferForPlaybackAfterRebufferMs
             )
             .setBackBuffer(10000, true)
             .setTargetBufferBytes(-1)

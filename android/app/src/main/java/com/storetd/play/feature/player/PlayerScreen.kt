@@ -139,8 +139,8 @@ private suspend fun obtenerUrlSeguraMagma(context: android.content.Context, stre
                 setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
                 setRequestProperty("User-Agent", "Dalvik/2.1.0 (Linux; U; Android 15; moto g84 5G)")
                 setRequestProperty("Accept", "*/*")
-                connectTimeout = 15000 // Timeouts extendidos para IPTV
-                readTimeout = 15000
+                connectTimeout = 3000 // Timeouts extendidos para IPTV
+                readTimeout = 3000
             }
 
             val postData = "id=$streamId&cast=false&device=c0041021c5c95679&code="
@@ -317,8 +317,8 @@ fun PlayerScreen(
                 .setReadTimeoutMs(20000)
         }
 
-        // 2. EL SECRETO (POLÍTICA DE ERRORES): En lugar de rendirse a los 3 errores de red, intentará reconectar silenciosamente 25 veces seguidas.
-        val loadErrorPolicy = androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy(25)
+        // 2. EL SECRETO (POLÍTICA DE ERRORES): En lugar de rendirse a los 3 errores de red, intentará reconectar silenciosamente 3 veces seguidas.
+        val loadErrorPolicy = androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy(3)
 
         // 🛡️ EL ESCUDO DEFINITIVO: Obliga al TV a ignorar los cambios bruscos de formato en el fútbol
         val extractorsFactory = androidx.media3.extractor.DefaultExtractorsFactory()
@@ -339,10 +339,10 @@ fun PlayerScreen(
         // 4. BÚFER AGRESIVO (Para evitar stuttering/saltos temporales en IPTV)
         val normalLoadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
             .setBufferDurationsMs(
-                32000,   // minBufferMs (aumentado para pre-cargar mas antes de reproducir si la red cae)
+                15000,   // minBufferMs (aumentado para pre-cargar mas antes de reproducir si la red cae)
                 120000,  // maxBufferMs (hasta 2 minutos de memoria cacheada si la red da)
-                5000,    // bufferForPlaybackMs (espera al menos 5s de datos antes de arrancar)
-                10000    // bufferForPlaybackAfterRebufferMs (espera 10s tras un cuelgue)
+                1500,    // bufferForPlaybackMs (espera al menos 5s de datos antes de arrancar)
+                2000     // bufferForPlaybackAfterRebufferMs (espera 10s tras un cuelgue)
             )
             .setBackBuffer(10000, true)
             .setTargetBufferBytes(-1)
@@ -476,13 +476,10 @@ fun PlayerScreen(
                 
                 errorMessage = friendlyError
 
-                reconnectMessage = if (shouldAutoRetryPlayback) {
-                    "Detectamos un problema de reproducción."
-                } else {
-                    "El contenido no respondió como video válido."
+                if (!shouldAutoRetryPlayback) {
+                    reconnectMessage = "El contenido no respondió como video válido."
+                    showControls = true
                 }
-
-                showControls = true
             }
         }
 
@@ -582,7 +579,7 @@ fun PlayerScreen(
         if (errorMessage != null && shouldAutoRetryPlayback && retryAttempt < 9999) {
             val nextAttempt = retryAttempt + 1
             retryAttempt = nextAttempt
-            reconnectMessage = "Reintentando automáticamente $nextAttempt/3..."
+            // reconnectMessage = "Reintentando automáticamente $nextAttempt/3..."
             delay(1800L * nextAttempt)
             restartPlayback()
         } else if (errorMessage != null && !shouldAutoRetryPlayback) {
@@ -599,8 +596,8 @@ fun PlayerScreen(
             if (isBuffering && errorMessage == null) {
                 val nextAttempt = autoRecoverAttempt + 1
                 autoRecoverAttempt = nextAttempt
-                reconnectMessage = "El canal tarda en responder. Reconectando $nextAttempt/3..."
-                showControls = true
+                // reconnectMessage = "El canal tarda en responder. Reconectando $nextAttempt/3..."
+                // showControls = true
                 restartPlayback()
             }
         } else if (isBuffering && errorMessage == null && autoRecoverAttempt >= 9999) {
@@ -658,12 +655,12 @@ fun PlayerScreen(
 
             lastPositionMs = positionMs
 
-            if (stuckSeconds >= 15) {
+            if (stuckSeconds >= 10) {
                 if (autoRecoverAttempt < 9999) {
                     val nextAttempt = autoRecoverAttempt + 1
                     autoRecoverAttempt = nextAttempt
-                    reconnectMessage = "La transmisión quedó congelada. Reconectando $nextAttempt/3..."
-                    showControls = true
+                    // reconnectMessage = "La transmisión quedó congelada. Reconectando $nextAttempt/3..."
+                    // showControls = true
                     restartPlayback()
 
                     lastPositionMs = -1L
@@ -1828,7 +1825,7 @@ suspend fun forceHlsUrl(context: android.content.Context, originalUrl: String): 
             val clean = originalUrl.substringBefore("?").replace(".ts", "").replace(".m3u8", "")
             val streamId = clean.split("/").last()
             
-            val urlSegura = kotlinx.coroutines.withTimeoutOrNull(15000L) {
+            val urlSegura = kotlinx.coroutines.withTimeoutOrNull(3000L) {
                 obtenerUrlSeguraMagma(context, streamId)
             }
             if (urlSegura != null) return urlSegura
