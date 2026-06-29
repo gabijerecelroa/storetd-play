@@ -403,7 +403,7 @@ fun PlayerScreen(
             forceHlsUrl(context, currentChannel.streamUrl)
         }
         val isMagma = currentChannel.streamUrl.contains("tv.m3uts.xyz") || currentChannel.streamUrl.contains("magma-lite")
-        val mimeType = if (isMagma || safeUrl.contains(".m3u8")) {
+        val mimeType = if (safeUrl.contains(".m3u8")) {
             androidx.media3.common.MimeTypes.APPLICATION_M3U8
         } else null
         
@@ -561,7 +561,7 @@ fun PlayerScreen(
                 forceHlsUrl(context, currentChannel.streamUrl)
             }
             val isMagma = currentChannel.streamUrl.contains("tv.m3uts.xyz") || currentChannel.streamUrl.contains("magma-lite")
-            val mimeType = if (isMagma || safeUrl.contains(".m3u8")) {
+            val mimeType = if (safeUrl.contains(".m3u8")) {
                 androidx.media3.common.MimeTypes.APPLICATION_M3U8
             } else null
             
