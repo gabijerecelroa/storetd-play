@@ -334,11 +334,26 @@ fun PlayerScreen(
         }
 
         // 1. DataSource Inteligente: Cambia el User-Agent dinámicamente
+        val isTvM3utsXyz = currentChannel.streamUrl.contains("tv.m3uts.xyz")
         val isMagmaChannel = currentChannel.streamUrl.let { url ->
             url.contains("tv.m3uts.xyz") || url.contains("magma-lite") || url.contains("m3uts")
         }
 
-        val finalDataSourceFactory = if (isMagmaChannel) {
+        val finalDataSourceFactory = if (isTvM3utsXyz) {
+            androidx.media3.datasource.DefaultHttpDataSource.Factory()
+                .setUserAgent("Magma Player/10")
+                .setAllowCrossProtocolRedirects(true)
+                .setConnectTimeoutMs(15000)
+                .setReadTimeoutMs(15000)
+                .setDefaultRequestProperties(
+                    mapOf(
+                        "X-App" to "di",
+                        "X-Version" to "10/1.0.9",
+                        "X-Did" to "c0041021c5c95679",
+                        "X-Hash" to "MVRUcQA5ddQ6Q7uvtD3Ms8ucj_Sj0SSzBNyfWBAeDrWPiwDugKt5m7OlmmsvMbJ4Gqc7qoaTbR47HgkHQ0kyHjk2Q20f5TMexj3o9gNRhmprUJmWXWpDQYyx-xAOEx1MV9R0m9Q-GYH2CqzKS_rIlpb0hge4Moy7FRomMTQpPK047WahnRTpbycnW517aYWIdb20KEZy9RVbHoVZ4gIwY19ZxfLB-QRXubBGyTPFkxLfrZh2cnh-AsdaNbkQKuBqbu0F1Ya-VaQb4tb1C2O3Er14lNrP-R9MnXbltt_yahHYND94F90kqLRacnURZP76e6r6d9xTzl3940FLneH-UpYdPxnuNc9C7S-cwYrs2DMHdNE5WWZ3s-FuesB9Mz25tZd0rIRGGb7dnjZY_FjAx08R3hzsywOLpGWUBT_4OCH051l21jTc29hXwiwj-1vo3eRbjUkgzXJlwvTBS2RAAld5NzPs6kFVjxSr729niVrf9j4WtOJnVQfAESCIFbNnDudLB4VdBeb2w58rTAGo-Q"
+                    )
+                )
+        } else if (isMagmaChannel) {
             androidx.media3.datasource.DefaultHttpDataSource.Factory()
                 .setUserAgent("Magma Player/10")
                 .setAllowCrossProtocolRedirects(true)
