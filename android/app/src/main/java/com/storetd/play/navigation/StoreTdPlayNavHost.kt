@@ -522,27 +522,25 @@ fun checkAccountStatus() {
                     val encGroup = android.net.Uri.encode(group)
                     val encLogo = if (logo.isBlank() || logo == "-") "-" else android.net.Uri.encode(logo)
 
-                    if (isDirectVideoPlaybackUrl(selectedStreamUrl)) {
-                        val selectedSaved = SavedChannel(
-                            id = "${name.lowercase()}|$selectedStreamUrl".hashCode().toString(),
-                            name = name,
-                            streamUrl = selectedStreamUrl,
-                            logoUrl = cleanLogo,
-                            group = group,
-                            tvgId = null
-                        )
+                    val selectedSaved = SavedChannel(
+                        id = "${name.lowercase()}|$selectedStreamUrl".hashCode().toString(),
+                        name = name,
+                        streamUrl = selectedStreamUrl,
+                        logoUrl = cleanLogo,
+                        group = group,
+                        tvgId = null
+                    )
 
-                        PlayerSession.setQueue(
-                            channels = listOf(selectedSaved),
-                            currentStreamUrl = selectedStreamUrl
-                        )
+                    android.util.Log.d("StreamVault", "Selected server streamUrl: $selectedStreamUrl")
 
-                        LocalLibrary.addHistory(context, selectedSaved)
+                    PlayerSession.setQueue(
+                        channels = listOf(selectedSaved),
+                        currentStreamUrl = selectedStreamUrl
+                    )
 
-                        navController.navigate("${Routes.Player}/$encName/$encUrl/$encGroup/$encLogo")
-                    } else {
-                        navController.navigate("${Routes.Player}/$encName/$encUrl/$encGroup/$encLogo")
-                    }
+                    LocalLibrary.addHistory(context, selectedSaved)
+
+                    navController.navigate("${Routes.Player}/$encName/$encUrl/$encGroup/$encLogo")
                 },
                 onBack = { navController.popBackStack() }
             )

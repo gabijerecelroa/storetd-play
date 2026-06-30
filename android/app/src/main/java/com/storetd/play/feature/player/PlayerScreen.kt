@@ -1724,7 +1724,7 @@ suspend fun forceHlsUrl(context: android.content.Context, originalUrl: String): 
     // 2. Comportamiento original para otras URLs (el mutador normal)
     var finalUrl = originalUrl
     try {
-        if (!finalUrl.contains(".m3u8") && !finalUrl.contains("movie") && !finalUrl.contains("series")) {
+        if (!finalUrl.contains(".m3u8") && !finalUrl.contains(".mp4") && !finalUrl.contains(".mkv") && !finalUrl.contains(".avi") && !finalUrl.contains("movie") && !finalUrl.contains("series")) {
             val clean = finalUrl.substringBefore("?").replace(".ts", "")
             val parts = clean.split("/")
             if (parts.size >= 4 && !finalUrl.contains("magma-lite") && !finalUrl.contains("xtream-lite")) {
