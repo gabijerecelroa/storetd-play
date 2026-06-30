@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const { supabase } = require("./db");
 
 const CACHE_TABLE = "playlist_cache";
@@ -210,6 +211,13 @@ function maskUrl(value) {
     if (text.length <= 18) return "***";
     return `${text.slice(0, 10)}***${text.slice(-6)}`;
   }
+}
+
+function streamUrlHash(value) {
+  return crypto
+    .createHash("sha256")
+    .update(String(value || "").trim())
+    .digest("hex");
 }
 
 async function getClientByActivationCode(activationCode) {
@@ -1020,22 +1028,26 @@ function normalizeXtreamLiveItems(playlistUrl, rows, categoryMap) {
       const streamId = xtreamNumber(row, "stream_id", "id");
       if (!streamId) return null;
 
-      const categoryId = xtreamString(row, "category_id");
+      const categoryIdStr = xtreamString(row, "category_id");
+      const categoryId = xtreamCategoryIds(row)[0] || categoryIdStr;
       const category = xtreamCategoryName(categoryMap, categoryId, "Sin Categoria");
 
       const ext = xtreamString(row, "container_extension") || "ts";
+      const streamUrl = xtreamLiveUrl(playlistUrl, streamId, ext);
 
       return {
         id: String(streamId),
         name: xtreamString(row, "name", "title") || `Canal ${streamId}`,
-        streamUrl: xtreamLiveUrl(playlistUrl, streamId, ext),
+        streamUrl,
+        streamUrlMasked: maskUrl(streamUrl),
+        streamUrlHash: streamUrlHash(streamUrl),
         logoUrl: xtreamString(row, "stream_icon", "cover", "image") || null,
         group: xtreamGroupName("live", category), // El nombre con emojis se mantiene para la TV
         tvgId: xtreamString(row, "epg_channel_id", "tvg_id") || null,
         source: {
           provider: "xtream",
           streamId,
-          categoryId
+          categoryId: categoryIdStr
         }
       };
     })
@@ -1131,16 +1143,20 @@ function normalizeXtreamMovieItems(playlistUrl, rows, categoryMap, publicBase = 
       const streamId = xtreamNumber(row, "stream_id", "id");
       if (!streamId) return null;
 
-      const categoryId = xtreamString(row, "category_id");
+      const categoryIdStr = xtreamString(row, "category_id");
+      const categoryId = xtreamCategoryIds(row)[0] || categoryIdStr;
       const category = xtreamCategoryName(categoryMap, categoryId, "Sin Categoria");
       const ext = xtreamString(row, "container_extension") || "mp4";
 
       const streamIcon = xtreamString(row, "stream_icon", "cover", "poster", "image");
+      const streamUrl = xtreamMovieUrl(playlistUrl, streamId, ext, publicBase, activationCode);
 
       return {
         id: String(streamId),
         name: xtreamString(row, "name", "title") || `Pelicula ${streamId}`,
-        streamUrl: xtreamMovieUrl(playlistUrl, streamId, ext, publicBase, activationCode),
+        streamUrl,
+        streamUrlMasked: maskUrl(streamUrl),
+        streamUrlHash: streamUrlHash(streamUrl),
         logoUrl: streamIcon || null,
         posterUrl: streamIcon || null,
         group: xtreamGroupName("movie", category),
@@ -1148,7 +1164,7 @@ function normalizeXtreamMovieItems(playlistUrl, rows, categoryMap, publicBase = 
         source: {
           provider: "xtream",
           streamId,
-          categoryId,
+          categoryId: categoryIdStr,
           extension: ext
         }
       };
@@ -1165,7 +1181,8 @@ function buildXtreamSeriesFoldersPayload({ activationCode, playlistUrl, rows, ca
       if (!seriesId) continue;
 
       const title = xtreamString(row, "name", "title") || `Serie ${seriesId}`;
-      const categoryId = xtreamString(row, "category_id");
+      const categoryIdStr = xtreamString(row, "category_id");
+      const categoryId = xtreamCategoryIds(row)[0] || categoryIdStr;
       const category = xtreamCategoryName(categoryMap, categoryId, "Sin Categoria");
       const baseKey = slugKey(title) || "serie";
       const key = `${baseKey}-${seriesId}`;
@@ -1180,7 +1197,7 @@ function buildXtreamSeriesFoldersPayload({ activationCode, playlistUrl, rows, ca
         source: {
           provider: "xtream",
           seriesId,
-          categoryId
+          categoryId: categoryIdStr
         }
       });
     }
@@ -1278,11 +1295,14 @@ async function getXtreamEpisodesForSeriesFolder(folder, playlistUrl, publicBase 
 
       const season = Number(xtreamString(episode, "season", "_season") || 0) || episodeSeason(xtreamEpisodeName(folder.title, episode));
       const episodeIndex = Number(xtreamString(episode, "episode_num", "episode", "episode_number") || 0) || episodeNumber(xtreamEpisodeName(folder.title, episode));
+      const streamUrl = xtreamSeriesEpisodeUrl(playlistUrl, episodeId, ext, publicBase, activationCode, seriesId, season, episodeIndex);
 
       return {
         id: String(episodeId),
         name: xtreamEpisodeName(folder.title, episode),
-        streamUrl: xtreamSeriesEpisodeUrl(playlistUrl, episodeId, ext, publicBase, activationCode, seriesId, season, episodeIndex),
+        streamUrl,
+        streamUrlMasked: maskUrl(streamUrl),
+        streamUrlHash: streamUrlHash(streamUrl),
         logoUrl: logo || episode.stream_icon || episode.cover || null,
         posterUrl: logo || episode.stream_icon || episode.cover || null,
         group: folder.title,
