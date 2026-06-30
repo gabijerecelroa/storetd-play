@@ -427,10 +427,7 @@ fun checkAccountStatus() {
 
                     LocalLibrary.addHistory(context, saved)
 
-                    val isMagmaVodEpisode = saved.streamUrl.contains(
-                        "/magma-lite/movie/",
-                        ignoreCase = true
-                    )
+                    val isMagmaVodEpisode = saved.streamUrl.contains("/magma-lite/movie/", ignoreCase = true) || saved.streamUrl.contains("/api/xtream/play/", ignoreCase = true)
 
                     if (isDirectVideoPlaybackUrl(saved.streamUrl) && !isMagmaVodEpisode) {
                         openPlayer(saved)

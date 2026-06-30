@@ -8125,6 +8125,80 @@ app.get('/api/magma-lite/live/:streamId', async (req, res) => {
 });
 
 // PROXY XTREAM VOD/SERIES
+
+app.get("/api/xtream/movie-sources", async (req, res) => {
+  try {
+    const activationCode = String(req.query.code || "").trim();
+    const streamId = String(req.query.id || "").trim();
+    const kind = String(req.query.kind || "").trim().toLowerCase();
+    
+    if (!activationCode || !streamId) return res.status(400).send("Faltan parámetros");
+
+    const { getClientByActivationCode, fetchXtreamJson, xtreamConfig } = require("./playlistContent");
+    const client = await getClientByActivationCode(activationCode);
+    
+    if (client && client.playlist_url) {
+        const playlistUrl = client.playlist_url;
+        let linksData;
+        
+        try {
+            if (kind === "episode") {
+                const seriesId = req.query.seriesId;
+                const season = req.query.season;
+                const episode = req.query.episode;
+                const params = { episode_id: streamId };
+                if (seriesId) params.serie = seriesId;
+                if (season) params.season = season;
+                if (episode) params.episode = episode;
+                linksData = await fetchXtreamJson(playlistUrl, "get_episode_links", params);
+            } else {
+                linksData = await fetchXtreamJson(playlistUrl, "get_vod_links", { vod_id: streamId });
+            }
+            
+            let items = [];
+            if (typeof linksData === 'string' && linksData.startsWith("http")) {
+                items.push({ id: "1", title: "Servidor Principal", streamUrl: linksData, quality: "Auto" });
+            } else if (linksData?.links) {
+                const links = Array.isArray(linksData.links) ? linksData.links : [linksData.links];
+                links.forEach((url, i) => {
+                    items.push({ id: String(i+1), title: `Servidor ${i+1}`, streamUrl: url, quality: "Auto" });
+                });
+            } else if (linksData?.url) {
+                items.push({ id: "1", title: "Servidor Principal", streamUrl: linksData.url, quality: "Auto" });
+            } else if (typeof linksData === 'object' && Object.keys(linksData).length > 0) {
+                let idx = 1;
+                for (const key of Object.keys(linksData)) {
+                    const val = linksData[key];
+                    if (typeof val === 'string' && val.startsWith('http')) {
+                        items.push({ id: String(idx), title: `Servidor ${idx}`, streamUrl: val, quality: key });
+                    } else if (val?.url) {
+                        items.push({ id: String(idx), title: `Servidor ${idx}`, streamUrl: val.url, quality: key });
+                    }
+                    idx++;
+                }
+            }
+            
+            if (items.length === 0) {
+                const { baseUrl, username, password } = xtreamConfig(playlistUrl);
+                const fallbackUrl = kind === "episode" ? 
+                    baseUrl + "/series/" + username + "/" + password + "/" + streamId + "." + (req.query.ext || "mp4") :
+                    baseUrl + "/movie/" + username + "/" + password + "/" + streamId + "." + (req.query.ext || "mp4");
+                
+                items.push({ id: "1", title: "Servidor Directo", streamUrl: fallbackUrl, quality: "Auto" });
+            }
+            
+            return res.json({ success: true, items });
+        } catch (e) {
+            console.error("Error obteniendo movie-sources de Xtream:", e.message);
+            return res.json({ success: false, message: "No se pudieron cargar las fuentes." });
+        }
+    }
+    return res.status(404).json({ success: false, message: "Cliente no encontrado" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Error interno" });
+  }
+});
+
 app.get("/api/xtream/play/movie/:streamId", async (req, res) => {
   try {
     const activationCode = String(req.query.code || "").trim();

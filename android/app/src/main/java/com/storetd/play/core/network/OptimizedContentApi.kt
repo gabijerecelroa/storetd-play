@@ -341,7 +341,8 @@ object OptimizedContentApi {
         kind: String = "",
         seriesId: String = "",
         season: String = "",
-        episode: String = ""
+        episode: String = "",
+        streamUrl: String = ""
     ): List<MovieSourceLite> {
         val base = BuildConfig.API_BASE_URL
             .trim()
@@ -381,7 +382,11 @@ object OptimizedContentApi {
         }
 
         // MAGMA_MOVIE_SOURCES_FRESH_URL_START
-        val requestUrl = "$base/api/magma-lite/movie-sources?$params&fresh=1&t=${System.currentTimeMillis()}"
+        val requestUrl = if (streamUrl.contains("/api/xtream/play/", ignoreCase = true)) {
+            "$base/api/xtream/movie-sources?$params&fresh=1&t=${System.currentTimeMillis()}"
+        } else {
+            "$base/api/magma-lite/movie-sources?$params&fresh=1&t=${System.currentTimeMillis()}"
+        }
         // MAGMA_MOVIE_SOURCES_FRESH_URL_END
 
         return runCatching {

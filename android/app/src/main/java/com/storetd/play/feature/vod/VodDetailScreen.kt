@@ -39,15 +39,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
 
-private fun isMagmaMovieUrl(url: String): Boolean {
-    return url.contains("/magma-lite/movie/", ignoreCase = true)
-}
+private fun isMagmaMovieUrl(url: String): Boolean { return url.contains("/magma-lite/movie/", ignoreCase = true) || url.contains("/api/xtream/play/", ignoreCase = true) }
 
 private fun extractMagmaMovieStreamId(url: String): String? {
-    return Regex("/magma-lite/movie/([0-9]+)\\.m3u8", RegexOption.IGNORE_CASE)
-        .find(url)
-        ?.groupValues
-        ?.getOrNull(1)
+    val magma = Regex("/magma-lite/movie/([0-9]+)\.m3u8", RegexOption.IGNORE_CASE).find(url)?.groupValues?.getOrNull(1)
+    if (magma != null) return magma
+    val xtreamMovie = Regex("/api/xtream/play/movie/([0-9]+)", RegexOption.IGNORE_CASE).find(url)?.groupValues?.getOrNull(1)
+    if (xtreamMovie != null) return xtreamMovie
+    return Regex("/api/xtream/play/series/([0-9]+)", RegexOption.IGNORE_CASE).find(url)?.groupValues?.getOrNull(1)
 }
 
 private fun extractUrlQueryParam(url: String, key: String): String {
@@ -114,27 +113,26 @@ fun VodDetailScreen(
 
         // MAGMA_FRESH_SOURCE_SELECTOR_START
         isLoadingSources = true
-        showSourceDialog = false // OCULTAMOS EL MENÚ PARA HACERLO SILENCIOSO
+        showSourceDialog = false
 
         scope.launch {
             val account = LocalAccount.getAccount(context)
             val activationCode = account.activationCode.trim()
 
             val loadedSources = withContext(Dispatchers.IO) {
-                emptyList<Nothing>() /* OptimizedContentApi.loadMagmaMovieSources(
+                OptimizedContentApi.loadMagmaMovieSources(
                     activationCode = activationCode,
                     streamId = streamId,
                     kind = extractUrlQueryParam(streamUrl, "kind"),
                     seriesId = extractUrlQueryParam(streamUrl, "seriesId"),
                     season = extractUrlQueryParam(streamUrl, "season"),
-                    episode = extractUrlQueryParam(streamUrl, "episode")
-                ) */
+                    episode = extractUrlQueryParam(streamUrl, "episode"),
+                    streamUrl = streamUrl
+                )
             }
 
-            if (true) {
-                // 🔥 EL TOQUE MAESTRO: AUTO-PLAY INMEDIATO
-                onPlay(streamUrl)
-            } else {
+            movieSources = loadedSources
+            if (loadedSources.isEmpty()) {
                 // Solo mostramos error si no hay enlaces
                 sourceMessage = "Esta película no está disponible en este momento. Probá otra opción."
                 showSourceDialog = true 
@@ -143,6 +141,79 @@ fun VodDetailScreen(
             isLoadingSources = false
         }
         // MAGMA_FRESH_SOURCE_SELECTOR_END
+    }
+
+    
+    if (showSourceDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showSourceDialog = false },
+            title = {
+                Text(
+                    text = "Elegí una fuente",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = if (isLandscape) 420.dp else 560.dp)
+                        .verticalScroll(sourceDialogScrollState),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    sourceMessage?.let {
+                        Text(
+                            text = it,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+
+                    movieSources.forEach { source ->
+                        Button(
+                            onClick = {
+                                showSourceDialog = false
+                                onPlay(source.streamUrl)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFFE50914),
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = source.title,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+
+                                Text(
+                                    text = listOf(source.subtitle, source.quality, source.language)
+                                        .filter { it.isNotBlank() }
+                                        .joinToString(" · "),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.White.copy(alpha = 0.82f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { showSourceDialog = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
     }
 
     Box(

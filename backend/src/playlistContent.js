@@ -47,7 +47,7 @@ async function fetchXtreamJson(playlistUrl, action, extraParams = {}) {
 
   const response = await fetch(url.toString(), {
     headers: {
-      "User-Agent": "StoreTD-Play-Backend/1.0"
+      "User-Agent": "Dalvik/2.1.0 (Linux; U; Android 15; moto g84 5G Build/V1TCS35H.88-20-1-6-1)"
     }
   });
 
@@ -69,6 +69,16 @@ function todayDate() {
 function isExpired(expiresAt) {
   if (!expiresAt) return false;
   return String(expiresAt).slice(0, 10) < todayDate();
+}
+
+function fixImageUrl(url) {
+  if (!url) return null;
+  const str = String(url).trim();
+  if (!str) return null;
+  if (str.startsWith('/')) {
+    return 'https://image.tmdb.org/t/p/w500' + str;
+  }
+  return str;
 }
 
 function normalizeText(value) {
@@ -1028,7 +1038,7 @@ function normalizeXtreamLiveItems(playlistUrl, rows, categoryMap) {
       const streamId = xtreamNumber(row, "stream_id", "id");
       if (!streamId) return null;
 
-      const categoryIdStr = xtreamString(row, "category_id");
+      const categoryIdStr = xtreamString(row, "category_id", "category_ids", "id");
       const categoryId = xtreamCategoryIds(row)[0] || categoryIdStr;
       const category = xtreamCategoryName(categoryMap, categoryId, "Sin Categoria");
 
@@ -1041,7 +1051,7 @@ function normalizeXtreamLiveItems(playlistUrl, rows, categoryMap) {
         streamUrl,
         streamUrlMasked: maskUrl(streamUrl),
         streamUrlHash: streamUrlHash(streamUrl),
-        logoUrl: xtreamString(row, "stream_icon", "cover", "image") || null,
+        logoUrl: fixImageUrl(xtreamString(row, "stream_icon", "cover", "image")) || null,
         group: xtreamGroupName("live", category), // El nombre con emojis se mantiene para la TV
         tvgId: xtreamString(row, "epg_channel_id", "tvg_id") || null,
         source: {
@@ -1071,8 +1081,8 @@ function xtreamCategoryMap(categories) {
   const map = new Map();
 
   (Array.isArray(categories) ? categories : []).forEach((cat) => {
-    const id = String(cat.category_id || "").trim();
-    const name = String(cat.category_name || "").trim();
+    const id = String(cat.category_id || cat.id || "").trim();
+    const name = String(cat.category_name || cat.name || cat.title || "").trim();
 
     if (id && name) {
       map.set(id, name);
@@ -1095,7 +1105,7 @@ function buildXtreamMovieCategoriesPayload({ activationCode, playlistUrl, rows, 
       const ids = categoryIds.length ? categoryIds : [""];
 
       for (const categoryId of ids) {
-        const rawTitle = xtreamCategoryName(categoryMap, categoryId, "Sin Categoria");
+        const rawTitle = xtreamCategoryName(categoryMap, categoryId, row.category_name || row.name || row.title || "Sin Categoria");
         const title = xtreamGroupName("movie", rawTitle);
         const keyBase = slugKey(title) || "sin-categoria";
         const key = categoryId ? `${keyBase}-${categoryId}` : keyBase;
@@ -1143,12 +1153,13 @@ function normalizeXtreamMovieItems(playlistUrl, rows, categoryMap, publicBase = 
       const streamId = xtreamNumber(row, "stream_id", "id");
       if (!streamId) return null;
 
-      const categoryIdStr = xtreamString(row, "category_id");
+      const categoryIdStr = xtreamString(row, "category_id", "category_ids", "id");
       const categoryId = xtreamCategoryIds(row)[0] || categoryIdStr;
-      const category = xtreamCategoryName(categoryMap, categoryId, "Sin Categoria");
+      const category = xtreamCategoryName(categoryMap, categoryId, row.category_name || row.name || row.title || "Sin Categoria");
       const ext = xtreamString(row, "container_extension") || "mp4";
 
-      const streamIcon = xtreamString(row, "stream_icon", "cover", "poster", "image");
+      const streamIcon = fixImageUrl(xtreamString(row, "stream_icon", "cover", "movie_image", "poster", "icon", "image"));
+      const backdrop = fixImageUrl(xtreamString(row, "backdrop_path", "cover_big"));
       const streamUrl = xtreamMovieUrl(playlistUrl, streamId, ext, publicBase, activationCode);
 
       return {
@@ -1159,6 +1170,7 @@ function normalizeXtreamMovieItems(playlistUrl, rows, categoryMap, publicBase = 
         streamUrlHash: streamUrlHash(streamUrl),
         logoUrl: streamIcon || null,
         posterUrl: streamIcon || null,
+        backdropUrl: backdrop || null,
         group: xtreamGroupName("movie", category),
         tvgId: null,
         source: {
@@ -1181,17 +1193,22 @@ function buildXtreamSeriesFoldersPayload({ activationCode, playlistUrl, rows, ca
       if (!seriesId) continue;
 
       const title = xtreamString(row, "name", "title") || `Serie ${seriesId}`;
-      const categoryIdStr = xtreamString(row, "category_id");
+      const categoryIdStr = xtreamString(row, "category_id", "category_ids", "id");
       const categoryId = xtreamCategoryIds(row)[0] || categoryIdStr;
-      const category = xtreamCategoryName(categoryMap, categoryId, "Sin Categoria");
+      const category = xtreamCategoryName(categoryMap, categoryId, row.category_name || row.name || row.title || "Sin Categoria");
       const baseKey = slugKey(title) || "serie";
       const key = `${baseKey}-${seriesId}`;
+
+      const streamIcon = fixImageUrl(xtreamString(row, "cover", "stream_icon", "movie_image", "poster", "icon", "image"));
+      const backdrop = fixImageUrl(xtreamString(row, "backdrop_path", "cover_big"));
 
       folders.push({
         key,
         title,
         group: xtreamGroupName("series", category),
-        posterUrl: xtreamString(row, "cover", "stream_icon", "image") || null,
+        logoUrl: streamIcon || null,
+        posterUrl: streamIcon || null,
+        backdropUrl: backdrop || null,
         episodeCount: Number(row.episode_count || row.episodes_count || row.episodes || 1) || 1,
         episodes: [],
         source: {
