@@ -7618,7 +7618,8 @@ app.get("/api/content/series-folder", async (req, res) => {
     const result = await getSeriesFolderByKey({
       activationCode,
       key,
-      autoRefresh: req.query.autoRefresh !== "0"
+      autoRefresh: req.query.autoRefresh !== "0",
+      publicBase: `${req.protocol}://${req.get("host")}`
     });
 
     if (!result.success) {
@@ -7706,7 +7707,8 @@ app.get("/api/content/movie-category", async (req, res) => {
     const result = await getMovieCategoryByKey({
       activationCode,
       key,
-      autoRefresh: req.query.autoRefresh !== "0"
+      autoRefresh: req.query.autoRefresh !== "0",
+      publicBase: `${req.protocol}://${req.get("host")}`
     });
 
     if (!result.success) {
@@ -8120,6 +8122,113 @@ app.get('/api/magma-lite/live/:streamId', async (req, res) => {
     } catch (e) {
         res.status(500).send('Error en puente');
     }
+});
+
+// PROXY XTREAM VOD/SERIES
+app.get("/api/xtream/play/movie/:streamId", async (req, res) => {
+  try {
+    const activationCode = String(req.query.code || "").trim();
+    const streamId = req.params.streamId;
+    if (!activationCode || !streamId) return res.status(400).send("Faltan parámetros");
+
+    const { getClientByActivationCode, fetchXtreamJson } = require("./playlistContent");
+    const client = await getClientByActivationCode(activationCode);
+    
+    if (client && client.playlist_url) {
+        const playlistUrl = client.playlist_url;
+        
+        try {
+            const linksData = await fetchXtreamJson(playlistUrl, "get_vod_links", { vod_id: streamId });
+            let finalUrl = null;
+
+            if (typeof linksData === 'string' && linksData.startsWith("http")) {
+              finalUrl = linksData;
+            } else if (linksData?.links) { 
+               finalUrl = Array.isArray(linksData.links) ? linksData.links[0] : linksData.links;
+            } else if (linksData?.url) { 
+               finalUrl = linksData.url;
+            } else if (typeof linksData === 'object' && Object.keys(linksData).length > 0) {
+               const firstVal = Object.values(linksData)[0];
+               if (typeof firstVal === 'string' && firstVal.startsWith('http')) {
+                  finalUrl = firstVal;
+               } else if (firstVal?.url) {
+                  finalUrl = firstVal.url;
+               }
+            }
+            if (finalUrl && typeof finalUrl === 'string' && finalUrl.startsWith('http')) {
+                return res.redirect(302, finalUrl);
+            }
+        } catch (e) {
+            console.error("No se pudo obtener enlace VOD dinámico:", e.message);
+        }
+
+        // Fallback
+        const ext = req.query.ext || "mp4";
+        const { baseUrl, username, password } = require("./playlistContent").xtreamConfig(playlistUrl);
+        const fallbackUrl = baseUrl + "/movie/" + username + "/" + password + "/" + streamId + "." + ext;
+        return res.redirect(302, fallbackUrl);
+    }
+    return res.status(404).send("Cliente inválido");
+  } catch (err) {
+    res.status(500).send("Error de servidor");
+  }
+});
+
+app.get("/api/xtream/play/series/:episodeId", async (req, res) => {
+  try {
+    const activationCode = String(req.query.code || "").trim();
+    const episodeId = req.params.episodeId;
+    if (!activationCode || !episodeId) return res.status(400).send("Faltan parámetros");
+
+    const { getClientByActivationCode, fetchXtreamJson } = require("./playlistContent");
+    const client = await getClientByActivationCode(activationCode);
+    
+    if (client && client.playlist_url) {
+        const playlistUrl = client.playlist_url;
+        const seriesId = req.query.seriesId;
+        const season = req.query.season;
+        const episode = req.query.episode;
+        
+        try {
+            const params = { episode_id: episodeId };
+            if (seriesId) params.serie = seriesId; // o series_id según la API
+            if (season) params.season = season;
+            if (episode) params.episode = episode;
+
+            const linksData = await fetchXtreamJson(playlistUrl, "get_episode_links", params);
+            let finalUrl = null;
+
+            if (typeof linksData === 'string' && linksData.startsWith("http")) {
+              finalUrl = linksData;
+            } else if (linksData?.links) { 
+               finalUrl = Array.isArray(linksData.links) ? linksData.links[0] : linksData.links;
+            } else if (linksData?.url) { 
+               finalUrl = linksData.url;
+            } else if (typeof linksData === 'object' && Object.keys(linksData).length > 0) {
+               const firstVal = Object.values(linksData)[0];
+               if (typeof firstVal === 'string' && firstVal.startsWith('http')) {
+                  finalUrl = firstVal;
+               } else if (firstVal?.url) {
+                  finalUrl = firstVal.url;
+               }
+            }
+            if (finalUrl && typeof finalUrl === 'string' && finalUrl.startsWith('http')) {
+                return res.redirect(302, finalUrl);
+            }
+        } catch (e) {
+            console.error("No se pudo obtener enlace de episodio dinámico:", e.message);
+        }
+
+        // Fallback
+        const ext = req.query.ext || "mp4";
+        const { baseUrl, username, password } = require("./playlistContent").xtreamConfig(playlistUrl);
+        const fallbackUrl = baseUrl + "/series/" + username + "/" + password + "/" + episodeId + "." + ext;
+        return res.redirect(302, fallbackUrl);
+    }
+    return res.status(404).send("Cliente inválido");
+  } catch (err) {
+    res.status(500).send("Error de servidor");
+  }
 });
 
 module.exports = app;

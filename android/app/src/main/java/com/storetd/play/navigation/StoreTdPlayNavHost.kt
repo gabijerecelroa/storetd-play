@@ -77,6 +77,7 @@ private fun isDirectVideoPlaybackUrl(url: String): Boolean {
     return clean.contains(".m3u8") ||
         clean.contains(".mp4") ||
         clean.contains("/magma-lite/") ||
+        clean.contains("/api/xtream/play/") ||
         clean.contains("tvcluboficial.com") ||
         clean.contains("m3uts.xyz")
 }

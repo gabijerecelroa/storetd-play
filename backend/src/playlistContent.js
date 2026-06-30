@@ -992,12 +992,22 @@ function xtreamLiveUrl(playlistUrl, streamId, ext = "ts") {
   return `${baseUrl}/live/${username}/${password}/${streamId}.m3u8`;
 }
 
-function xtreamMovieUrl(playlistUrl, streamId, ext = "mp4") {
+function xtreamMovieUrl(playlistUrl, streamId, ext = "mp4", publicBase = null, activationCode = null) {
+  if (publicBase && activationCode) {
+    return `${publicBase}/api/xtream/play/movie/${streamId}?code=${encodeURIComponent(activationCode)}&ext=${ext}`;
+  }
   const { baseUrl, username, password } = xtreamConfig(playlistUrl);
   return baseUrl + "/movie/" + username + "/" + password + "/" + streamId + "." + ext;
 }
 
-function xtreamSeriesEpisodeUrl(playlistUrl, episodeId, ext = "mp4") {
+function xtreamSeriesEpisodeUrl(playlistUrl, episodeId, ext = "mp4", publicBase = null, activationCode = null, seriesId = null, season = null, episode = null) {
+  if (publicBase && activationCode) {
+    let url = `${publicBase}/api/xtream/play/series/${episodeId}?code=${encodeURIComponent(activationCode)}&ext=${ext}`;
+    if (seriesId) url += `&seriesId=${seriesId}`;
+    if (season !== null) url += `&season=${season}`;
+    if (episode !== null) url += `&episode=${episode}`;
+    return url;
+  }
   const { baseUrl, username, password } = xtreamConfig(playlistUrl);
   return baseUrl + "/series/" + username + "/" + password + "/" + episodeId + "." + ext;
 }
@@ -1113,7 +1123,7 @@ function buildXtreamMovieCategoriesPayload({ activationCode, playlistUrl, rows, 
 }
 
 
-function normalizeXtreamMovieItems(playlistUrl, rows, categoryMap) {
+function normalizeXtreamMovieItems(playlistUrl, rows, categoryMap, publicBase = null, activationCode = null) {
   if (!Array.isArray(rows)) return [];
 
   return rows
@@ -1125,11 +1135,14 @@ function normalizeXtreamMovieItems(playlistUrl, rows, categoryMap) {
       const category = xtreamCategoryName(categoryMap, categoryId, "Sin Categoria");
       const ext = xtreamString(row, "container_extension") || "mp4";
 
+      const streamIcon = xtreamString(row, "stream_icon", "cover", "poster", "image");
+
       return {
         id: String(streamId),
         name: xtreamString(row, "name", "title") || `Pelicula ${streamId}`,
-        streamUrl: xtreamMovieUrl(playlistUrl, streamId, ext),
-        logoUrl: xtreamString(row, "stream_icon", "cover", "image") || null,
+        streamUrl: xtreamMovieUrl(playlistUrl, streamId, ext, publicBase, activationCode),
+        logoUrl: streamIcon || null,
+        posterUrl: streamIcon || null,
         group: xtreamGroupName("movie", category),
         tvgId: null,
         source: {
@@ -1214,6 +1227,7 @@ function flattenXtreamEpisodes(info) {
         }
       }
     }
+    return result;
   }
 
   return result;
@@ -1230,7 +1244,7 @@ function xtreamEpisodeName(folderTitle, episode) {
   return `${folderTitle} S${String(season).padStart(2, "0")}E${String(episodeNumberValue).padStart(2, "0")}`;
 }
 
-async function getXtreamEpisodesForSeriesFolder(folder, playlistUrl) {
+async function getXtreamEpisodesForSeriesFolder(folder, playlistUrl, publicBase = null, activationCode = null) {
   const seriesId = Number(folder?.source?.seriesId || 0);
 
   if (!seriesId) return [];
@@ -1268,8 +1282,9 @@ async function getXtreamEpisodesForSeriesFolder(folder, playlistUrl) {
       return {
         id: String(episodeId),
         name: xtreamEpisodeName(folder.title, episode),
-        streamUrl: xtreamSeriesEpisodeUrl(playlistUrl, episodeId, ext),
-        logoUrl: logo || item.stream_icon || item.cover,
+        streamUrl: xtreamSeriesEpisodeUrl(playlistUrl, episodeId, ext, publicBase, activationCode, seriesId, season, episodeIndex),
+        logoUrl: logo || episode.stream_icon || episode.cover || null,
+        posterUrl: logo || episode.stream_icon || episode.cover || null,
         group: folder.title,
         tvgId: null,
         season,
@@ -1788,7 +1803,7 @@ async function getSeriesFoldersLite({ activationCode, autoRefresh = true }) {
   };
 }
 
-async function getSeriesFolderByKey({ activationCode, key, autoRefresh = true }) {
+async function getSeriesFolderByKey({ activationCode, key, autoRefresh = true, publicBase = null }) {
   const safeKey = String(key || "").trim();
 
   if (!safeKey) {
@@ -1823,7 +1838,7 @@ async function getSeriesFolderByKey({ activationCode, key, autoRefresh = true })
 
   if (isXtreamContentMode() && folder?.source?.provider === "xtream") {
     const client = await getClientByActivationCode(activationCode);
-    episodes = await getXtreamEpisodesForSeriesFolder(folder, client.playlist_url);
+    episodes = await getXtreamEpisodesForSeriesFolder(folder, client.playlist_url, publicBase, activationCode);
   }
 
   return {
@@ -1881,7 +1896,7 @@ async function getMovieCategoriesLite({ activationCode, autoRefresh = true }) {
   };
 }
 
-async function getMovieCategoryByKey({ activationCode, key, autoRefresh = true }) {
+async function getMovieCategoryByKey({ activationCode, key, autoRefresh = true, publicBase = null }) {
   const safeKey = String(key || "").trim();
 
   if (!safeKey) {
@@ -1918,13 +1933,12 @@ async function getMovieCategoryByKey({ activationCode, key, autoRefresh = true }
     const categoryId = String(category.source.categoryId || "").trim();
     const client = await getClientByActivationCode(activationCode);
     const playlistUrl = client.playlist_url;
-    const movieRows = await fetchXtreamJson(playlistUrl, "get_vod_streams");
-    const filteredRows = Array.isArray(movieRows)
-      ? movieRows.filter((row) => xtreamCategoryMatches(row, categoryId))
-      : [];
+    // Solo bajamos la categoría seleccionada para ahorrar RAM y no petar el timeout
+    const movieRows = await fetchXtreamJson(playlistUrl, "get_vod_streams", { category_id: categoryId });
+    const filteredRows = Array.isArray(movieRows) ? movieRows : [];
 
     const categoryMap = new Map([[categoryId, category.title]]);
-    items = normalizeXtreamMovieItems(playlistUrl, filteredRows, categoryMap)
+    items = normalizeXtreamMovieItems(playlistUrl, filteredRows, categoryMap, publicBase, activationCode)
       .map((item) => ({
         ...item,
         group: category.title
@@ -2247,5 +2261,7 @@ module.exports = {
   getMovieCategoriesLite,
   getMovieCategoryByKey,
   searchContentItems,
-  filterPayloadAdultContent
+  filterPayloadAdultContent,
+  fetchXtreamJson,
+  getClientByActivationCode
 };
