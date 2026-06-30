@@ -118,15 +118,17 @@ fun VodDetailScreen(
         scope.launch {
             val account = LocalAccount.getAccount(context)
             val activationCode = account.activationCode.trim()
+            
+            val isEpisodeUrl = streamUrl.contains("/series/", ignoreCase = true)
 
             val loadedSources = withContext(Dispatchers.IO) {
                 OptimizedContentApi.loadMagmaMovieSources(
                     activationCode = activationCode,
                     streamId = streamId,
-                    kind = extractUrlQueryParam(streamUrl, "kind"),
-                    seriesId = extractUrlQueryParam(streamUrl, "seriesId"),
-                    season = extractUrlQueryParam(streamUrl, "season"),
-                    episode = extractUrlQueryParam(streamUrl, "episode"),
+                    kind = if (isEpisodeUrl) "episode" else "movie",
+                    seriesId = if (isEpisodeUrl) extractUrlQueryParam(streamUrl, "seriesId") else "",
+                    season = if (isEpisodeUrl) extractUrlQueryParam(streamUrl, "season") else "",
+                    episode = if (isEpisodeUrl) extractUrlQueryParam(streamUrl, "episode") else "",
                     streamUrl = streamUrl
                 )
             }
@@ -135,8 +137,10 @@ fun VodDetailScreen(
             if (loadedSources.isEmpty()) {
                 // Solo mostramos error si no hay enlaces
                 sourceMessage = "Esta película no está disponible en este momento. Probá otra opción."
-                showSourceDialog = true 
+            } else {
+                sourceMessage = null
             }
+            showSourceDialog = true
 
             isLoadingSources = false
         }

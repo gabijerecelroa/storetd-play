@@ -8130,7 +8130,12 @@ app.get("/api/xtream/movie-sources", async (req, res) => {
   try {
     const activationCode = String(req.query.code || "").trim();
     const streamId = String(req.query.id || "").trim();
-    const kind = String(req.query.kind || "").trim().toLowerCase();
+    const seriesId = String(req.query.seriesId || "").trim();
+    const season = String(req.query.season || "").trim();
+    const episode = String(req.query.episode || "").trim();
+    
+    // Detectamos si es episodio de serie por los parámetros
+    const isEpisode = seriesId !== "" || (season !== "" && episode !== "");
     
     if (!activationCode || !streamId) return res.status(400).send("Faltan parámetros");
 
@@ -8142,10 +8147,7 @@ app.get("/api/xtream/movie-sources", async (req, res) => {
         let linksData;
         
         try {
-            if (kind === "episode") {
-                const seriesId = req.query.seriesId;
-                const season = req.query.season;
-                const episode = req.query.episode;
+            if (isEpisode) {
                 const params = { episode_id: streamId };
                 if (seriesId) params.serie = seriesId;
                 if (season) params.season = season;
@@ -8156,35 +8158,47 @@ app.get("/api/xtream/movie-sources", async (req, res) => {
             }
             
             let items = [];
-            if (typeof linksData === 'string' && linksData.startsWith("http")) {
-                items.push({ id: "1", title: "Servidor Principal", streamUrl: linksData, quality: "Auto" });
-            } else if (linksData?.links) {
-                const links = Array.isArray(linksData.links) ? linksData.links : [linksData.links];
-                links.forEach((url, i) => {
-                    items.push({ id: String(i+1), title: `Servidor ${i+1}`, streamUrl: url, quality: "Auto" });
+            let idx = 1;
+
+            const addSource = (url, quality = "HD") => {
+                if (typeof url === 'string' && url.startsWith('http')) {
+                    items.push({
+                        id: idx,
+                        title: `Servidor ${idx}`,
+                        streamUrl: url,
+                        quality: quality
+                    });
+                    idx++;
+                }
+            };
+            
+            if (Array.isArray(linksData)) {
+                linksData.forEach(val => {
+                    if (typeof val === 'string') addSource(val, "HD");
+                    else if (val?.url) addSource(val.url, val.quality || "HD");
                 });
+            } else if (typeof linksData === 'string' && linksData.startsWith("http")) {
+                addSource(linksData, "HD");
+            } else if (linksData?.links && Array.isArray(linksData.links)) {
+                linksData.links.forEach(url => addSource(url, "HD"));
             } else if (linksData?.url) {
-                items.push({ id: "1", title: "Servidor Principal", streamUrl: linksData.url, quality: "Auto" });
+                addSource(linksData.url, "HD");
             } else if (typeof linksData === 'object' && Object.keys(linksData).length > 0) {
-                let idx = 1;
                 for (const key of Object.keys(linksData)) {
                     const val = linksData[key];
-                    if (typeof val === 'string' && val.startsWith('http')) {
-                        items.push({ id: String(idx), title: `Servidor ${idx}`, streamUrl: val, quality: key });
-                    } else if (val?.url) {
-                        items.push({ id: String(idx), title: `Servidor ${idx}`, streamUrl: val.url, quality: key });
-                    }
-                    idx++;
+                    const quality = (key !== 'url' && key !== 'links') ? key : "HD";
+                    if (typeof val === 'string') addSource(val, quality);
+                    else if (val?.url) addSource(val.url, quality);
                 }
             }
             
             if (items.length === 0) {
                 const { baseUrl, username, password } = xtreamConfig(playlistUrl);
-                const fallbackUrl = kind === "episode" ? 
+                const fallbackUrl = isEpisode ? 
                     baseUrl + "/series/" + username + "/" + password + "/" + streamId + "." + (req.query.ext || "mp4") :
                     baseUrl + "/movie/" + username + "/" + password + "/" + streamId + "." + (req.query.ext || "mp4");
                 
-                items.push({ id: "1", title: "Servidor Directo", streamUrl: fallbackUrl, quality: "Auto" });
+                addSource(fallbackUrl, "HD");
             }
             
             return res.json({ success: true, items });
