@@ -42,7 +42,7 @@ import java.util.Locale
 private fun isMagmaMovieUrl(url: String): Boolean { return url.contains("/magma-lite/movie/", ignoreCase = true) || url.contains("/api/xtream/play/", ignoreCase = true) }
 
 private fun extractMagmaMovieStreamId(url: String): String? {
-    val magma = Regex("/magma-lite/movie/([0-9]+)\.m3u8", RegexOption.IGNORE_CASE).find(url)?.groupValues?.getOrNull(1)
+    val magma = Regex("/magma-lite/movie/([0-9]+)\\.m3u8", RegexOption.IGNORE_CASE).find(url)?.groupValues?.getOrNull(1)
     if (magma != null) return magma
     val xtreamMovie = Regex("/api/xtream/play/movie/([0-9]+)", RegexOption.IGNORE_CASE).find(url)?.groupValues?.getOrNull(1)
     if (xtreamMovie != null) return xtreamMovie
