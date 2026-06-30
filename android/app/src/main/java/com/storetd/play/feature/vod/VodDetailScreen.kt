@@ -176,8 +176,27 @@ fun VodDetailScreen(
                     movieSources.forEach { source ->
                         Button(
                             onClick = {
-                                showSourceDialog = false
-                                onPlay(source.streamUrl)
+                                if (source.needsResolution) {
+                                    showSourceDialog = false
+                                    isLoadingSources = true
+                                    sourceMessage = "Resolviendo servidor..."
+                                    scope.launch {
+                                        val resolvedUrl = withContext(Dispatchers.IO) {
+                                            OptimizedContentApi.resolveEmbed(source.streamUrl)
+                                        }
+                                        isLoadingSources = false
+                                        if (resolvedUrl != null) {
+                                            onPlay(resolvedUrl)
+                                        } else {
+                                            android.widget.Toast.makeText(context, "No se pudo resolver este servidor", android.widget.Toast.LENGTH_SHORT).show()
+                                            showSourceDialog = true
+                                            sourceMessage = null
+                                        }
+                                    }
+                                } else {
+                                    showSourceDialog = false
+                                    onPlay(source.streamUrl)
+                                }
                             },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(

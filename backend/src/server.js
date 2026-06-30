@@ -35,6 +35,8 @@ const {
   buildSmartoneXtreamM3u
 } = require("./playlistContent");
 
+const { resolveEmbedUrl } = require("./resolvers/embedResolver");
+
 const app = express();
 
 
@@ -8162,11 +8164,16 @@ app.get("/api/xtream/movie-sources", async (req, res) => {
 
             const addSource = (url, quality = "HD") => {
                 if (typeof url === 'string' && url.startsWith('http')) {
+                    const domain = new URL(url).hostname;
+                    // Detectar si el dominio parece ser de un embed
+                    const isEmbed = ['streamwish', 'vidhide', 'do7go', 'streamtape', 'goodstream', 'bysejikuar', 'josephseveralconcern'].some(d => domain.includes(d));
+                    
                     items.push({
                         id: idx,
                         title: `Servidor ${idx}`,
                         streamUrl: url,
-                        quality: quality
+                        quality: quality,
+                        needsResolution: isEmbed
                     });
                     idx++;
                 }
@@ -8317,6 +8324,22 @@ app.get("/api/xtream/play/series/:episodeId", async (req, res) => {
   } catch (err) {
     res.status(500).send("Error de servidor");
   }
+});
+
+// Endpoint para resolver embeds desde la app
+app.post("/api/resolve-embed", async (req, res) => {
+    try {
+        const { streamUrl } = req.body;
+        if (!streamUrl) {
+            return res.status(400).json({ success: false, message: "streamUrl es requerido" });
+        }
+        
+        const result = await resolveEmbedUrl(streamUrl);
+        return res.json(result);
+    } catch (error) {
+        console.error("Error en /api/resolve-embed:", error);
+        return res.status(500).json({ success: false, message: "Error interno del servidor", error: error.message });
+    }
 });
 
 module.exports = app;

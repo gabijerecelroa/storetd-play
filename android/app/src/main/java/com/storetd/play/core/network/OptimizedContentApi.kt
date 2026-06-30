@@ -28,7 +28,8 @@ object OptimizedContentApi {
         val subtitle: String,
         val quality: String,
         val language: String,
-        val streamUrl: String
+        val streamUrl: String,
+        val needsResolution: Boolean = false
     )
 
     private const val CONNECT_TIMEOUT_MS = 60000
@@ -406,7 +407,8 @@ object OptimizedContentApi {
                     subtitle = obj.optString("subtitle", "Servidor principal"),
                     quality = obj.optString("quality", "Auto"),
                     language = obj.optString("language", ""),
-                    streamUrl = obj.optString("streamUrl", "")
+                    streamUrl = obj.optString("streamUrl", ""),
+                    needsResolution = obj.optBoolean("needsResolution", false)
                 )
 
                 if (source.streamUrl.isNotBlank()) {
@@ -632,5 +634,50 @@ object OptimizedContentApi {
     private fun readNullableString(obj: JSONObject, vararg names: String): String? {
         val value = readString(obj, *names)
         return value.ifBlank { null }
+    }
+
+    fun resolveEmbed(
+        streamUrl: String
+    ): String? {
+        val base = BuildConfig.API_BASE_URL
+            .trim()
+            .trimEnd('/')
+
+        if (base.isBlank() || streamUrl.isBlank()) return null
+
+        val requestUrl = "$base/api/resolve-embed"
+        val payload = JSONObject().apply {
+            put("streamUrl", streamUrl)
+        }.toString()
+
+        return runCatching {
+            val connection = URL(requestUrl).openConnection() as HttpURLConnection
+            connection.connectTimeout = CONNECT_TIMEOUT_MS
+            connection.readTimeout = READ_TIMEOUT_MS
+            connection.requestMethod = "POST"
+            connection.doOutput = true
+            connection.setRequestProperty("Content-Type", "application/json; utf-8")
+            connection.setRequestProperty("Accept", "application/json")
+            connection.setRequestProperty("User-Agent", "StoreTD-Play-Android")
+
+            connection.outputStream.use { os ->
+                val input = payload.toByteArray(Charsets.UTF_8)
+                os.write(input, 0, input.size)
+            }
+
+            val code = connection.responseCode
+            if (code !in 200..299) {
+                return@runCatching null
+            }
+
+            val raw = connection.inputStream.bufferedReader().use { it.readText() }
+            val json = JSONObject(raw)
+
+            if (json.optBoolean("success", false)) {
+                json.optString("resolvedUrl").ifBlank { null }
+            } else {
+                null
+            }
+        }.getOrNull()
     }
 }
